@@ -132,5 +132,14 @@ avrdude  -patmega4808  -carduino -Pnet:192.168.4.1:2323 -U flash:w:{SOME_HEX_FIL
 ```
 
 
+# Hardware Revisions
+
+In this repository we currently provide the develoment version Rev-1-2
+as an editable KiCad project and the schematics of Rev-1-1 for inspection.
+We are currently operating a modded variant of the initial Rev-1-0
+for evaluation purposes. We expect to finalise this in near future.
+
+
+
 
 

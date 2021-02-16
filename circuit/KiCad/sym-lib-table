@@ -1,3 +1,3 @@
 (sym_lib_table
-  (lib (name smartevse)(type Legacy)(uri /Users/tmoor/current/code/agccs/circuit/smartevse-import.lib)(options "")(descr ""))
+  (lib (name smartevse)(type Legacy)(uri /Users/tmoor/current/code/agccs-ctrl22/circuit/KiCad/smartevse-import.lib)(options "")(descr ""))
 )
