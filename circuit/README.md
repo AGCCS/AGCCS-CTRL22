@@ -26,8 +26,7 @@ Once set, updates can be conveniently deployed wirelessly via the utility
 initial version of firmware for both th AVR uC and the ESP32 SoC. For this, our
 board is equipped with a custom 8-pin header J5
 
-           | Layout J5 |
-|:--------:|:---------:|:---------:|
+|:--------:|:---:|:---:|:---------:|
 | AVR-UPDI |  1  |  5  | GND       |
 | ESP-TX0  |  2  |  6  | 3.3V      |
 | ESP-RX0  |  3  |  7  | ESP-IO15  |
@@ -80,13 +79,13 @@ Short instructions:
 - set up your ESP32-MDF SDK and compile the firmware `demesh`; see [../demesh](../demesh/) for instructions
 - set up your wiring
   ```
-  USB-Serial-TX>------------> ESP-RX0  (aka connector J5 pin 2)
-  USB-Serial-RX<------------< ESP-TX0  (aka connector J5 pin 3)
+  USB-Serial-TX>------------->ESP-RX0  (aka connector J5 pin 2)
+  USB-Serial-RX<-------------<ESP-TX0  (aka connector J5 pin 3)
   USB-Serisl-GND<>---+------<>GND      (aka connector J5 pin 5)
                      |
-                     +------<> ESP-IO0 (aka connector J5 pin 4)
-		     |
-                     +-[/]--<> ESP-EN  (aka connector J5 pin 8)
+                     +------<>ESP-IO0  (aka connector J5 pin 4)
+                     |
+                     +-[/]--->ESP-EN   (aka connector J5 pin 8)
   ```		     
 - to flash the `demesh` firmware
   -- set ESP-EN to low
@@ -94,5 +93,6 @@ Short instructions:
   -- run `make flash`
   This is effectively the sam procedure as with common ESP32 dev.boards such as NodeMCU
   
+  ``` 
 
 
