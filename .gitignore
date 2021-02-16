@@ -1,0 +1,14 @@
+# ignore from esp32
+./demesh/sdkconfig
+./demesh/sdkconfig.old
+./demesh/build/*
+
+
+# ignore emacs backups
+*~
+
+# ignore c build
+./ctrl22/*bin
+./ctrl22/*hex
+./ctrl22/*map
+./ctrl22/*o
