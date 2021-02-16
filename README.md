@@ -44,7 +44,7 @@ also above. Regarding (2) we opted for AVR as this implies the option to conveni
 [Arduino environment](https://www.arduino.cc) --- although, at this stage the firmware we provide comes
 'bare bone' for performance reasons. Regarding (3) we are fascinated by the powerful ESP32 SDKs
 available from [Espressif](https://github.com/espressif). Schematics and a PCB Layout in editable
-[KiKad](https://kicad.org) format are provided in the [folder ./circuit](./circuit)
+[KiKad](https://kicad.org) format are provided in the [folder ./circuit](./circuit/)
 
 
 # Per Node Software
@@ -56,14 +56,14 @@ Thus, we expect a comperatively large area of coverage without additional inrast
 like e.g. Wifi repeaters. The so called root node subscribes to and published from a
 MQTT broker and is this interoperable with a wide range of possible server software.
 Both, the AVR firmware and the ESP firmware support OTA updates, i.e., no manual crawling
-along the parking lot. See also [./ctrl22](./ctrl22/) for the AVR firmware and [./demesh](./demsh)
+along the parking lot. See also [./ctrl22](./ctrl22/) for the AVR firmware and [./demesh](./demsh/)
 for the ESP32 firmware.
 
 
 # Server Software
 
 At the time of writing, we only provide an elementary monitoring server implemented in Python
-for development/testing purposes; see ./utils. This will be dramatically updated in very neer future
+for development/testing purposes; see [./utils](./utils/]. This will be dramatically updated in very neer future
 --- stay tuned.
 
 
