@@ -12,3 +12,6 @@
 ./ctrl22/*hex
 ./ctrl22/*map
 ./ctrl22/*o
+
+# osx irritations
+*.DS_Store
