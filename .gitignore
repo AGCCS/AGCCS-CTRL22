@@ -17,4 +17,4 @@ ctrl22/*o
 **/.DS_Store
 
 # KiKad
-*.kicad_pcb-bak
+circuit/*.kicad_pcb-bak
