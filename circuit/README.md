@@ -26,6 +26,7 @@ Once set, updates can be conveniently deployed wirelessly via the utility
 initial version of firmware for both th AVR uC and the ESP32 SoC. For this, our
 board is equipped with a custom 8-pin header J5
 
+| Fnct.    | Pin | Pin | Fnct.     |
 |:--------:|:---:|:---:|:---------:|
 | AVR-UPDI |  1  |  5  | GND       |
 | ESP-TX0  |  2  |  6  | 3.3V      |
@@ -45,7 +46,7 @@ mainstream `avrdude`. Unexpectedly good, and really low price is the
 [`pyudpi` project](https://github.com/mraardvark/pyupdi),
 which only needs an of the shelf USB-serial converter and a single 4.7K resistor. Note that
 our circuit is 3.3V and such must be the USB-serial converter.
-`pyupdi' will program fuses, applications, bootloaders --- that's all we shall need.
+`pyupdi` will program fuses, applications, bootloaders --- that's all we shall need.
 
 Short instructions:
 - set up your wiring
