@@ -141,27 +141,27 @@ for evaluation purposes. We expect to finalise this in near future.
 
 
 Revision 1.1
-Änderungsliste Schaltplan:
-- Aufteilung der Anschlussklemmen auf zwei Terminalblöcke je Platinenseite
-   aufgrund von Trennstegen im Hutschienengehäuse. 
-   (J1 -> J1, J2; J2 -> J6, J7)
-- Zusätzliche Schottkydioden BAT54S an den Analogeingängen für CP und 
-   CT0-CT2 zum Schutz der uC-Pins vor Spannungsspitzen
-   (D8 - D11)
-- Veränderte Pin-Belegung und Footprint für J4 und J5: 
-   J5 mit zusätzlichem ESP GPIO 15 auf Pin 7 als Programmierschnittstelle
-   J4 jetzt einreihig als serielle Schnittstelle, nur im Bedarfsfall bestückt
-- Angepasste Pinbelegung auf J6 und J7: 12V von J2, Pin 3 -> J6, Pin 6
-- Angepasste Pinbelegung auf J1 und J2: Separate Klemme für N für jedes Schütz
-- Strombegrenzung an 12V-Schiene bei U8: 4x 100 Ohm paralell -> 25 Ohm statt zuvor 50 Ohm 
-- C16 ist ein polarisierter Tantal-Kondensator: Symbol entsprechend angepasst
-- Taster-Eingangsbeschaltung angepasst: R24 100 Ohm -> 1k Ohm, redundante Zener-Diode und Spannungsteiler entfernt (D8, R34)
 
-Änderungsliste Leiterplattenlayout:
-- Footprints für J3, J4 und J5 angepasst mit Beschriftung
-- Footprint für IRM-10-12-Netzteil korrigiert
-- ESP32 SoC auf Rückseite der Platine verlegt
-- Zusätzliche Bauelemente aus Schaltplan eingefügt
+Schematics
+- seperate terminals J1/J2 and J6/J7
+- additional protection BAT54S for analog inputs CP, CT0-CT2
+- improved pinout of J5 and J4 (programming headers)
+- improved pinout on J6/J7 and J1/J2 (simplify external wiring)
+- reduced lock resistor from 50 to 25
+- clear indication of C16 polarity
+- reduced current on button-press
+
+Layout
+- fixed footprint of power supply
+- placed ESP32 on backside
+- track back changes in te schematics
+
+
+Revision 1.2
+
+Schematics
+- jet again the push button electrics
+- added a diode to seperate lock from 12V supply (brown out)
 
 
 
