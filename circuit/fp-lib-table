@@ -1,4 +1,0 @@
-(fp_lib_table
-  (lib (name smartevse-footprints)(type KiCad)(uri ${KIPRJMOD}/smartevse-footprints.pretty)(options "")(descr ""))
-  (lib (name atmevse-footprints)(type KiCad)(uri /Users/tmoor/current/code/agccs/circuit/agccs-ctrl22-footprints.pretty)(options "")(descr ""))
-)
