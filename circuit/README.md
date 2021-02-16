@@ -100,11 +100,11 @@ Short instructions:
   ``` 
 
 
-# Developing/testing the AVR firmware
+# Developing/Testing the AVR firmware
 
 
-We provide AVR firmware for our needs in (./ctrl22)[.ctrl22/]). It controls the charging process
-and reports to AVR-TX0/TX1 (available on the 4-pin header J4).
+We provide AVR firmware for our needs in [../ctrl22](../ctrl22/). It controls the charging process
+and reports to AVR-TX0/RX0 (available on the 4-pin header J4).
 If you plan to develop/test specific AVR firmware for your variant project, you can configure `demesh` to
 provide a debug server for AVR firmware development.
 Rather than to set up a wireless mesh network, the ESP32 will then
