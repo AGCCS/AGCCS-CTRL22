@@ -14,7 +14,7 @@ ctrl22/*map
 ctrl22/*o
 
 # osx irritations
-*.DS_Store
+**/.DS_Store
 
 # KiKad
 *.kicad_pcb-bak
