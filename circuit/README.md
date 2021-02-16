@@ -35,7 +35,7 @@ board is equipped with a custom 8-pin header J5
 
 
 
-## AVR Firmware
+### AVR Firmware
 
 The ATMega4808 used in our project is a modern incarnation of the ATMega series,
 and in many aspects more closely related to the XMega series. In particular, it is
@@ -70,7 +70,10 @@ Short instructions:
   pyupdi.py -d mega4808 -c /dev/{SOME_USB_SERIAL_DEV} -b 115400 -f {OPTIBOOT_FOR_ATM4808}.hex
   ```
 
-## ESP32 Firmware
+_Missing Topic:_ how we set the fuses for our project  
+
+
+### ESP32 Firmware
 
 The ESP32 SoC has a built in two-level bootloader an is programmed via the serial
 interface TX0/RX0. To enter ootloader mode, IO0 must be set low wt the time when
@@ -92,8 +95,42 @@ Short instructions:
   -- set ESP-EN to low
   -- set ESP-EN to not-connected
   -- run `make flash`
-  This is effectively the sam procedure as with common ESP32 dev.boards such as NodeMCU
+  This is effectively the same procedure as with common ESP32 dev.boards such as NodeMCU
   
   ``` 
+
+
+# Developing/testing the AVR firmware
+
+
+We provide AVR firmware for our needs in (./ctrl22)[.ctrl22/]). It controls the charging process
+and reports to AVR-TX0/TX1 (available on the 4-pin header J4).
+If you plan to develop/test specific AVR firmware for your variant project, you can configure `demesh` to
+provide a debug server for AVR firmware development.
+Rather than to set up a wireless mesh network, the ESP32 will then
+act as an accesspoint and provide a transparent telnet passthrough of the AVR serial port and/or
+to the Optibiit boorloader. Thus, you can develop/test the AVR firmware largely independantly from
+the somewhat involved wifi mesh but still have the convenience of "no wires from the charging station 
+into my computer".
+
+After connecting with the access point, the debug server can be accessed via
+
+```
+gtelnet 192.168.4.1
+```
+
+The IP address, the SSID and the WPA2 password are configured within `demesh`; see (../demesh)[../demesh/])
+To inspect available commands for the provided AVR firmware, type `? [CR]`. To exit the session, 
+type `Ctrl-Q` or `Ctrl-D`.
+
+To access the AVR bootloader, the alternative port 2323 is utilised.
+On connections, it resets the AVR to enter Optiboot an can thus be programmed
+via `avrdude' in Arduino-Style. Example 
+
+```
+avrdude  -patmega4808  -carduino -Pnet:192.168.4.1:2323 -U flash:w:{SOME_HEX_FILE}.hex
+```
+
+
 
 
