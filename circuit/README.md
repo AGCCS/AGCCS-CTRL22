@@ -140,6 +140,29 @@ We are currently operating a modded variant of the initial Rev-1-0
 for evaluation purposes. We expect to finalise this in near future.
 
 
+Revision 1.1
+Änderungsliste Schaltplan:
+- Aufteilung der Anschlussklemmen auf zwei Terminalblöcke je Platinenseite
+   aufgrund von Trennstegen im Hutschienengehäuse. 
+   (J1 -> J1, J2; J2 -> J6, J7)
+- Zusätzliche Schottkydioden BAT54S an den Analogeingängen für CP und 
+   CT0-CT2 zum Schutz der uC-Pins vor Spannungsspitzen
+   (D8 - D11)
+- Veränderte Pin-Belegung und Footprint für J4 und J5: 
+   J5 mit zusätzlichem ESP GPIO 15 auf Pin 7 als Programmierschnittstelle
+   J4 jetzt einreihig als serielle Schnittstelle, nur im Bedarfsfall bestückt
+- Angepasste Pinbelegung auf J6 und J7: 12V von J2, Pin 3 -> J6, Pin 6
+- Angepasste Pinbelegung auf J1 und J2: Separate Klemme für N für jedes Schütz
+- Strombegrenzung an 12V-Schiene bei U8: 4x 100 Ohm paralell -> 25 Ohm statt zuvor 50 Ohm 
+- C16 ist ein polarisierter Tantal-Kondensator: Symbol entsprechend angepasst
+- Taster-Eingangsbeschaltung angepasst: R24 100 Ohm -> 1k Ohm, redundante Zener-Diode und Spannungsteiler entfernt (D8, R34)
+
+Änderungsliste Leiterplattenlayout:
+- Footprints für J3, J4 und J5 angepasst mit Beschriftung
+- Footprint für IRM-10-12-Netzteil korrigiert
+- ESP32 SoC auf Rückseite der Platine verlegt
+- Zusätzliche Bauelemente aus Schaltplan eingefügt
+
 
 
 

@@ -201,8 +201,6 @@ Wire Wire Line
 	1900 6000 1900 6150
 Wire Wire Line
 	2300 6000 2300 6150
-Text Notes 7800 1450 0    71   ~ 0
-Änderungsliste Leiterplattenlayout:\n- Footprints für J3, J4 und J5 angepasst mit Beschriftung\n- Footprint für IRM-10-12-Netzteil korrigiert\n- ESP32 SoC auf Rückseite der Platine verlegt\n- Zusätzliche Bauelemente aus Schaltplan eingefügt
-Text Notes 600  2500 0    71   ~ 0
-Revision 1.1\nÄnderungsliste Schaltplan:\n- Aufteilung der Anschlussklemmen auf zwei Terminalblöcke je Platinenseite\n   aufgrund von Trennstegen im Hutschienengehäuse. \n   (J1 -> J1, J2; J2 -> J6, J7)\n- Zusätzliche Schottkydioden BAT54S an den Analogeingängen für CP und \n   CT0-CT2 zum Schutz der uC-Pins vor Spannungsspitzen\n   (D8 - D11)\n- Veränderte Pin-Belegung und Footprint für J4 und J5: \n   J5 mit zusätzlichem ESP GPIO 15 auf Pin 7 als Programmierschnittstelle\n   J4 jetzt einreihig als serielle Schnittstelle, nur im Bedarfsfall bestückt\n- Angepasste Pinbelegung auf J6 und J7: 12V von J2, Pin 3 -> J6, Pin 6\n- Angepasste Pinbelegung auf J1 und J2: Separate Klemme für N für jedes Schütz\n- Strombegrenzung an 12V-Schiene bei U8: 4x 100 Ohm paralell -> 25 Ohm statt zuvor 50 Ohm \n- C16 ist ein polarisierter Tantal-Kondensator: Symbol entsprechend angepasst\n- Taster-Eingangsbeschaltung angepasst: R24 100 Ohm -> 1k Ohm, redundante Zener-Diode und Spannungsteiler entfernt (D8, R34)
+Text Notes 750  1600 0    71   ~ 0
+Revison 1.0, Mrz 2020\n- Entwurf P.T. auf Grundlage SmartEVSE\nRevision 1.1, Aug 2020\n- Diverse kleinere  Änderungen (Lock Widerstände, Pin-Belegungen, mehr\n   Überspannungsdioden, Taster Vorwiderstand, etc)\n- Layout/Bestückung (ESP32 auf der Unterseite, getrennte Schraubklemmen)\nRevision 1.2, Feb 2021\n- Tasterbeschaltung, Trenndiode für das Lock (T.M. lernt KiCad …)\n
 $EndSCHEMATC
