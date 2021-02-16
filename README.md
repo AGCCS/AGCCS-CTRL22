@@ -56,7 +56,7 @@ Thus, we expect a comperatively large area of coverage without additional inrast
 like e.g. Wifi repeaters. The so called root node subscribes to and published from a
 MQTT broker and is this interoperable with a wide range of possible server software.
 Both, the AVR firmware and the ESP firmware support OTA updates, i.e., no manual crawling
-along the parking lot. See also [./ctrl22](./ctrl22) for the AVR firmware and [./demesh](./demsh)
+along the parking lot. See also [./ctrl22](./ctrl22/) for the AVR firmware and [./demesh](./demsh)
 for the ESP32 firmware.
 
 
