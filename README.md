@@ -23,31 +23,31 @@ All three components are open source and can be hence adapted to best fit a
 variety of application scenarios.
 
 
-*DISCLAIMER-1* We do not provide a turn-key solution and do not plan to do so in near future.
-If you are looking for such, please consider the SmatEVSE project (https://github.com/SmartEVSE).
+**DISCLAIMER-1** We do not provide a turn-key solution and do not plan to do so in near future.
+If you are looking for such, please consider the [SmatEVSE project](https://github.com/SmartEVSE).
 Rather we invite the enthusiast to actively contribute or to passively make use of our
 collection of resources and to share their experience.
 
 
-*DISCLAIMER-2* All material provided in this repository comes 'as is' with no explicit or implied
+**DISCLAIMER-2** All material provided in this repository comes 'as is' with no explicit or implied
 waranty. In particular, the development of equipment that runs on mains power should only be considered
 be individuals with relevant skills and with particular care.
 
 
 
-#Hardware Platform
+# Hardware Platform
 
 Our hardware platform is based on (1) relevant analog circuits to implement the specified electric
 characteristic (2) an AVR series uC to operate the charging process and (3) an ESP32 SoC to provide
 means of wireless communication. Regarding (1), our implementation is based on the SmatEVSE project; see
 also above. Regarding (2) we opted for AVR as this implies the option to conveniently program within the
-Arduino (https://www.arduino.cc) environment --- although, at this stage the firmware we provide comes
+[Arduino environment](https://www.arduino.cc) --- although, at this stage the firmware we provide comes
 'bare bone' for performance reasons. Regarding (3) we are fascinated by the powerful ESP32 SDKs
-available from Espressif (https://github.com/espressif). Schematics and a PCB Layout in editable KiKad
-(https://kicad.org) format are provided in ./circuit
+available from [Espressif](https://github.com/espressif). Schematics and a PCB Layout in editable
+[KiKad](https://kicad.org) format are provided in the [folder ./circuit](./circuit)
 
 
-#Per Node Software
+# Per Node Software
 
 As indicated above, each charging spot comes with an AVR for time/safety critical low-level
 behaviour which communicates via RS232 with an ESP32 for inter-node networking. While the AVR
@@ -56,10 +56,11 @@ Thus, we expect a comperatively large area of coverage without additional inrast
 like e.g. Wifi repeaters. The so called root node subscribes to and published from a
 MQTT broker and is this interoperable with a wide range of possible server software.
 Both, the AVR firmware and the ESP firmware support OTA updates, i.e., no manual crawling
-along the parking lot. See ./ctrl22 for the AVR firmware and ./demesh for the ESP32 firmware.
+along the parking lot. See also [./ctrl22](./ctrl22) for the AVR firmware and [./demesh](./demsh)
+for the ESP32 firmware.
 
 
-#Server Software
+# Server Software
 
 At the time of writing, we only provide an elementary monitoring server implemented in Python
 for development/testing purposes; see ./utils. This will be dramatically updated in very neer future
@@ -67,7 +68,7 @@ for development/testing purposes; see ./utils. This will be dramatically updated
 
 
 
-#How to Get Started
+# How to Get Started
 
 Well, no turn-key solution ... depending on interest an skills you may want to focus on hardware
 and assemble your very own CCS implementation. It can operate independently to control a single
