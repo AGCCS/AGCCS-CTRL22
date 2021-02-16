@@ -18,3 +18,4 @@ ctrl22/*o
 
 # KiKad
 circuit/*.kicad_pcb-bak
+circuit/*.sch-bak
