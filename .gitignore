@@ -17,8 +17,8 @@ ctrl22/*o
 **/.DS_Store
 
 # KiKad
-circuit/*.kicad_pcb-bak
-circuit/*.sch-bak
+circuit/KiCad/*.kicad_pcb-bak
+circuit/KiCad*.sch-bak
 
 # local archive
 local
