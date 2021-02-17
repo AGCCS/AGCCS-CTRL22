@@ -4,19 +4,18 @@ Circuit
 The schematics used in this project have been adopted from the
 [SmatEVSE project](https://github.com/SmartEVSE) with a number of modifications to
 
-- have an AVR uC from the ATMega series to be attart developers from the Arduino community
+- have an AVR uC from the ATMega series to be attract developers from the Arduino community
 - have an ESP32 for networked wireless communivations
-- enable/disable any of the three supply phase seperately
-- integrate power monitoring
-- layout with handsoldering in mind
+- enable/disable any of the three supply phase seperately for improved load balaning
+- integrate power monitoring for improved load balancing
+- layout with handsoldering in mind so we can build it on our own.
 
-The original adaption to our needs was developed and tested in course of a BA thesis and has been
-published in [this project](https://github.com/dreadnomad/FGCCS-Ctrl22). The present repository
-is strip down to the essentials, so you may want to inspect the original sources; in
-particular
+The original adaption to our requirements was developed and tested in course of a BA thesis at FAU/Erlangen
+and has been published in [this project](https://github.com/dreadnomad/FGCCS-Ctrl22). The present repository
+is strip down to the essentials, so you may want to inspect the original sources; in particular
 [the BA thesis](https://github.com/dreadnomad/FGCCS-Ctrl22/blob/master/doc/Bachelorarbeit_Pascal_Thurnherr.pdf)
-includes a convenient summary of the electrical specications given in IEC 62196, as relevant for this
-project.
+includes a convenient summary of the electrical specifications from CCS standard IEC-62196, as far
+as relevant for the project at hand.
 
 
 # Installing Firmware
@@ -49,7 +48,7 @@ our circuit is 3.3V and such must be the USB-serial converter.
 `pyupdi` will program fuses, applications, bootloaders --- that's all we shall need.
 
 Short instructions:
-- set up your wiring
+- set up our wiring
   ```
   USB-Serial-TX>---[4.7K]--->+<>AVR-UPDI (aka connector J5 pin 1)
                              |
@@ -80,8 +79,8 @@ interface TX0/RX0. To enter ootloader mode, IO0 must be set low wt the time when
 EN becomes high (EN acts as inverted RESET, and IO0 selects the bootmode).
 
 Short instructions:
-- set up your ESP32-MDF SDK and compile the firmware `demesh`; see [../demesh](../demesh/) for instructions
-- set up your wiring
+- set up our ESP32-MDF SDK and compile the firmware `demesh`; see [../demesh](../demesh/) for instructions
+- set up our wiring
   ```
   USB-Serial-TX>------------->ESP-RX0  (aka connector J5 pin 2)
   USB-Serial-RX<-------------<ESP-TX0  (aka connector J5 pin 3)
@@ -92,12 +91,11 @@ Short instructions:
                      +-[/]--->ESP-EN   (aka connector J5 pin 8)
   ```		     
 - to flash the `demesh` firmware
-  -- set ESP-EN to low
-  -- set ESP-EN to not-connected
-  -- run `make flash`
+  - set ESP-EN to low
+  - set ESP-EN to not-connected
+  - run `make flash`
   This is effectively the same procedure as with common ESP32 dev.boards such as NodeMCU
   
-  ``` 
 
 
 # Developing/Testing the AVR firmware
@@ -105,11 +103,11 @@ Short instructions:
 
 We provide AVR firmware for our needs in [../ctrl22](../ctrl22/). It controls the charging process
 and reports to AVR-TX0/RX0 (available on the 4-pin header J4).
-If you plan to develop/test specific AVR firmware for your variant project, you can configure `demesh` to
+If we plan to develop/test specific AVR firmware for a variant project, we can configure `demesh` to
 provide a debug server for AVR firmware development.
 Rather than to set up a wireless mesh network, the ESP32 will then
 act as an accesspoint and provide a transparent telnet passthrough of the AVR serial port and/or
-to the Optibiit boorloader. Thus, you can develop/test the AVR firmware largely independantly from
+to the Optibiit boorloader. Thus, we can develop/test the AVR firmware largely independantly from
 the somewhat involved wifi mesh but still have the convenience of "no wires from the charging station 
 into my computer".
 

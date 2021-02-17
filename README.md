@@ -52,19 +52,19 @@ available from [Espressif](https://github.com/espressif). Schematics and a PCB L
 As indicated above, each charging spot comes with an AVR for time/safety critical low-level
 behaviour which communicates via RS232 with an ESP32 for inter-node networking. While the AVR
 is programed from scratch, the ESP32 firmware builds on the MDF SDK for wireless mesh-networking.
-Thus, we expect a comperatively large area of coverage without additional inrastructure
-like e.g. Wifi repeaters. The so called root node subscribes to and published from a
+From the latter, we expect a comperatively large area of coverage without additional inrastructure
+such as Wifi repeaters. Our mesh network subscribes to and published from a
 MQTT broker and is this interoperable with a wide range of possible server software.
 Both, the AVR firmware and the ESP firmware support OTA updates, i.e., no manual crawling
-along the parking lot. See also [./ctrl22](./ctrl22/) for the AVR firmware and [./demesh](./demsh/)
+along the parking lot. See also [./ctrl22](./ctrl22/) for the AVR firmware and [./demesh](./demesh/)
 for the ESP32 firmware.
 
 
 # Server Software
 
 At the time of writing, we only provide an elementary monitoring server implemented in Python
-for development/testing purposes; see [./utils](./utils/]. This will be dramatically updated in very neer future
---- stay tuned.
+for development/testing purposes; see [./utils](./utils/). This will be dramatically updated in the
+very near future --- stay tuned.
 
 
 
