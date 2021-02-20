@@ -53,7 +53,7 @@ very near future --- stay tuned.
 
 # How/Where/Why to Get Started
 
-Well, no turn-key solution ... but perhaps some interesting venues for the enthusiat.
+Well, no turn-key solution ... but perhaps some interesting venues for the enthusiast.
 
 - If you are interseted in hardware and want to assemble your very own CCS implementation there are only a view likewise open projects, e.g.,  https://www.smartevse.nl/,  https://www.openevse.com/. You are invited to inspect our proposal [./circuit](./circuit/), compare the specifications and take your choice.
 
