@@ -3,10 +3,18 @@ AGCCS-CTRL22
 
 The Combined Charging System [CCS] provides the today's standard for low-cost home-charging of electric vehicles with up to 22kW. The specification includes a simplistic protocol by which the vehicle and the charging station negotiate available power. Of-the-shelf wallboxes forward the common 3x230V supply at an adjustable current limit to the vehicle via the CCS standard.
 
-The aim of this project is to scale the simplicity of the low-cost single-user wallbox to larger parking lots in order to address appartment buildings or shopping venues. These configurations are characterised by a limited and possibly varying amount of available power. Hence, a fixed allocation per parking slot would be inefficient. Instead, we seek for an environment by which individual charging spots communicate and negotiate the power distribution dynamically. Conveivable schemes include first-come-first-serve, fairness-based energy distribution, or ready-to-go-by-schedule. Our project consists of three main components
+The aim of this project is to scale the simplicity of the low-cost single-user wallbox to larger parking lots in order to address appartment buildings or shopping venues. These configurations are characterised by a limited and possibly varying amount of available power. Hence, a fixed allocation per parking slot would be inefficient. Instead, we seek for an environment by which individual charging spots communicate and negotiate the power distribution dynamically. Conveivable schemes include first-come-first-serve, fairness-based energy distribution, or ready-to-go-by-schedule. 
+
+
+
+<img src="./images/powerdist.png" alt="Dynamic Power Allocation" style="zoom: 67%;" />
+
+
+
+Our implementation consists of three main components
 
 - a hardware platform to implement a relevant subset of the CCS standard
-- a per node software environment to establish a communication network
+- a per node software environment to control the charging process and to establish a communication network
 - a centralized host for dynamic power allocation and monitoring 
 
 All three components are open source and can be hence adapted to best fit a variety of application scenarios.
@@ -20,9 +28,15 @@ be individuals with relevant skills and with particular care.
 
 # Hardware Platform
 
-Our hardware platform is based on (1) relevant analog circuitry  to implement the specified electric
-characteristic (2) an AVR series uC to operate the charging process and (3) an ESP32 SoC to provide
-means of wireless communication. Regarding the analog circuity, our implementation is derived from the [SmatEVSE project](https://www.smartevse.nl/). Regarding the uC we opted for AVR as this implies the option to conveniently program within the [Arduino IDE](https://www.arduino.cc) --- although, at this stage the firmware we provide comes 'bare bone' for performance reasons. Regarding the SoC, we are fascinated by the powerful ESP32 SDKs available from [Espressif](https://github.com/espressif). Schematics and a PCB Layout in editable [KiCad](https://kicad.org) format are provided in the [folder ./circuit](./circuit/)
+Our hardware platform consists of 
+
++ relevant analog circuitry to implement the specified electric characteristics
++ an AVR series uC to control the charging process, and
++ an ESP32 SoC to provide means of wireless communication. 
+
+Regarding the analog circuitry, our implementation is derived from the SmatEVSE project. Regarding the uC we opted for AVR allow for conveniently programming within the Arduino IDE --- although, at this stage the firmware we provide comes 'bare bone' for performance reasons. Regarding the SoC, we are fascinated by the powerful ESP32 SDKs available from Espressif. For our hardware platform, we provode schematics and a PCB Layout, both in editable KiCad format; see ./circuit
+
+
 
 # Per Node Software
 
@@ -41,9 +55,9 @@ very near future --- stay tuned.
 
 Well, no turn-key solution ... but perhaps some interesting venues for the enthusiat.
 
-- If you are interseted in the hardware and want to assemble your very own CCS implementation there are only a view likewise open projects, e.g.,  https://www.smartevse.nl/,  https://www.openevse.com/. You are onvited to inspect our proposal [./circuit](./circuit/), compare the specifications and take your choice.
+- If you are interseted in hardware and want to assemble your very own CCS implementation there are only a view likewise open projects, e.g.,  https://www.smartevse.nl/,  https://www.openevse.com/. You are invited to inspect our proposal [./circuit](./circuit/), compare the specifications and take your choice.
 
-- If you are interested in ESP32 mesh networking, perhaps for a different target application, feel free to run our implementation [./demesh](./demesh/) in stand-alone mode on common ESP32 dev-boards or more conveniently on a bunch of M5Sticks. Features include OTA firmware update, control via MQTT and/or TCP sockets, synchonized system time, STK500 (Optiboot) programming of a target AVR uC.
+- If you are interested in ESP32 mesh networking, perhaps for a completely different target application, feel free to run our implementation [./demesh](./demesh/) in stand-alone mode on common ESP32 dev-boards or more conveniently on M5Sticks. Features include OTA firmware update, control via MQTT and/or TCP sockets, synchonized system time, STK500 (Optiboot) programming of a target AVR uC.
 
   
 
