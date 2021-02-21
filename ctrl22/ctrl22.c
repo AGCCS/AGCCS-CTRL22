@@ -3,12 +3,12 @@
 *************************************************************************
 *************************************************************************
 
-fgccs ctrl22 -- 2020.10.02
+agccs ctrl22 -- 2021.02.20
 
-- target platform fgccs board rev 1.1
+- target platform agccs board rev 1.2
 - compiles with avr-gcc 
 - requires avr-libc 1.x.x and gcc 7.3
-- although this is a compete re-wrire, this project benefits from earlier work
+- although this is a complete re-write, this project benefits from earlier work
   (a) the SmartEVSE by Michael Stegen (https://github.com/SmartEVSE) and
   (b) Pascal Thurnherr's Bachelor Thesis (https://github.com/dreadnomad/FGCCS-Ctrl22)
 - this software is (C) Thomas Moor 2020 and is distributed by the same license terms
@@ -82,6 +82,7 @@ calibration and configuration (defaults can be saved/loaded to/from eeprom)
 
 - calibration parameters for AC current measurement [not yet implemented]
 - configuration data for max load
+- configuration data for enabled phases
 - configuration data for optional lock
  
 *************************************************************************
@@ -89,8 +90,9 @@ calibration and configuration (defaults can be saved/loaded to/from eeprom)
 *************************************************************************
 */
 
-#define PARCNT 3          // number of parameters
-int16_t p_maxcur=160;     // max current in [100mA]
+#define PARCNT 4          // number of parameters
+int16_t p_smaxcur=160;    // max current in [100mA]
+int16_t p_phases=123;     // enabled phases
 int16_t p_lclosems=300;   // ms to close lock (set to 0 for no lock)
 int16_t p_lopenms=500;    // ms to open lock  (set to 0 for no lock)
 
@@ -114,8 +116,7 @@ convenience/debugging macros
 
 // code section select switches
 #define MODE_DEVELOP                         // enable mode for code/hardware tests
-#define MODE_CONFIGURE                       // enable mode for on borad calibration/configuration 
-#define MODE_OPERATE                         // enable mode for normal operation
+#define MODE_CONFIGURE                       // enable mode for calibration/configuration 
 
 
 // serial debug should write synchronous
@@ -188,11 +189,16 @@ char g_adc0_bsy=false;
 typedef enum {OFF0=00,OFF1=01,A0=10,A1=11,B0=20,B1=21,C0=30,C1=31,ERR=0x70} ccs_state_t;
 ccs_state_t g_ccs_st=OFF0;
 
+// cli veraiant of ccs state (how do we properly/safly cast an enum to an int16_t?)
+int16_t g_ccss_cli=0;
+
 // forward declaration of error code
 int16_t g_error=0;
 #define ERR_LOCK    0x0001    // lock jammed
 #define ERR_CONF    0x0002    // faild to read configuration
 #define ERR_RECOVER 0x8000    // about to recover
+
+
 /*
 *************************************************************************
 *************************************************************************
@@ -329,7 +335,7 @@ void led_blinks_cb(void) {
   }  
 }
 
-// button pressed (edge detection, incl debounce)
+// button pressed (positive edge detection, incl debounce, user must reset)
 bool g_button=false;
 
 // button sense callback
@@ -601,9 +607,10 @@ void conf_load(void){
     return;
   }  
   // load 
-  p_maxcur   = nvm_read( 0);
-  p_lopenms  = nvm_read( 1);
-  p_lclosems = nvm_read( 2);
+  p_smaxcur  = nvm_read( 0);
+  p_phases   = nvm_read( 1);
+  p_lopenms  = nvm_read( 2);
+  p_lclosems = nvm_read( 3);
 }
 
 // write parameters to eeprom (signature for cli, return 1 on success)
@@ -617,9 +624,10 @@ int16_t conf_save(int16_t val){
   // save
   CPU_SREG &= ~CPU_I_bm;
   g_nvmchk=0;
-  nvm_write( 0,p_maxcur);
-  nvm_write( 1,p_lopenms);
-  nvm_write( 2,p_lclosems);
+  nvm_write( 0,p_smaxcur);
+  nvm_write( 1,p_phases);
+  nvm_write( 2,p_lopenms);
+  nvm_write( 3,p_lclosems);
   nvm_write(PARCNT,g_nvmchk);
   CPU_SREG |= CPU_I_bm;
 #ifdef DEBUG_NVM
@@ -812,7 +820,7 @@ int16_t lock(int16_t val) {
   return val;
 }  
 
-// operate SSRs (signature for cli wrapper)
+// operate individual SSRs (signature for cli wrapper)
 int16_t ssr1(int16_t val) {
   if(val) PORTA.OUTSET = PIN6_bm;
   else PORTA.OUTCLR = PIN6_bm;
@@ -827,10 +835,30 @@ int16_t ssr3(int16_t val) {
   if(val) PORTA.OUTSET = PIN4_bm;
   else PORTA.OUTCLR = PIN4_bm;
   return val;
-}  
+}
+
+// operate all enabled SSRs
 int16_t ssr(int16_t val) {
-  if(val) PORTA.OUTSET = (PIN6_bm | PIN5_bm | PIN4_bm);
-  else PORTA.OUTCLR = (PIN6_bm | PIN5_bm | PIN4_bm);
+  // turn all off
+  if(!val) {
+    PORTA.OUTCLR = (PIN6_bm | PIN5_bm | PIN4_bm);
+    return val;
+  };
+  // turn enabled on i.e. decode from configuration
+  int dphases=p_phases;
+  unsigned char setporta=0x00;
+  while(dphases>0) {
+    int lsd=dphases % 10;
+    switch(lsd) {
+    case 1: setporta |= PIN6_bm; break;
+    case 2: setporta |= PIN5_bm; break;
+    case 3: setporta |= PIN4_bm; break;
+    default: break;
+    }
+    dphases = dphases /10;
+  }
+  PORTA.OUTSET = setporta;
+  PORTA.OUTCLR = (PIN6_bm | PIN5_bm | PIN4_bm) & (~setporta);
   return val;
 }  
 
@@ -1613,7 +1641,7 @@ void serial_write_monitor(void) {
 
 command line parser
 - format is "<PAR>?\r\n" for get and "<PAR>=<VAL>\r\n" for set
-- both, get and set reply with <PAR>=<VAL>\r\n", or "fail" for "parse error"
+- both, get and set reply with <PAR>=<VAL>\r\n", or "fail"
 - syntactic sugar "<PAR>!" to set the parameter to 1 (e.g. trigger some action)
 - syntactic sugar "<PAR>~" to set the parameter to 0 
 - the parser converts the string argument to functions/addresses to call/read/write
@@ -1646,30 +1674,37 @@ const partable_t partable[]={
   {"time",    &g_systime,   NULL,        &systime_set},    // g_systime has explicit setter
   {"temp",    &g_temp,      NULL,        NULL},            // g_temp can be read from memory
   {"error",   &g_error,     NULL,        NULL},            // g_error can be read from memory
-  {"cur1",    &g_cur1,      NULL,        NULL},            // read rms measurement
-  {"cur2",    &g_cur2,      NULL,        NULL},            // read rms measurement
-  {"cur3",    &g_cur3,      NULL,        NULL},            // read rms measurement
+  {"ccss",    &g_ccss_cli,  NULL,        NULL},            // g_ccs_st can be read from memory
+  {"cmaxcur", &g_ppilot,    NULL,        NULL},            // get cable max current (same as PPilot)
+  {"amaxcur", &g_cpcurrent, NULL,        NULL},            // get actual max current as set on PWM
+  {"cur1",    &g_cur1,      NULL,        NULL},            // read rms measurement phase L1
+  {"cur2",    &g_cur2,      NULL,        NULL},            // read rms measurement phase L2
+  {"cur3",    &g_cur3,      NULL,        NULL},            // read rms measurement phase L3
   // configure
-  {"save",    NULL,         NULL,        &conf_save},      // save parameters from eeprom
-  {"maxcur",  &p_maxcur,    &p_maxcur,   NULL},            // max mains current
+#ifdef MODE_CONFIGURE  
+  {"save",    NULL,         NULL,        &conf_save},      // save parameters to eeprom
+  {"smaxcur", &p_smaxcur,   &p_smaxcur,  NULL},            // max mains current
+  {"phases",  &p_phases,    &p_phases,   NULL},            // enabled phases (decimal encoding)  
   {"lopenms", &p_lopenms,   &p_lopenms,  NULL},            // time to open lock
-  {"lclosems",&p_lclosems,  &p_lclosems, NULL},            // time to closelock
+  {"lclosems",&p_lclosems,  &p_lclosems, NULL},            // time to close lock
+#endif  
   // develop
+#ifdef MODE_DEVELOP  
   {"cpcur",   &g_cpcurrent, NULL,        &cpcurrent},      // set pwm via setter, get from memory
   {"rms",     &g_rms,       NULL,        &rms},            // g_rms enables/disables rms periodic updates
   {"pilots",  &g_pilots,    NULL,        &pilots},         // g_pilots enables/disables periodic pilot updates
   {"cpilot",  &g_cpilot,    NULL,        NULL},            // cp pilot read-back
   {"cpdtest", &g_cpilot_dt, NULL,        NULL},            // cp pilot read-back on low slope, aka "diodtest"
   {"ppilot",  &g_ppilot,    NULL,        NULL},            // pp pilot read-back (in 100mA)
-  {"rms1",    &g_rms1,      NULL,        &rms1_start},     // "rms1!" to trigger single rms1 measurement
-  {"rms2",    &g_rms2,      NULL,        &rms2_start},     // "rms2!" to trigger single rms1 measurement
-  {"rms3",    &g_rms3,      NULL,        &rms3_start},     // "rms3!" to trigger single rms1 measurement
+  {"rms1",    &g_rms1,      NULL,        &rms1_start},     // "rms1!" to trigger a single rms measurement on phase L1
+  {"rms2",    &g_rms2,      NULL,        &rms2_start},     // "rms2!" to trigger a single rms measurement on phase L2
+  {"rms3",    &g_rms3,      NULL,        &rms3_start},     // "rms3!" to trigger a single rms measurement on phase L3
   {"rmsdmp",  NULL,         NULL,        &rms_dump},       // "rmsdmp!" dumps recent rms record for debugging
   {"sigrel",  NULL,         NULL,        &sigrel},         // "sigrel!"/"sigrel~" to operate pilot signal relay
   {"lock",    NULL,         NULL,        &lock},           // "lock!"/"lock~" to operate lock
-  {"ssr1",    NULL,         NULL,        &ssr1},           // "ssr1!"/"ssr1~" to operate SSR1
-  {"ssr",     NULL,         NULL,        &ssr},            // "ssr!"/"ssr~" to operate all SSRs
+  {"ssr",     NULL,         NULL,        &ssr},            // "ssr!"/"ssr~" to operate all enabled SSRs
   {"reset",   NULL,         NULL,        &reset},          // softreset "reset!"
+#endif  
   // end of table
   {NULL, NULL, NULL, NULL},            
 };
@@ -1848,7 +1883,7 @@ void ccs_cb(void) {
       g_ccs_st=A0;
     }  
   }  
-  // state A0 (idle): enable cp at 100% for const +12V
+  // state A0 (idle): enable CP at 100% for const +12V
   if(g_ccs_st==A0) {
     ssr(0);
     rms(0);
@@ -1859,7 +1894,7 @@ void ccs_cb(void) {
     toutA=g_systicks+10000;
     g_ccs_st=A1;
   }  
-  // state A1 (idle): wait for ev present, i.e., cp to falls to 9V and appropriate pp -> state B (or timeout --> state OFF)
+  // state A1 (idle): wait for EV present, i.e., CP to falls to 9V and appropriate pp -> state B (or timeout --> state OFF)
   if(g_ccs_st==A1) {
     if((g_cpilot==9) && (g_ppilot>0)) {
       DBW_CCS(serial_writeln("% ccs state: A1 -> B0"));
@@ -1870,16 +1905,16 @@ void ccs_cb(void) {
       g_ccs_st=OFF0;
     }
   }  
-  // state B0 (ev present): lock and enable cp pwm to indicate max current 
+  // state B0 (EV present): lock and enable CP pwm to indicate max current 
   if(g_ccs_st==B0) {
     ssr(0);
     rms(0);
     pilots(1);
-    sigrel(0);
+    sigrel(1);
     lock(1);
     if(g_lock_st==closed) { 
       DBW_CCS(serial_writeln("% ccs state: B0 -> B1"));
-      maxcur=p_maxcur;
+      maxcur=p_smaxcur;
       if(maxcur>g_ppilot) maxcur=g_ppilot;
       cpcurrent(maxcur);
       sigrel(1);
@@ -1888,7 +1923,7 @@ void ccs_cb(void) {
       toutB=g_systicks+10000;
     }	
   }
-  // state B1 (ev present): wait for vehicle ready to charge, i.e., cp falls to 6V --> state C (or timeout --> state OFF)
+  // state B1 (EV present): wait for vehicle ready to charge, i.e., CP falls to 6V --> state C (or timeout --> state OFF)
   if(g_ccs_st==B1) {
     if(g_cpilot==6) {
       DBW_CCS(serial_writeln("% ccs state: B1 -> C0/1"));
@@ -1899,17 +1934,17 @@ void ccs_cb(void) {
       g_ccs_st=OFF0;
     }
   }
-  // state C0 (ev charging): enable ssr 
+  // state C0 (EV charging): enable SSR
   if(g_ccs_st==C0) {
-    sigrel(1);
     cpcurrent(maxcur);
+    sigrel(1);
     ssr(1);
     rms(1);
     pilots(1);
     g_blinks=BLINKS_ON;
     g_ccs_st=C1;
   }  
-  // state C1 (ev charging): sense vehicle can't charge no more, i.e., cp raises to 9V --> state B (or button press --> state OFF)
+  // state C1 (EV charging): sense vehicle can't charge no more, i.e., CP raises to 9V --> state B (or button press --> state OFF)
   if(g_ccs_st==C1) {
     if(g_cpilot==9) {
       DBW_CCS(serial_writeln("% ccs state: C1 -> B0"));
@@ -1924,6 +1959,16 @@ void ccs_cb(void) {
       g_ccs_st=OFF0;
     }
   }
+  // state C1 (EV charging cont.): update phases and max current from remote server
+  if(g_ccs_st==C1) {
+    ssr(1);
+    maxcur=p_smaxcur;
+    if(maxcur>g_ppilot) maxcur=g_ppilot;
+    cpcurrent(maxcur);
+    sigrel(1);
+  }
+  // update cli vartaint of state
+  g_ccss_cli=g_ccs_st;
 }  
 
 

@@ -3,13 +3,13 @@ Circuit
 
 The schematics used in this project have been adopted from the [SmatEVSE project](https://github.com/SmartEVSE) with a number of modifications in order to
 
-- have an AVR uC from the ATmega series to attract developers from the Arduino community
-- have an ESP32 for networked wireless communications
-- enable/disable any of the three supply phases seperately for improved load balancing
-- integrate power monitoring for improved load balancing
-- layout with handsoldering in mind so we can build it on our own.
+- have an AVR uC from the ATmega series to attract developers from the Arduino community;
+- have an ESP32 for networked wireless communications;
+- enable/disable any of the three supply phases seperately for improved load balancing;
+- integrate power monitoring for improved load balancing;
+- layout with hand soldering in mind so we can build our own.
 
-The original adaption to our requirements was developed in course of a BA thesis at FAU/Erlangen and has been published in [this project](https://github.com/dreadnomad/FGCCS-Ctrl22). The present repository is strip down to the essentials, so you may want to inspect the original sources; in particular [the BA thesis](https://github.com/dreadnomad/FGCCS-Ctrl22/blob/master/doc/Bachelorarbeit_Pascal_Thurnherr.pdf) includes a convenient summary of the electrical specifications from CCS standard IEC-62196, as far as relevant for the project at hand.
+The original adaption to our requirements was developed in course of a BA thesis at FAU/Erlangen and has been published in [this project](https://github.com/dreadnomad/FGCCS-Ctrl22). The present repository is a strip down to the essentials. You may want to inspect the original sources; in particular the [BA thesis](https://github.com/dreadnomad/FGCCS-Ctrl22/blob/master/doc/Bachelorarbeit_Pascal_Thurnherr.pdf) includes a convenient summary of the electrical specifications from the CCS standard IEC-62196, as far as relevant for the project at hand.
 
 
 
@@ -42,10 +42,9 @@ To get bootstrapped, we need to install an initial version of firmware for both 
 
 
 
-### AVR Firmware
+### AVR Firmware/Bootloader
 
-The ATmega4808 used in our project is a modern incarnation of the ATmega series, and in many aspects more closely related to the XMega series. In particular, it is natively programmed via the so called  UPDI one-pin interface. The official programmer Atmel ICE ($100+) works fine with Atmel AVR Studio and provides professional grade debugging facilities. However, at the time of writing) it is not well supported by mainstream `avrdude`. Fortunately, the [`pyudpi` project](https://github.com/mraardvark/pyupdi) provides a low-cost alternative
-which only needs an of the shelf USB-to-serial converter and a single 4.7K resistor --- and which we used with no problems at all on Mac OSX and Linux. **Again: you will need a 3.3V USB-serial converter**.
+The ATmega4808 used in our project is a modern incarnation of the ATmega series, and in many aspects more closely related to the XMega series. In particular, it is natively programmed via the so called  UPDI one-pin interface. The official programmer Atmel ICE ($100+) works fine with Atmel AVR Studio and provides professional grade debugging facilities. However, at the time of writing) it is not well supported by mainstream `avrdude`. Fortunately, the [`pyudpi`](https://github.com/mraardvark/pyupdi) project provides a low-cost alternative which only needs an of the shelf USB-to-serial converter and a single 4.7K resistor --- and which we used with no problems at all on Mac OSX and Linux. **Again: you will need a 3.3V USB-serial converter**.
 
 
 
@@ -104,12 +103,13 @@ Short instructions:
   - set ESP-EN and ESP-IO0 to low
   - set ESP-EN to not-connected
   - run `make flash`
+  - set ESP-IO0 to not-connected
   
 
-This is effectively the same procedure as with common ESP32 dev-boards such as NodeMCU, except that dev-boards will have convenient key-switches built in while we need to do some external wiring. 
+This is effectively the same procedure as with common ESP32 dev-boards such as NodeMCU, except that dev-boards will have convenient key-switches built-in while we need to do some external wiring. 
 
 
-# Developing/Testing AVR firmware
+# Developing/Testing AVR Firmware
 
 Assumimg that you have installed Optiboot as described above, application frimware development can be done via the J4 header in Arduino style, i.e., serial debugging via a terminal emulation and frimware flashinh via `avrdude -carduino` over the same serial line. If you go this path, we recommend you set up a simple adaptor, e.g.
 
@@ -141,9 +141,14 @@ avrdude -patmega4808  -carduino -Pnet:192.168.4.1:2323 -U flash:w:{SOME_HEX_FILE
 ```
 
 
+
+**Note:** In contrast to the classic ATmega architecture, the ATmega4808 has the bootloader in low address range, e.g. Optiboot from 0x0000 to 0x01ff. Thus, application firmware needs to load at 0x0200. This needs to be made explicit when compiling the firmware, e.g., with the linker directive `--section-start=.text=0x200`. The `makefile` provided with our firmware [../ctrl22](../ctrl22/) will take care about this detail.  
+
+
+
 # Hardware Revisions
 
-In this repository we currently provide the develoment version Rev-1-2 as an editable KiCad project and the schematics of Rev-1-1 for inspection. We are currently operating a modded variant of the initial Rev-1-0 for evaluation purposes. We expect to finalise and test Rev-1-2 in near future.
+In this repository we currently provide the develoment version Rev-1-2 as an editable KiCad project and the schematics of Rev-1-1 for inspection. We are currently running a modded variant of the initial Rev-1-0 for evaluation purposes. We expect to finalise and test Rev-1-2 in very near future.
 
 
 Revision 1.1
@@ -160,13 +165,13 @@ Schematics
 Layout
 - fixed footprint of power supply
 - placed ESP32 on backside
-- track back changes in te schematics
+- track back changes in the schematics
 
 
 Revision 1.2
 
 Schematics
-- jet again the push button electrics
+- jet again the push button electronics ...
 - added a diode to seperate lock from 12V supply (brown out)
 
 
