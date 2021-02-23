@@ -1266,17 +1266,6 @@ Wire Wire Line
 	1400 5550 1400 5750
 Wire Wire Line
 	1350 5750 1400 5750
-$Comp
-L Diode:B220 D12
-U 1 1 603DC56F
-P 850 5550
-F 0 "D12" H 850 5333 50  0000 C CNN
-F 1 "B220" H 850 5424 50  0000 C CNN
-F 2 "Diode_SMD:D_SMB_Handsoldering" H 850 5375 50  0001 C CNN
-F 3 "http://www.jameco.com/Jameco/Products/ProdDS/1538777.pdf" H 850 5550 50  0001 C CNN
-	1    850  5550
-	-1   0    0    1   
-$EndComp
 Text Label 3250 5250 0    50   ~ 0
 12V_sep
 Connection ~ 1400 5750
@@ -1298,4 +1287,20 @@ Wire Wire Line
 	700  5550 650  5550
 Wire Wire Line
 	650  5550 650  5300
+$Comp
+L Diode:PMEG4050EP D?
+U 1 1 60368671
+P 850 5550
+AR Path="/5E98FA8A/60368671" Ref="D?"  Part="1" 
+AR Path="/5E9B0066/60368671" Ref="D12"  Part="1" 
+F 0 "D12" H 800 5400 50  0000 L CNN
+F 1 "PMEG4010BEA" H 450 5300 50  0000 L CNN
+F 2 "Diode_SMD:D_SOD-323_HandSoldering" H 850 5375 50  0001 C CNN
+F 3 "https://assets.nexperia.com/documents/data-sheet/PMEG4050EP.pdf" H 850 5550 50  0001 C CNN
+F 4 "" H 850 5550 50  0001 C CNN "Part"
+F 5 "771-PMEG4010BEA,135" H 850 5550 50  0001 C CNN "PartNo"
+F 6 "Mouser" H 850 5550 50  0001 C CNN "Supplier"
+	1    850  5550
+	-1   0    0    1   
+$EndComp
 $EndSCHEMATC
