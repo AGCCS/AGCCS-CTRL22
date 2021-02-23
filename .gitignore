@@ -8,17 +8,18 @@ demesh/build
 *~
 
 # ignore c build
-ctrl22/*bin
-ctrl22/*hex
-ctrl22/*map
-ctrl22/*o
+ctrl22/*.bin
+ctrl22/*.hex
+ctrl22/*.map
+ctrl22/*.elf
+ctrl22/*.o
 
 # osx irritations
 **/.DS_Store
 
 # KiKad
 circuit/KiCad/*.kicad_pcb-bak
-circuit/KiCad*.sch-bak
+circuit/KiCad/*.sch-bak
 
 # local archive
 local
