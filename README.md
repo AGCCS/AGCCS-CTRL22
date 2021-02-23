@@ -57,7 +57,7 @@ Well, no turn-key solution ... but perhaps some interesting venues for the enthu
 
 - If you are interseted in hardware and want to assemble your very own CCS implementation there are only a view likewise open projects, e.g.,  https://www.smartevse.nl/,  https://www.openevse.com/. You are invited to inspect our proposal [./circuit](./circuit/), compare the specifications and take your choice.
 
-- If you are interested in ESP32 mesh networking, perhaps for a completely different target application, feel free to run our implementation [./demesh](./demesh/) in stand-alone mode on common ESP32 dev-boards or more conveniently on M5Sticks. Features include OTA firmware update, control via MQTT and/or TCP sockets, synchonized system time, STK500 (Optiboot) programming of a target AVR uC.
+- If you are interested in ESP32 mesh networking, perhaps for a completely different target application, feel free to run our implementation [./demesh](./demesh/) in stand-alone mode on common ESP32 dev-boards or more conveniently on M5Sticks. Features include OTA firmware update, control via MQTT and/or plain TCP sockets, synchronized system time, Optiboot (STK500) programming of a target AVR uC.
 
   
 

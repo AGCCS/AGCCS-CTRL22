@@ -93,8 +93,8 @@ calibration and configuration (defaults can be saved/loaded to/from eeprom)
 #define PARCNT 4          // number of parameters
 int16_t p_smaxcur=160;    // max current in [100mA]
 int16_t p_phases=123;     // enabled phases
-int16_t p_lclosems=300;   // ms to close lock (set to 0 for no lock)
-int16_t p_lopenms=500;    // ms to open lock  (set to 0 for no lock)
+int16_t p_lclosems=100;   // ms to close lock (set to 0 for no lock)
+int16_t p_lopenms=100;    // ms to open lock  (set to 0 for no lock)
 
 
 
@@ -186,7 +186,7 @@ char g_adc0_bsy=false;
    ((g_systicks < duetime) &&  (duetime-g_systicks > 0x8000)) )
 
 // forward declaration of ccs charging state (see main loop)
-typedef enum {OFF0=00,OFF1=01,A0=10,A1=11,B0=20,B1=21,C0=30,C1=31,ERR=0x70} ccs_state_t;
+typedef enum {OFF0=00,OFF1=01,A0=10,A1=11,B0=20,B1=21,C0=30,C1=31,C2=32,P0=41,P1=42,W0=50,W1=51,ERR0=0x70} ccs_state_t;
 ccs_state_t g_ccs_st=OFF0;
 
 // cli veraiant of ccs state (how do we properly/safly cast an enum to an int16_t?)
@@ -195,8 +195,8 @@ int16_t g_ccss_cli=0;
 // forward declaration of error code
 int16_t g_error=0;
 #define ERR_LOCK    0x0001    // lock jammed
-#define ERR_CONF    0x0002    // faild to read configuration
-#define ERR_RECOVER 0x8000    // about to recover
+#define ERR_CCS     0x0002    // CCS protocol error
+#define ERR_CONF    0x0004    // faild to read configuration
 
 
 /*
@@ -702,25 +702,36 @@ void lock_cb(void) {
   static uint16_t chkdue=0;
   static uint16_t reper=1000;
   static unsigned char retry;
-  // update lock reading
-  static bool lock_contact=false;
-  static bool lcrec=false;
+  static bool drive=false;
+  // update lock reading while drive is off
+  static char lock_contact=-1; // -1 <> invalid; 0 <> open; 1 <> closed;
+  static bool lcrec=-1;
   static char lccnt=0;
-  bool lcnow = PORTD.IN & PIN2_bm; // (black wire)
-  if(lcnow==lcrec) lccnt=0;
-  else lccnt++;
-  if(lccnt>10) {
+  if(!drive) {
+    char lcnow = ((PORTD.IN & PIN2_bm) == 0 ? 0 : 1); // (black wire)
+    if(lcnow==lcrec) {
+      lccnt++;
+    } else{
+      lccnt=0;
+    }
     lcrec=lcnow;
-    lccnt=0;
-    lock_contact=lcnow;
+    if(lccnt>=10) {
+      lccnt=0;
+      if(lock_contact!=lcnow) {
+	lock_contact=lcnow;
 #ifdef DEBUG_LOCK
-    serial_writeln_sync();
-    serial_write_str("% lock: contact=");
-    serial_write_int(lock_contact);
-    serial_write_eol();
-    serial_writeln_async();
-#endif    
-  }
+        serial_writeln_sync();
+        serial_write_str("% lock: contact=");
+        serial_write_int(lock_contact);
+        serial_write_eol();
+        serial_writeln_async();
+#endif
+      }
+    }
+  } else {
+    lcrec=-1;
+    lock_contact=-1;
+  }  
   // sense commands
   if(recstate!=g_lock_st) {
     if(g_lock_st==closing) {
@@ -729,7 +740,9 @@ void lock_cb(void) {
       retry=3;
       ondue=g_systicks;
       offdue=g_systicks+p_lclosems;
-      chkdue=g_systicks+p_lclosems+250;
+      chkdue=g_systicks+p_lclosems+500;
+      reper= p_lclosems+500+2000;
+      reper=1000*(reper/1000+1);
     }
     if(g_lock_st==opening) {
       DBW_LOCK(serial_writeln("% lock: opening"));
@@ -737,13 +750,11 @@ void lock_cb(void) {
       retry=10;
       ondue=g_systicks;
       offdue=g_systicks+p_lopenms;
-      chkdue=g_systicks+p_lopenms+250;
+      chkdue=g_systicks+p_lopenms+500;
+      reper= p_lopenms+500+2000;
+      reper=1000*(reper/1000+1);
     }
     recstate=g_lock_st;
-    // cosmetic: regular retry period
-    reper= p_lopenms > p_lclosems ? p_lopenms : p_lclosems;
-    reper+=250;
-    reper= 500 * ((reper / 500) +1);
   }
   // do close
   if(g_lock_st==closing) {
@@ -753,19 +764,21 @@ void lock_cb(void) {
       ondue+=reper;
       PORTA.OUTSET = PIN7_bm; // terminal lock A 12V (red wire)			       
       PORTC.OUTCLR = PIN2_bm; // terminal lock B 0V (white wire)
+      drive=true;
     }  
     // turn power off
     if(TRIGGER_SCHEDULE(offdue)) {
       DBW_LOCK(serial_writeln("% lock: drive off"));
       offdue+=reper;
       PORTA.OUTSET = PIN7_bm; // terminal lock A 12V (red wire)			       
-      PORTC.OUTSET = PIN2_bm; // terminal lock B 12V (white wire)      
+      PORTC.OUTSET = PIN2_bm; // terminal lock B 12V (white wire)
+      drive=false;
     }  
     // test lock
     if(TRIGGER_SCHEDULE(chkdue)) {
-      DBW_LOCK(serial_writeln("% lock: read contact"));
+      DBW_LOCK(serial_writeln("% lock: check contact"));
       chkdue+=reper;
-      if(lock_contact) {
+      if(lock_contact==1) {
 	g_lock_st=closed;
 	DBW_LOCK(serial_writeln("% lock: closed"));
       } else {
@@ -785,20 +798,22 @@ void lock_cb(void) {
       DBW_LOCK(serial_writeln("% lock: drive open"));
       ondue+=reper;
       PORTA.OUTCLR = PIN7_bm; // terminal lock A 0V  (red wire)			       
-      PORTC.OUTSET = PIN2_bm; // terminal lock B 12V (white wire)      
+      PORTC.OUTSET = PIN2_bm; // terminal lock B 12V (white wire)
+      drive=true;
     }  
     // turn power off
     if(TRIGGER_SCHEDULE(offdue)) {
       DBW_LOCK(serial_writeln("% lock: drive off"));
       offdue+=reper;
       PORTA.OUTSET = PIN7_bm; // terminal lock A 12V (red wire)			       
-      PORTC.OUTSET = PIN2_bm; // terminal lock B 12V (white wire)      
+      PORTC.OUTSET = PIN2_bm; // terminal lock B 12V (white wire)
+      drive=false;
     }  
     // test lock
     if(TRIGGER_SCHEDULE(chkdue)) {
-      DBW_LOCK(serial_writeln("% lock: read contact"));
+      DBW_LOCK(serial_writeln("% lock: check contact"));
       chkdue+=reper;
-      if(!lock_contact) {
+      if(lock_contact==0) {
 	g_lock_st=open;
 	DBW_LOCK(serial_writeln("% lock: open"));
       } else {
@@ -820,32 +835,15 @@ int16_t lock(int16_t val) {
   return val;
 }  
 
-// operate individual SSRs (signature for cli wrapper)
-int16_t ssr1(int16_t val) {
-  if(val) PORTA.OUTSET = PIN6_bm;
-  else PORTA.OUTCLR = PIN6_bm;
-  return val;
-}  
-int16_t ssr2(int16_t val) {
-  if(val) PORTA.OUTSET = PIN5_bm;
-  else PORTA.OUTCLR = PIN5_bm;
-  return val;
-}  
-int16_t ssr3(int16_t val) {
-  if(val) PORTA.OUTSET = PIN4_bm;
-  else PORTA.OUTCLR = PIN4_bm;
-  return val;
-}
-
-// operate all enabled SSRs
+// operate SSRs with decimal encoded parameter, e.g "123" all on
 int16_t ssr(int16_t val) {
   // turn all off
-  if(!val) {
+  if(val==0) {
     PORTA.OUTCLR = (PIN6_bm | PIN5_bm | PIN4_bm);
     return val;
   };
-  // turn enabled on i.e. decode from configuration
-  int dphases=p_phases;
+  // turn enabled on i.e. decode parameter
+  int dphases=val;
   unsigned char setporta=0x00;
   while(dphases>0) {
     int lsd=dphases % 10;
@@ -1522,15 +1520,20 @@ void cppwm_init() {
 
 // set duty cycle [100mA]:  "max_current[A]=dutycycle[%] * 0.6[A]" for a range of 10%-85%
 int16_t cpcurrent(int16_t cpcur) {
-  // spcecial case: 0<>off
+  // spcecial case: 0<>off<>fallback dio<>high<>12V
   if(cpcur==0) {
     TCA0.SINGLE.CTRLB &= ~TCA_SINGLE_CMP2EN_bm;
     g_cpcurrent=0;
     return 0;
   }
+  // pwm is set fine --- dont mess
+  if(g_cpcurrent==cpcur)
+    return g_cpcurrent;
   // figure duticycle [permil]
   int dc= (10*cpcur+3)/6;
-  if(dc<100) dc=100;
+  // refuse too low setting
+  if(dc<100) return g_cpcurrent;
+  // limit too high setting
   if(dc>850) dc=850;
   // set pwm
   TCA0.SINGLE.CMP2BUF = (5000/1000) * dc;
@@ -1702,7 +1705,7 @@ const partable_t partable[]={
   {"rmsdmp",  NULL,         NULL,        &rms_dump},       // "rmsdmp!" dumps recent rms record for debugging
   {"sigrel",  NULL,         NULL,        &sigrel},         // "sigrel!"/"sigrel~" to operate pilot signal relay
   {"lock",    NULL,         NULL,        &lock},           // "lock!"/"lock~" to operate lock
-  {"ssr",     NULL,         NULL,        &ssr},            // "ssr!"/"ssr~" to operate all enabled SSRs
+  {"ssr",     NULL,         NULL,        &ssr},            // "ssr(123) to operate all SSRs
   {"reset",   NULL,         NULL,        &reset},          // softreset "reset!"
 #endif  
   // end of table
@@ -1860,9 +1863,12 @@ main loop
 void ccs_cb(void) {
   static uint16_t toutA;
   static uint16_t toutB;
+  static uint16_t toutW;
+  static uint16_t toutP;
   static uint16_t maxcur;
+  static uint16_t phases;
   
-  // state OFF0: all off
+  // state OFF0: all off: wait for confirmed open lock
   if(g_ccs_st==OFF0) {
     ssr(0);
     rms(0);
@@ -1879,9 +1885,10 @@ void ccs_cb(void) {
   // state OFF1: wait for button press --> state A
   if(g_ccs_st==OFF1) {
     if(g_button) {
-      DBW_CCS(serial_writeln("% ccs state: OFF1 -> A0/A1"));
+      DBW_CCS(serial_writeln("% OFF1 -> A0"));
       g_ccs_st=A0;
-    }  
+    }
+    g_button=false;
   }  
   // state A0 (idle): enable CP at 100% for const +12V
   if(g_ccs_st==A0) {
@@ -1892,81 +1899,150 @@ void ccs_cb(void) {
     sigrel(1);
     g_blinks=BLINKS_RELAX;
     toutA=g_systicks+10000;
+    DBW_CCS(serial_writeln("% A0 -> A1"));
     g_ccs_st=A1;
   }  
-  // state A1 (idle): wait for EV present, i.e., CP to falls to 9V and appropriate pp -> state B (or timeout --> state OFF)
+  // state A1 (idle): validate EV present, i.e., CP to falls to 9V and appropriate pp -> state B (or timeout)
   if(g_ccs_st==A1) {
     if((g_cpilot==9) && (g_ppilot>0)) {
-      DBW_CCS(serial_writeln("% ccs state: A1 -> B0"));
+      DBW_CCS(serial_writeln("% A1 -> B0"));
       g_ccs_st=B0;
     }
     if(TRIGGER_SCHEDULE(toutA)) {
-      DBW_CCS(serial_writeln("% ccs state: A1 -> OFF0"));
-      g_ccs_st=OFF0;
+      DBW_CCS(serial_writeln("% A1 -> ERROR"));
+      g_ccs_st=ERR0;
     }
   }  
-  // state B0 (EV present): lock and enable CP pwm to indicate max current 
+  // state B0 (EV present): lock
   if(g_ccs_st==B0) {
     ssr(0);
     rms(0);
     pilots(1);
     sigrel(1);
     lock(1);
-    if(g_lock_st==closed) { 
-      DBW_CCS(serial_writeln("% ccs state: B0 -> B1"));
-      maxcur=p_smaxcur;
-      if(maxcur>g_ppilot) maxcur=g_ppilot;
-      cpcurrent(maxcur);
-      sigrel(1);
-      g_blinks=BLINKS_RELAX;
-      g_ccs_st=B1;
-      toutB=g_systicks+10000;
-    }	
+    g_blinks=BLINKS_RELAX;
+    maxcur=p_smaxcur;
+    phases=p_phases;
+    if(maxcur>g_ppilot) maxcur=g_ppilot;
+    if(g_lock_st==closed) {
+      if((maxcur>=60) && (phases!=0)) {
+	toutB=g_systicks+10000;
+        DBW_CCS(serial_writeln("% B0 -> B1"));    
+        g_ccs_st=B1;
+      } else {
+        DBW_CCS(serial_writeln("% B0 -> W0"));    
+        g_ccs_st=W0;
+      }
+    }
   }
-  // state B1 (EV present): wait for vehicle ready to charge, i.e., CP falls to 6V --> state C (or timeout --> state OFF)
+  // state B1 (EV present and locked): wait for vehicle ready to charge, i.e., CP falls to 6V --> state C (or timeout --> state OFF)
   if(g_ccs_st==B1) {
+    cpcurrent(maxcur);
     if(g_cpilot==6) {
-      DBW_CCS(serial_writeln("% ccs state: B1 -> C0/1"));
+      DBW_CCS(serial_writeln("% B1 -> C0/1"));
       g_ccs_st=C0;
     }
     if(TRIGGER_SCHEDULE(toutB)) {
-      DBW_CCS(serial_writeln("% ccs state: B1 -> OFF0"));
-      g_ccs_st=OFF0;
+      DBW_CCS(serial_writeln("% B1 -> ERR0"));
+      g_ccs_st=ERR0;
     }
   }
-  // state C0 (EV charging): enable SSR
+  // state C0 (EV about to charge): sanity checks
   if(g_ccs_st==C0) {
+    if( (maxcur<60) || (phases==0) || (g_lock_st!=closed) ) {
+      DBW_CCS(serial_writeln("% C0 -> ERR"));
+      g_ccs_st=ERR0;
+    } else {
+      DBW_CCS(serial_writeln("% C0 -> C1"));
+      g_ccs_st=C1;
+    }
+  }
+  // state C1 (EV charging)
+  if(g_ccs_st==C1) {
     cpcurrent(maxcur);
     sigrel(1);
-    ssr(1);
+    ssr(phases);
     rms(1);
     pilots(1);
     g_blinks=BLINKS_ON;
-    g_ccs_st=C1;
+    DBW_CCS(serial_writeln("% C1 -> C2"));
+    g_ccs_st=C2;
   }  
-  // state C1 (EV charging): sense vehicle can't charge no more, i.e., CP raises to 9V --> state B (or button press --> state OFF)
-  if(g_ccs_st==C1) {
+  // state C2 (EV charging): sense vehicle can't charge no more, i.e., CP raises to 9V --> state B (or button press --> state OFF)
+  if(g_ccs_st==C2) {
     if(g_cpilot==9) {
-      DBW_CCS(serial_writeln("% ccs state: C1 -> B0"));
+      DBW_CCS(serial_writeln("% C2 -> B0"));
       g_ccs_st=B0;
     }
     if((g_cpilot!=9) && (g_cpilot!=6)) {
-      DBW_CCS(serial_writeln("% ccs state: C1 -> OFF0 (pilot)"));
+      DBW_CCS(serial_writeln("% C2 -> OFF0 (pilot)"));
       g_ccs_st=OFF0;
     }
     if(g_button) {
-      DBW_CCS(serial_writeln("% ccs state: C1 -> OFF0 (button)"));
+      DBW_CCS(serial_writeln("% C2 -> OFF0 (button)"));
       g_ccs_st=OFF0;
     }
+    // update configuration
+    if((p_phases!=phases) || (p_smaxcur<60) || (g_ppilot<60)) {
+      DBW_CCS(serial_writeln("% C2 -> P0"));
+      g_ccs_st=P0;
+    } else { 
+      maxcur=p_smaxcur;
+      phases=p_phases;
+      if(maxcur>g_ppilot) maxcur=g_ppilot;
+      cpcurrent(maxcur);
+      ssr(phases);
+    }
   }
-  // state C1 (EV charging cont.): update phases and max current from remote server
-  if(g_ccs_st==C1) {
-    ssr(1);
+  // state P0 (EV charging): set timer to pause charging in 10sec
+  if(g_ccs_st==P0) {
+    cpcurrent(0);
+    toutP=g_systicks+10000;
+    DBW_CCS(serial_writeln("% P0 -> P1"));
+    g_ccs_st=P1;
+  }
+  // state P1 (EV charging): pause charging
+  if(g_ccs_st==P1) {
+    if(TRIGGER_SCHEDULE(toutP)) {
+      ssr(0);  
+      sigrel(0);
+      rms(0);
+      toutW=g_systicks+10000;
+      DBW_CCS(serial_writeln("% P1 -> W0"));
+      g_ccs_st=W0;
+    }
+  }    
+  // state W0 (EV idle): idle for 10secs
+  if(g_ccs_st==W0) {
+    ssr(0);  
+    sigrel(0);
+    g_blinks=BLINKS_RELAX;
+    if(g_button) {
+      DBW_CCS(serial_writeln("% W0 -> OFF0"));
+      g_ccs_st=OFF0;
+    }  
+    if(TRIGGER_SCHEDULE(toutW)) {
+      DBW_CCS(serial_writeln("% W0 -> W1"));
+      g_ccs_st=W1;
+    }
+  }    
+  // state W1 (EV idle): wait for power allocation
+  if(g_ccs_st==W1) {    
+    if(g_button) {
+      DBW_CCS(serial_writeln("% W1 -> OFF0"));
+      g_ccs_st=OFF0;
+    }  
     maxcur=p_smaxcur;
     if(maxcur>g_ppilot) maxcur=g_ppilot;
-    cpcurrent(maxcur);
-    sigrel(1);
+    if((maxcur>=60) && (p_phases!=0)) {
+      DBW_CCS(serial_writeln("% W1 -> A0"));
+      g_ccs_st=A0;
+    }
   }
+  // error state (protocol time outs)
+  if(g_ccs_st==ERR0) {
+    g_error|=ERR_CCS;
+  }  
   // update cli vartaint of state
   g_ccss_cli=g_ccs_st;
 }  
@@ -2007,6 +2083,7 @@ int main(){
     // error handler
     if(g_error!=0) {
       static uint16_t recdue=0; 
+      static uint16_t recerr=0x0000; 
       // turn all off
       sigrel(0);
       ssr(0);
@@ -2015,19 +2092,23 @@ int main(){
       lock(0);
       // signal
       g_blinks=BLINKS_ERR;
-      // lock open >> recover from lock error in 10sec
-      if((g_lock_st==open) && (g_error|ERR_LOCK)) {
-        g_error &=~ERR_LOCK;
-	if(g_error==0) {
-	  g_error=ERR_RECOVER;
-	  recdue=g_systicks+10000;
-        }
+      // lock error: if lock open we recover from lock error in 10sec
+      if((g_lock_st==open) && (g_error & ERR_LOCK) && (recerr==0x0000)) {
+        recerr=ERR_LOCK;
+	recdue=g_systicks+10000;
       }
+      // CCS error only: recover in 30secs
+      if((g_error==ERR_CCS) && (recerr==0x0000)) {
+	recerr=ERR_CCS;
+	recdue=g_systicks+30000;
+      }	
       // recover
-      if(g_error==ERR_RECOVER) {
-	if(TRIGGER_SCHEDULE(recdue)) {	
-          g_ccs_st=OFF0;
-	  g_error=0;
+      if(recerr!=0x0000) {
+	if(TRIGGER_SCHEDULE(recdue)) {
+	  g_error&= ~recerr;
+          if(g_error==0x0000)
+	    g_ccs_st=OFF0;
+	  recerr=0x0000;
 	}
       }		
     }
