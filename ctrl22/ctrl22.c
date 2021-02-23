@@ -1322,7 +1322,7 @@ void rms_process(void) {
   if(spos==RMS_CNT+1) {
     // normalise mV/100mA    
     rms = ((uint32_t) rms * 3300 + 511)/1023;
-    cur = ((uint32_t) rms * 3300)/     ( 1023  *  10*(500.0/230.0)/23); // preliminary calibration at 500W <> 23mV
+    cur = ((uint32_t) rms * 3300 *100 + 511)/(1023*95); //prelim calibration 1mV * 0.95 <> 100mA
     // store to global param
     switch(g_rms_phase) {  
     case 1:
