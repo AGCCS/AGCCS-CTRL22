@@ -30,7 +30,7 @@ Effectively we tunnel the serial line of the target uC to the host. To be of pra
 
   
 
-## Compiling and Installing the Firmware
+## Compiling and Installing ESP32 Firmware
 
 In the case you are familar with ESP-MDF, check that you have udated at lesat to version "v1.0_107", so no "beta". This is crucial because the underlying  ESP-IDF was upgraded from "v3.3.2" to "v4.2.0" and we have updated `demesh.c` accordingly. You're then set to configure and compile `demesh`
 
@@ -84,4 +84,14 @@ There are only a view rare options regarding the ESP32 module itself that need o
 - in the `menuconfig->Serial Flasher Config -> Port` choose the UAB TTY device by which you connect your ESP32; if you have many ESP32s you my want to set this configuration parameter to a symbolic link such that you can programm multiple ESPs withour recompiling; 
 - for the M5Stick, set `menuconfig->Serial Flasher Config -> Baud Rate` to  `1500000` ... otherwise
   it will just not work  :-(
+
+
+
+
+
+
+
+
+
+
 
