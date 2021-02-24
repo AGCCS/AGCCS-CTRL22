@@ -25,7 +25,7 @@ We use an ATmega 4808 AVR uC to control the charging process. Its core tasks are
 
 <img src="../images/circuit.png" alt="Circuit Overview" style="zoom:67%;" />
 
-For the AVR, we provide the firmware [../ctrl22](../ctrl22/) which is controlled via a simple human readable protocol on the serial port TX0/RX0, accessible via J4 for development/testing/configuration. **Note that our circuit is 3.3V and you will hence need a 3.3V USB-to-serial converter or a suitable level shifter to access J4.** Once configured, the AVR safely controls the charging process in a stand-alone fashion. The optional ESP32 is utilised to set up a wireless mesh network such that a remote server can configure the AVR, e.g. set power limits, enable/disable individual maines phases.  The programming header J5 is used to bootstrap firmware installation (details given below). Once set, further firmware updates can be organised by the remote host, e.g., by the utility`dmctrl.py`; see [../utils](../utils/). 
+For the AVR, we provide the firmware [../ctrl22](../ctrl22/) which is controlled via a simple human readable protocol on the serial port TX0/RX0, accessible via J4 for development/testing/configuration. **Note that our circuit is 3.3V and you will hence need a 3.3V USB-to-serial converter or a suitable level shifter to access J4.** Once configured, the AVR safely controls the charging process in a stand-alone fashion. The optional ESP32 is utilised to set up a wireless mesh network such that a remote server can configure the AVR, e.g. set power limits, enable/disable individual mains phases.  The programming header J5 is used to bootstrap firmware installation (details given below). Once set, further firmware updates can be organised by the remote host, e.g., by the utility `dmctrl.py`; see [../utils](../utils/). 
 
 
 
@@ -44,9 +44,12 @@ To get bootstrapped, we need to install an initial version of firmware for both 
 
 ### AVR Firmware/Bootloader
 
-The ATmega4808 used in our project is a modern incarnation of the ATmega series, and in many aspects more closely related to the XMega series. In particular, it is natively programmed via the so called  UPDI one-pin interface. The official programmer Atmel ICE ($100+) works fine with Atmel AVR Studio and provides professional grade debugging facilities. However, at the time of writing) it is not well supported by mainstream `avrdude`. Fortunately, the [`pyudpi`](https://github.com/mraardvark/pyupdi) project provides a low-cost alternative which only needs an of the shelf USB-to-serial converter and a single 4.7K resistor --- and which we used with no problems at all on Mac OSX and Linux. **Again: you will need a 3.3V USB-serial converter**.
+The ATmega4808 used in our project is a modern incarnation of the ATmega series, and in many aspects more closely related to the XMega series. You will need a fairly recent version of `avr-gcc`, `avr-libc` and `avr-binutils` (verified with versions 7.3, 2.0.0 and 2.26, respectively):
 
+- for Linux an appropriate toolchain should be supplied by your distribution (verified for Debian);
+- for Mac OSX and Windows, the most pragmatic way to get a recent toolchain is to borrow it from an up-to-date Arduino installation (look for `_where_ever_Ardiono_is/Java/hardware/tools/avr/bin/` and set your `PATH` Vriable accordingly. 
 
+Another speciality of the XMega series is that they are natively programmed via the so called UPDI one-pin interface. The official programmer Atmel ICE ($100+) works fine with WIndows and Atmel AVR Studio (Version 7 or latest) and provides professional grade debugging facilities. However, at the time of writing) it is not well supported by mainstream `avrdude`. Fortunately, the [`pyudpi`](https://github.com/mraardvark/pyupdi) project provides a low-cost alternative which only needs an of the shelf USB-to-serial converter and a single 4.7K resistor --- and which we used with no problems at all on Mac OSX and Linux. **Again: you will need a 3.3V USB-serial converter**.
 
 Short instructions:
 
@@ -80,7 +83,11 @@ Short instructions:
 
 Although you can flash any firmware via the routine described above, we need a bootloader for our project such that later firmware updates can be organised remotely. We use Optiboot for its compliance with the Arduino toolchain. Get your original copy of [Optiboot](https://github.com/Optiboot) or use the `.hex` file provided in our repository. 
 
-Missing Topic:_ how we set the fuses for our project  
+**Note:** in flash, Optiboot is located in the range from 0x0000 to 0x1ff and thus takes 512bytes. Hence if you use Optiboot, the `BOOTEND` fuse of the ATmega4808 needs to be set to 0x02.
+
+Missing Topic:__ how we set the remeining fuses for our project__  
+
+
 
 
 ### ESP32 Firmware
@@ -88,7 +95,7 @@ Missing Topic:_ how we set the fuses for our project
 The ESP32 SoC is more advanced than a plain AVR uC. It has a built in two-level bootloader and is programmed via the serial interface TX0/RX0. To enter bootloader mode, IO0 must be set low at the time when EN becomes high (EN acts as inverted RESET, and IO0 selects the bootmode).
 
 Short instructions:
-- set up our ESP32-MDF SDK and compile the firmware `demesh`; see [../demesh](../demesh/) for instructions
+- set up our ESP32-MDF SDK and compile the firmware `demesh`; see [../demesh](../demesh/) for a concise introductions; 
 - set up our wiring
   ```
   USB-Serial-TX>------------->ESP-RX0  (aka connector J5 pin 2)
@@ -111,7 +118,7 @@ This is effectively the same procedure as with common ESP32 dev-boards such as N
 
 # Developing/Testing AVR Firmware
 
-Assumimg that you have installed Optiboot as described above, application frimware development can be done via the J4 header in Arduino style, i.e., serial debugging via a terminal emulation and frimware flashinh via `avrdude -carduino` over the same serial line. If you go this path, we recommend you set up a simple adaptor, e.g.
+Assumimg that you have installed Optiboot as described above, application frimware can be installed and tested via the J4 header in Arduino style, i.e., serial debugging via a terminal emulation and frimware flashing via `avrdude -carduino` over the same serial line. If you go this path, we recommend you set up a simple adaptor including a keyswitch an AVR-RST to conveniently enter bootloader mode, e.g.
 
 ```
 USB-Serial-RX<-------------<AVR-TX0  (aka connector J4 pin 2)
@@ -122,7 +129,9 @@ USB-Serisl-GND<>---+------<>GND      (aka connector J4 pin 1)
 
 ```
 
-However, if you have installed the ESP32 with the provided firmware `demesh`, there is a more convenient and --- given that we are running on maines power --- more safe alternative. On power-on, `demesh` reads a configurable IO pin (default IO15) to choose to boot into target-development mode. In this mode it will not setup a wifi mesh network but instead act as an accesspoint and provide a transparent telnet passthrough of the AVR serial port TX0/RX0 incl. the Optiboot bootloader. Thus, we can develop/test the AVR firmware largely independantly from the more involved wifi mesh but still have the convenience of "no wires from the charging station to my computer".
+**Advanced Topic:** feel free to get an USB-to-Serial converter with DTR and wire DTR via an high-pass strategically to AVR-RST; i.e., copy the original Arduino schematics in this regard.  Your AGCCS board is then conveniently programmable from the Arduino IDE (using [MegaCoreX](https://github.com/MCUdude/MegaCoreX) extension).
+
+However, if you have installed the ESP32 with the provided firmware `demesh`, there is an even more convenient and --- given that we are running on maines power --- more safe alternative. On power-on, `demesh` reads a configurable IO pin (default IO15) to choose to boot into target-development mode. In this mode it will not setup a wifi mesh network but instead act as an accesspoint and provide a transparent telnet passthrough of the AVR serial port TX0/RX0 incl. the Optiboot bootloader. Thus, we can develop/test the AVR firmware largely independantly from the more involved wifi mesh but still have the convenience of "no wires from the charging station to my computer".
 
 After connecting with the access point, the debug server can be accessed via
 
@@ -142,7 +151,7 @@ avrdude -patmega4808  -carduino -Pnet:192.168.4.1:2323 -U flash:w:{SOME_HEX_FILE
 
 
 
-**Note:** In contrast to the classic ATmega architecture, the ATmega4808 has the bootloader in low address range, e.g. Optiboot from 0x0000 to 0x01ff. Thus, application firmware needs to load at 0x0200. This needs to be made explicit when compiling the firmware, e.g., with the linker directive `--section-start=.text=0x200`. The `makefile` provided with our firmware [../ctrl22](../ctrl22/) will take care about this detail.  
+**Note:** In contrast to the classic ATmega architecture, the ATmega4808 has the bootloader in low address range and, hence, the load address of the application firmware needs to be adjusted accordingly. Optibooot is located in the range 0x0000 to 0x01ff and expects firmware to load at 0x0200. This needs to be made explicit when compiling the firmware, e.g., with the linker directive `--section-start=.text=0x200`. The `makefile` provided with our firmware [../ctrl22](../ctrl22/) will take care about this detail.  
 
 
 
