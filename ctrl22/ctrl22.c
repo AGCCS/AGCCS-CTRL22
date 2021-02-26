@@ -894,6 +894,7 @@ void brownout_cb(void) {
   bool bot = !(PORTF.IN & PIN0_bm);
   if(!bot) return;
   ldrive(ldopen);
+  ssr(0);
   serial_writeln_sync();
   serial_writeln("[bot]");
   while(1);

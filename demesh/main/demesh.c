@@ -1400,7 +1400,7 @@ int command_avrota_flash(int avrimgcnt) {
 int command_avrimage(int avraddr, char* avrdata64, uint32_t avrcrc) {
 
     mdf_err_t ret          = MDF_FAIL;
-    size_t cnt, len;
+    size_t cnt, len, dlen;
     unsigned char* avrdata = NULL;
     uint32_t crc;
     
@@ -1419,8 +1419,14 @@ int command_avrimage(int avraddr, char* avrdata64, uint32_t avrcrc) {
         MDF_LOGI("avrimage : data string too long (#%d)", len);
         goto FREE_MEM;
     }
-    // convert to binary (incl. memory allocation)
-    avrdata = base64_decode((unsigned char*)avrdata64, len, &cnt);
+    // convert to binary 
+    dlen=(len*3)/4 + 1;
+    avrdata=MDF_MALLOC(dlen);
+    if(mbedtls_base64_decode((unsigned char*) avrdata, dlen, &cnt, (unsigned char*) avrdata64, len)!=0) {
+        MDF_LOGI("avrimage : failed to decode data string");
+        goto FREE_MEM;
+    }
+    // avrdata = base64_decode((unsigned char*)avrdata64, len, &cnt); // pre 107
     if(avrdata==NULL) {
         MDF_LOGI("avrimage : failed to decode data string");
         goto FREE_MEM;
