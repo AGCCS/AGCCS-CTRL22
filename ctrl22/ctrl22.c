@@ -7,15 +7,16 @@ agccs ctrl22 -- 2021.02.20
 
 - target platform agccs board rev 1.2
 - compiles with avr-gcc 
-- requires avr-libc 1.x.x and gcc 7.3
+- requires avr-libc 2.0. and gcc 7.3
 - although this is a complete re-write, this project benefits from earlier work
   (a) the SmartEVSE by Michael Stegen (https://github.com/SmartEVSE) and
   (b) Pascal Thurnherr's Bachelor Thesis (https://github.com/dreadnomad/FGCCS-Ctrl22)
-- this software is (C) Thomas Moor 2020 and is distributed by the same license terms
-  as the projects (a) and (b) above. 
+- this software is (C) Thomas Moor 2020, 2021
+- this software  is distributed by the same license terms as the projects (a) and (b) above. 
 
 revisions since first release
 - xxx
+
 
 
 *************************************************************************
@@ -180,7 +181,7 @@ uint16_t g_cycleskip;
 // mutex for shared resource (set/rel in main loop or call backs, not in ISRs)
 char g_adc0_bsy=false;
 
-// convenience: return true if duetime has expired (uint16 ticks)
+// convenience: return true if duetime has expired (uint16 ticks, max 32767ms s schedule))
 #define TRIGGER_SCHEDULE(duetime)  (   \
    ((g_systicks >= duetime) &&  (g_systicks-duetime < 0x8000)) ||  \
    ((g_systicks < duetime) &&  (duetime-g_systicks > 0x8000)) )
@@ -651,9 +652,9 @@ int16_t conf_save(int16_t val){
 /*
 *************************************************************************
 digital gpio
-- all other digital gpios (SSRs, signal relay, lock)
+- all other digital gpios (SSRs, signal relay, lock, brownout)
 - state machine to operate lock via callback
-- elementary function to operate gpios
+- elementary function to operate the gpios
 *************************************************************************
 */
 
@@ -672,7 +673,37 @@ void dio_init(){
   PORTC.OUTSET = PIN2_bm;                         // defaults to on
   // lock state
   PORTD.DIRCLR = PIN2_bm;                         // lock state on PD2 (black wire)
-}  
+  // brown out
+  PORTF.DIRCLR = PIN0_bm;                         // brown out signal is of PF0)
+}
+
+
+// lock drive configuation
+typedef enum {
+  ldopen=0,   // drive towards open
+  ldclose=1,  // drive towards close
+  ldoff=2     // drive off
+} ldrive_t;
+static ldrive_t g_ldrive=ldoff;
+
+// lock primitves
+void ldrive(ldrive_t cmd) {
+  switch(cmd) {
+  case ldopen:    
+    PORTA.OUTCLR = PIN7_bm; // terminal lock A 0V (red wire)			       
+    PORTC.OUTSET = PIN2_bm; // terminal lock B 12V (white wire)
+    break;
+  case ldclose:  
+    PORTA.OUTSET = PIN7_bm; // terminal lock A 12V (red wire)			       
+    PORTC.OUTCLR = PIN2_bm; // terminal lock B 0V (white wire)
+    break;
+  case ldoff:
+  default:
+    PORTA.OUTSET = PIN7_bm; // terminal lock A 12V (red wire)			       
+    PORTC.OUTSET = PIN2_bm; // terminal lock B 12V (white wire)
+  }
+  g_ldrive=cmd;
+}
 
 
 // lock state machine
@@ -702,12 +733,11 @@ void lock_cb(void) {
   static uint16_t chkdue=0;
   static uint16_t reper=1000;
   static unsigned char retry;
-  static bool drive=false;
   // update lock reading while drive is off
   static char lock_contact=-1; // -1 <> invalid; 0 <> open; 1 <> closed;
   static bool lcrec=-1;
   static char lccnt=0;
-  if(!drive) {
+  if(g_ldrive==ldoff) {
     char lcnow = ((PORTD.IN & PIN2_bm) == 0 ? 0 : 1); // (black wire)
     if(lcnow==lcrec) {
       lccnt++;
@@ -762,17 +792,13 @@ void lock_cb(void) {
     if(TRIGGER_SCHEDULE(ondue)) {
       DBW_LOCK(serial_writeln("% lock: drive close"));
       ondue+=reper;
-      PORTA.OUTSET = PIN7_bm; // terminal lock A 12V (red wire)			       
-      PORTC.OUTCLR = PIN2_bm; // terminal lock B 0V (white wire)
-      drive=true;
+      ldrive(ldclose);
     }  
     // turn power off
     if(TRIGGER_SCHEDULE(offdue)) {
       DBW_LOCK(serial_writeln("% lock: drive off"));
       offdue+=reper;
-      PORTA.OUTSET = PIN7_bm; // terminal lock A 12V (red wire)			       
-      PORTC.OUTSET = PIN2_bm; // terminal lock B 12V (white wire)
-      drive=false;
+      ldrive(ldoff);
     }  
     // test lock
     if(TRIGGER_SCHEDULE(chkdue)) {
@@ -797,17 +823,13 @@ void lock_cb(void) {
     if(TRIGGER_SCHEDULE(ondue)) {
       DBW_LOCK(serial_writeln("% lock: drive open"));
       ondue+=reper;
-      PORTA.OUTCLR = PIN7_bm; // terminal lock A 0V  (red wire)			       
-      PORTC.OUTSET = PIN2_bm; // terminal lock B 12V (white wire)
-      drive=true;
+      ldrive(ldopen);
     }  
     // turn power off
     if(TRIGGER_SCHEDULE(offdue)) {
       DBW_LOCK(serial_writeln("% lock: drive off"));
       offdue+=reper;
-      PORTA.OUTSET = PIN7_bm; // terminal lock A 12V (red wire)			       
-      PORTC.OUTSET = PIN2_bm; // terminal lock B 12V (white wire)
-      drive=false;
+      ldrive(ldoff);
     }  
     // test lock
     if(TRIGGER_SCHEDULE(chkdue)) {
@@ -865,6 +887,16 @@ int16_t sigrel(int16_t val) {
   if(val) PORTA.OUTCLR = PIN3_bm;
   else PORTA.OUTSET = PIN3_bm;
   return val;
+}
+
+// check brown out (open lock is our last action)
+void brownout_cb(void) {
+  bool bot = !(PORTF.IN & PIN0_bm);
+  if(!bot) return;
+  ldrive(ldopen);
+  serial_writeln_sync();
+  serial_writeln("[bot]");
+  while(1);
 }  
 
 
@@ -1260,11 +1292,12 @@ void rms_process(void) {
   static int rmsZero=512;
   static unsigned long int sum=0;
   static uint16_t rms=0;
-  static uint16_t cur=0;
 #ifdef RMS_DT1  
   static int rmsSpre=0;
   static long int rmsFpre=0;
-#endif  
+#endif
+  uint16_t vlt=0;
+  uint16_t cur=0;
   // do slice -1: figure zero by mean
   if(spos<0) {
     sum=0;
@@ -1318,23 +1351,23 @@ void rms_process(void) {
     spos++;
     return;
   }  
-  // slice RMS_CNT: finilise result
+  // slice RMS_CNT: finilize result
   if(spos==RMS_CNT+1) {
     // normalise mV/100mA    
-    rms = ((uint32_t) rms * 3300 + 511)/1023;
-    cur = ((uint32_t) rms * 3300 *100 + 511)/(1023UL*95UL); //prelim calibration 1mV * 0.95 <> 100mA
+    vlt = ((uint32_t) rms * 3300 + 511)/1023;
+    cur = ((uint32_t) rms * 33 * 95 +511)/1023; //prelim calibration 1mV * 0.95 <> 100mA
     // store to global param
     switch(g_rms_phase) {  
     case 1:
-      g_rms1=rms;
+      g_rms1=vlt;
       g_cur1=cur;
       break;
     case 2:
-      g_rms2=rms;
+      g_rms2=vlt;
       g_cur2=cur;
       break;
     case 3:
-      g_rms3=rms;
+      g_rms3=vlt;
       g_cur3=cur;
       break;
     default:
@@ -2074,7 +2107,8 @@ int main(){
     systime_cb();     // update systime and systicks
     monitor_cb();     // monitor cycle time
     led_blinks_cb();  // flash led
-    lock_cb();        // operate lock via external state g_lock_state 
+    lock_cb();        // operate lock via external state g_lock_state
+    brownout_cb();    // check for brown out
     button_cb();      // sense positive edge on button via g_button
     rms_cb();         // keep updating asynchronous current meassurement (max 5ms)
     pilots_cb();      // keep updating synchronous analog reading of pilots (max 1.5ms)
