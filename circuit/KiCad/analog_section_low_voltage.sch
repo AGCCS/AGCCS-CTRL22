@@ -174,7 +174,7 @@ Wire Wire Line
 	5850 3000 5700 3000
 Wire Wire Line
 	6050 3000 6150 3000
-Text HLabel 3050 2900 0    50   Input ~ 0
+Text HLabel 3650 2900 0    50   Input ~ 0
 PWM_Out
 $Comp
 L power:+3.3V #PWR0105
@@ -220,15 +220,15 @@ Wire Wire Line
 $Comp
 L power:GND #PWR0106
 U 1 1 5E91FFF3
-P 3600 3750
-F 0 "#PWR0106" H 3600 3500 50  0001 C CNN
-F 1 "GND" H 3605 3577 50  0000 C CNN
-F 2 "" H 3600 3750 50  0001 C CNN
-F 3 "" H 3600 3750 50  0001 C CNN
-	1    3600 3750
+P 4050 3750
+F 0 "#PWR0106" H 4050 3500 50  0001 C CNN
+F 1 "GND" H 4055 3577 50  0000 C CNN
+F 2 "" H 4050 3750 50  0001 C CNN
+F 3 "" H 4050 3750 50  0001 C CNN
+	1    4050 3750
 	1    0    0    -1  
 $EndComp
-Text HLabel 3050 1800 0    50   Output ~ 0
+Text HLabel 3600 1800 0    50   Output ~ 0
 CP
 Wire Wire Line
 	4050 1250 4050 1150
@@ -240,11 +240,11 @@ L Device:R_Small R13
 U 1 1 5E923E93
 P 4300 1800
 F 0 "R13" V 4400 1750 50  0000 L CNN
-F 1 "40.2k" V 4500 1750 50  0000 L CNN
+F 1 "62k" V 4500 1750 50  0000 L CNN
 F 2 "Resistor_SMD:R_0603_1608Metric_Pad1.05x0.95mm_HandSolder" H 4300 1800 50  0001 C CNN
 F 3 "~" H 4300 1800 50  0001 C CNN
 F 4 "" H 4300 1800 50  0001 C CNN "Part"
-F 5 "594-MCT06030C4022FP5 " H 4300 1800 50  0001 C CNN "PartNo"
+F 5 " 594-MCT06030C6202FP5 " H 4300 1800 50  0001 C CNN "PartNo"
 F 6 "Mouser" H 4300 1800 50  0001 C CNN "Supplier"
 	1    4300 1800
 	0    1    1    0   
@@ -325,7 +325,7 @@ F 1 "BAT54S" V 5055 5288 50  0000 L CNN
 F 2 "Package_TO_SOT_SMD:SOT-23_Handsoldering" H 5175 5325 50  0001 L CNN
 F 3 "https://www.diodes.com/assets/Datasheets/ds11005.pdf" H 4980 5200 50  0001 C CNN
 F 4 "" H 5100 5200 50  0001 C CNN "Part"
-F 5 "583-BAT54S " H 5100 5200 50  0001 C CNN "PartNo"
+F 5 " 757-TBAT54SLM " H 5100 5200 50  0001 C CNN "PartNo"
 F 6 "Mouser" H 5100 5200 50  0001 C CNN "Supplier"
 	1    5100 5200
 	0    1    -1   0   
@@ -361,7 +361,7 @@ F 1 "BAT54S" V 6255 5288 50  0000 L CNN
 F 2 "Package_TO_SOT_SMD:SOT-23_Handsoldering" H 6375 5325 50  0001 L CNN
 F 3 "https://www.diodes.com/assets/Datasheets/ds11005.pdf" H 6180 5200 50  0001 C CNN
 F 4 "" H 6300 5200 50  0001 C CNN "Part"
-F 5 "583-BAT54S " H 6300 5200 50  0001 C CNN "PartNo"
+F 5 " 757-TBAT54SLM " H 6300 5200 50  0001 C CNN "PartNo"
 F 6 "Mouser" H 6300 5200 50  0001 C CNN "Supplier"
 	1    6300 5200
 	0    1    -1   0   
@@ -371,11 +371,11 @@ L Device:R_Small R24
 U 1 1 5E968C58
 P 6950 4600
 F 0 "R24" V 7000 4750 50  0000 C CNN
-F 1 "5.6K" V 6845 4600 50  0000 C CNN
+F 1 "5.6k" V 6845 4600 50  0000 C CNN
 F 2 "Resistor_SMD:R_0603_1608Metric_Pad1.05x0.95mm_HandSolder" H 6950 4600 50  0001 C CNN
 F 3 "~" H 6950 4600 50  0001 C CNN
 F 4 "" H 6950 4600 50  0001 C CNN "Part"
-F 5 "594-MCT06030C1000FP5 " H 6950 4600 50  0001 C CNN "PartNo"
+F 5 "594-MCT06030C5601FP5 " H 6950 4600 50  0001 C CNN "PartNo"
 F 6 "Mouser" H 6950 4600 50  0001 C CNN "Supplier"
 	1    6950 4600
 	0    1    1    0   
@@ -931,6 +931,8 @@ F 0 "D8" V 3246 5588 50  0000 L CNN
 F 1 "BAT54S" V 3155 5588 50  0000 L CNN
 F 2 "Package_TO_SOT_SMD:SOT-23_Handsoldering" H 3275 5625 50  0001 L CNN
 F 3 "https://www.diodes.com/assets/Datasheets/ds11005.pdf" H 3080 5500 50  0001 C CNN
+F 4 " 757-TBAT54SLM " H 3200 5500 50  0001 C CNN "PartNo"
+F 5 "Mouser" H 3200 5500 50  0001 C CNN "Supplier"
 	1    3200 5500
 	0    1    -1   0   
 $EndComp
@@ -942,6 +944,8 @@ F 0 "D9" V 3246 6488 50  0000 L CNN
 F 1 "BAT54S" V 3155 6488 50  0000 L CNN
 F 2 "Package_TO_SOT_SMD:SOT-23_Handsoldering" H 3275 6525 50  0001 L CNN
 F 3 "https://www.diodes.com/assets/Datasheets/ds11005.pdf" H 3080 6400 50  0001 C CNN
+F 4 " 757-TBAT54SLM " H 3200 6400 50  0001 C CNN "PartNo"
+F 5 "Mouser" H 3200 6400 50  0001 C CNN "Supplier"
 	1    3200 6400
 	0    1    -1   0   
 $EndComp
@@ -953,6 +957,8 @@ F 0 "D10" V 3246 7388 50  0000 L CNN
 F 1 "BAT54S" V 3155 7388 50  0000 L CNN
 F 2 "Package_TO_SOT_SMD:SOT-23_Handsoldering" H 3275 7425 50  0001 L CNN
 F 3 "https://www.diodes.com/assets/Datasheets/ds11005.pdf" H 3080 7300 50  0001 C CNN
+F 4 " 757-TBAT54SLM " H 3200 7300 50  0001 C CNN "PartNo"
+F 5 "Mouser" H 3200 7300 50  0001 C CNN "Supplier"
 	1    3200 7300
 	0    1    -1   0   
 $EndComp
@@ -1055,17 +1061,6 @@ F 2 "" H 3050 6750 50  0001 C CNN
 F 3 "" H 3050 6750 50  0001 C CNN
 	1    3050 6750
 	-1   0    0    -1  
-$EndComp
-$Comp
-L Diode:BAT54S D11
-U 1 1 5F4367A4
-P 3600 2150
-F 0 "D11" V 3646 2238 50  0000 L CNN
-F 1 "BAT54S" V 3555 2238 50  0000 L CNN
-F 2 "Package_TO_SOT_SMD:SOT-23_Handsoldering" H 3675 2275 50  0001 L CNN
-F 3 "https://www.diodes.com/assets/Datasheets/ds11005.pdf" H 3480 2150 50  0001 C CNN
-	1    3600 2150
-	0    1    -1   0   
 $EndComp
 Wire Wire Line
 	8500 2600 9250 2600
@@ -1173,22 +1168,6 @@ Connection ~ 4050 1800
 Wire Wire Line
 	4050 1800 4050 3400
 Wire Wire Line
-	3600 2450 3600 3750
-Wire Wire Line
-	3600 3750 4050 3750
-Wire Wire Line
-	3050 1800 3400 1800
-Wire Wire Line
-	3600 1850 3600 1150
-Wire Wire Line
-	3600 1150 4050 1150
-Connection ~ 4050 1150
-Wire Wire Line
-	3400 2150 3400 1800
-Connection ~ 3400 1800
-Wire Wire Line
-	3400 1800 4050 1800
-Wire Wire Line
 	4650 3600 4650 3750
 Wire Notes Line
 	4550 2450 4550 3650
@@ -1245,11 +1224,10 @@ F 6 "Mouser" H 4900 2900 50  0001 C CNN "Supplier"
 	0    1    1    0   
 $EndComp
 Wire Wire Line
-	3050 2900 4800 2900
+	3650 2900 4800 2900
 Wire Wire Line
 	4650 2650 4650 3100
 Connection ~ 4650 3100
-Connection ~ 3600 3750
 $Comp
 L Device:R_Small R39
 U 1 1 608EA94F
@@ -1314,4 +1292,6 @@ Text HLabel 4400 4600 0    50   Output ~ 0
 Button
 Wire Wire Line
 	1550 4150 2300 4150
+Wire Wire Line
+	3600 1800 4050 1800
 $EndSCHEMATC
