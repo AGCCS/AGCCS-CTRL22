@@ -21,6 +21,7 @@ F1 "mains_and_power.sch" 50
 F2 "SSR_L1" I R 4250 3600 50 
 F3 "SSR_L2" I R 4250 3750 50 
 F4 "SSR_L3" I R 4250 3900 50 
+F5 "BOT" O R 4250 4250 50 
 $EndSheet
 Text Notes 2950 3950 0    50   ~ 10
 Mains Input Connector \nContactor Relays\n12V Power Supply\n3.3V DC Converter\n-12V Voltage Inverter
@@ -46,6 +47,7 @@ F15 "PP" I R 6750 4250 50
 F16 "CP" I R 6750 4400 50 
 F17 "PWM_Out" O R 6750 4550 50 
 F18 "Signal_Relay" O R 6750 4700 50 
+F19 "BOT" I L 5000 4250 50 
 $EndSheet
 Text Notes 5600 4250 0    50   Italic 10
 ATmega4808\nESP32\nRS485 Transceiver\nLock Actuator
@@ -105,102 +107,8 @@ Wire Wire Line
 	6750 5000 7350 5000
 Wire Wire Line
 	6750 5150 7350 5150
-$Comp
-L power:+3.3V #PWR0110
-U 1 1 5ED97DE8
-P 1500 6000
-F 0 "#PWR0110" H 1500 5850 50  0001 C CNN
-F 1 "+3.3V" H 1515 6173 50  0000 C CNN
-F 2 "" H 1500 6000 50  0001 C CNN
-F 3 "" H 1500 6000 50  0001 C CNN
-	1    1500 6000
-	1    0    0    -1  
-$EndComp
-$Comp
-L power:GND #PWR0111
-U 1 1 5ED983F4
-P 1050 6150
-F 0 "#PWR0111" H 1050 5900 50  0001 C CNN
-F 1 "GND" H 1055 5977 50  0000 C CNN
-F 2 "" H 1050 6150 50  0001 C CNN
-F 3 "" H 1050 6150 50  0001 C CNN
-	1    1050 6150
-	1    0    0    -1  
-$EndComp
-$Comp
-L power:+12V #PWR0112
-U 1 1 5ED9882E
-P 1900 6000
-F 0 "#PWR0112" H 1900 5850 50  0001 C CNN
-F 1 "+12V" H 1915 6173 50  0000 C CNN
-F 2 "" H 1900 6000 50  0001 C CNN
-F 3 "" H 1900 6000 50  0001 C CNN
-	1    1900 6000
-	1    0    0    -1  
-$EndComp
-$Comp
-L power:-12V #PWR0113
-U 1 1 5ED9957C
-P 2300 6000
-F 0 "#PWR0113" H 2300 6100 50  0001 C CNN
-F 1 "-12V" H 2315 6173 50  0000 C CNN
-F 2 "" H 2300 6000 50  0001 C CNN
-F 3 "" H 2300 6000 50  0001 C CNN
-	1    2300 6000
-	1    0    0    -1  
-$EndComp
-$Comp
-L power:PWR_FLAG #FLG0101
-U 1 1 5ED996AE
-P 1500 6150
-F 0 "#FLG0101" H 1500 6225 50  0001 C CNN
-F 1 "PWR_FLAG" H 1500 6323 50  0000 C CNN
-F 2 "" H 1500 6150 50  0001 C CNN
-F 3 "~" H 1500 6150 50  0001 C CNN
-	1    1500 6150
-	-1   0    0    1   
-$EndComp
-$Comp
-L power:PWR_FLAG #FLG0102
-U 1 1 5ED99E56
-P 2300 6150
-F 0 "#FLG0102" H 2300 6225 50  0001 C CNN
-F 1 "PWR_FLAG" H 2300 6323 50  0000 C CNN
-F 2 "" H 2300 6150 50  0001 C CNN
-F 3 "~" H 2300 6150 50  0001 C CNN
-	1    2300 6150
-	-1   0    0    1   
-$EndComp
-$Comp
-L power:PWR_FLAG #FLG0103
-U 1 1 5ED9AF19
-P 1900 6150
-F 0 "#FLG0103" H 1900 6225 50  0001 C CNN
-F 1 "PWR_FLAG" H 1900 6323 50  0000 C CNN
-F 2 "" H 1900 6150 50  0001 C CNN
-F 3 "~" H 1900 6150 50  0001 C CNN
-	1    1900 6150
-	-1   0    0    1   
-$EndComp
-$Comp
-L power:PWR_FLAG #FLG0104
-U 1 1 5ED9B7C1
-P 1050 6000
-F 0 "#FLG0104" H 1050 6075 50  0001 C CNN
-F 1 "PWR_FLAG" H 1050 6173 50  0000 C CNN
-F 2 "" H 1050 6000 50  0001 C CNN
-F 3 "~" H 1050 6000 50  0001 C CNN
-	1    1050 6000
-	1    0    0    -1  
-$EndComp
-Wire Wire Line
-	1050 6000 1050 6150
-Wire Wire Line
-	1500 6000 1500 6150
-Wire Wire Line
-	1900 6000 1900 6150
-Wire Wire Line
-	2300 6000 2300 6150
 Text Notes 750  1600 0    71   ~ 0
-Revison 1.0, Mrz 2020\n- Entwurf P.T. auf Grundlage SmartEVSE\nRevision 1.1, Aug 2020\n- Diverse kleinere  Änderungen (Lock Widerstände, Pin-Belegungen, mehr\n   Überspannungsdioden, Taster Vorwiderstand, etc)\n- Layout/Bestückung (ESP32 auf der Unterseite, getrennte Schraubklemmen)\nRevision 1.2, Feb 2021\n- Tasterbeschaltung, Trenndiode für das Lock (T.M. lernt KiCad …)\n
+Revison 1.0, Mrz 2020\n- Entwurf P.T. auf Grundlage SmartEVSE\nRevision 1.1, Aug 2020\n- Diverse kleinere  Änderungen (Lock Widerstände, Pin-Belegungen, mehr\n   Überspannungsdioden, Taster Vorwiderstand, etc)\n- Layout/Bestückung (ESP32 auf der Unterseite, getrennte Schraubklemmen)\nRevision 1.2, Feb 2021\n- Tasterbeschaltung, Trenndiode für das Lock\n- Brownouterkennung  \n
+Wire Wire Line
+	4250 4250 5000 4250
 $EndSCHEMATC

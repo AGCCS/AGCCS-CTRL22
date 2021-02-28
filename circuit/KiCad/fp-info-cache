@@ -1,4 +1,4 @@
-19122060746832051
+19141425512381051
 Battery
 BatteryHolder_Bulgin_BX0036_1xC
 Bulgin Battery Holder, BX0036, Battery Type C (https://www.bulgin.com/products/pub/media/bulgin/data/Battery_holders.pdf)
@@ -75117,6 +75117,13 @@ resistor handsolder
 2
 2
 Resistor_SMD
+R_0603_1608Metric_Pad1.05x0.95mm_HandSolder
+Resistor SMD 0603 (1608 Metric), square (rectangular) end terminal, IPC_7351 nominal with elongated pad for handsoldering. (Body size source: IPC-SM-782 page 72, https://www.pcb-3d.com/wordpress/wp-content/uploads/ipc-sm-782a_amendment_1_and_2.pdf), generated with kicad-footprint-generator
+resistor handsolder
+0
+2
+2
+Resistor_SMD
 R_0612_1632Metric
 Resistor SMD 0612 (1632 Metric), square (rectangular) end terminal, IPC_7351 nominal, (Body size source: https://www.vishay.com/docs/20019/rcwe.pdf), generated with kicad-footprint-generator
 resistor
@@ -83026,6 +83033,83 @@ varistor SIOV
 0
 2
 2
+atmevse-footprints
+CUI_TB004-508-09BE
+
+
+0
+9
+9
+atmevse-footprints
+CUI_TB004-508-18BE
+
+
+0
+18
+18
+atmevse-footprints
+CUI_TB004-508-20GR
+
+
+0
+20
+20
+atmevse-footprints
+CUI_TB005-762-10GR
+
+
+0
+10
+10
+atmevse-footprints
+PROGRAM-Header
+Through hole straight pin header, 2x04, 2.54mm pitch, double rows
+Through hole pin header THT 2x04 2.54mm double row
+0
+8
+8
+atmevse-footprints
+UART0-Header
+Through hole straight pin header, 1x04, 2.54mm pitch, single row
+Through hole pin header THT 1x04 2.54mm single row
+0
+4
+4
+atmevse-footprints
+UART2-Header
+Through hole straight pin header, 1x04, 2.54mm pitch, single row
+Through hole pin header THT 1x04 2.54mm single row
+0
+4
+4
+atmevse-footprints
+hv_screw_5pin_1
+
+
+0
+5
+5
+atmevse-footprints
+hv_screw_5pin_2
+
+
+0
+5
+5
+atmevse-footprints
+lv_screw_9pin_1
+
+
+0
+9
+9
+atmevse-footprints
+lv_screw_9pin_2
+
+
+0
+9
+9
 smartevse-footprints
 1X06
 <b>PIN HEADER</b>

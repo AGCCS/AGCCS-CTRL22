@@ -1,3 +1,4 @@
 (sym_lib_table
   (lib (name smartevse)(type Legacy)(uri ${KIPRJMOD}/smartevse-import.lib)(options "")(descr ""))
+  (lib (name agccs-ctrl22-rescue)(type Legacy)(uri ${KIPRJMOD}/agccs-ctrl22-rescue.lib)(options "")(descr ""))
 )
