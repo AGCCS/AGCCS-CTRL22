@@ -34,7 +34,7 @@ Our hardware platform consists of
 + an AVR series uC to control the charging process, and
 + an ESP32 SoC to provide means of wireless communication. 
 
-Regarding the analog circuitry, our implementation is derived from the [SmatEVSE project](https://github.com/SmartEVSE). Regarding the uC, we opted for AVR allow for conveniently programming within the Arduino IDE in a long term perspective --- at this stage the firmware we provide comes 'bare bone' for performance reasons. Regarding the ESP32 SoC, we are fascinated by the powerful SDKs available from Espressif. For our hardware platform, we provide schematics and a PCB Layout, both in editable KiCad format; see [./circuit](../circuit/). 
+Regarding the analog circuitry, our implementation is derived from the [SmatEVSE project](https://github.com/SmartEVSE). Regarding the uC, we opted for AVR allow for conveniently programming within the Arduino IDE in a long term perspective --- at this stage the firmware we provide comes 'bare bone' for performance reasons. Regarding the ESP32 SoC, we are fascinated by the powerful SDKs available from Espressif. For our hardware platform, we provide schematics and a PCB Layout, both in editable KiCad format; see [./circuit](./circuit/). 
 
 
 

@@ -1249,6 +1249,8 @@ F 0 "U14" H 1850 3700 50  0000 L CNN
 F 1 "LM321LV" H 1800 4000 50  0000 L CNN
 F 2 "Package_TO_SOT_SMD:SOT-23-5" H 1850 3850 50  0001 C CNN
 F 3 "http://www.ti.com/lit/ds/symlink/lm321.pdf" H 1850 3850 50  0001 C CNN
+F 4 "595-LM321LVIDBVR" H 1850 3850 50  0001 C CNN "PartNo"
+F 5 "Mouser" H 1850 3850 50  0001 C CNN "Supplier"
 	1    1850 3850
 	1    0    0    -1  
 $EndComp

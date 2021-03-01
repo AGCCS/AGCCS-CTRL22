@@ -939,6 +939,7 @@ F 1 "ESP32-WROOM-32" H 9500 6000 50  0000 C CNN
 F 2 "RF_Module:ESP32-WROOM-32" H 9550 2900 50  0001 C CNN
 F 3 "https://www.espressif.com/sites/default/files/documentation/esp32-wroom-32_datasheet_en.pdf" H 9250 4450 50  0001 C CNN
 F 4 "Mouser" H 9550 4400 50  0001 C CNN "Supplier"
+F 5 "356-ESP32WRM32E128PH " H 9550 4400 50  0001 C CNN "PartNo"
 	1    9550 4400
 	-1   0    0    -1  
 $EndComp
