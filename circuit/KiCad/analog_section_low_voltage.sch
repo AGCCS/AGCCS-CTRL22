@@ -745,29 +745,29 @@ $EndComp
 $Comp
 L Device:R_Small R27
 U 1 1 5EC624D0
-P 1250 3950
-F 0 "R27" H 1309 3996 50  0000 L CNN
-F 1 "10k" H 1309 3905 50  0000 L CNN
-F 2 "Resistor_SMD:R_0603_1608Metric_Pad1.05x0.95mm_HandSolder" H 1250 3950 50  0001 C CNN
-F 3 "~" H 1250 3950 50  0001 C CNN
-F 4 "" H 1250 3950 50  0001 C CNN "Part"
-F 5 "594-MCT06030C1002FP5 " H 1250 3950 50  0001 C CNN "PartNo"
-F 6 "Mouser" H 1250 3950 50  0001 C CNN "Supplier"
-	1    1250 3950
+P 850 3950
+F 0 "R27" H 909 3996 50  0000 L CNN
+F 1 "10k" H 909 3905 50  0000 L CNN
+F 2 "Resistor_SMD:R_0603_1608Metric_Pad1.05x0.95mm_HandSolder" H 850 3950 50  0001 C CNN
+F 3 "~" H 850 3950 50  0001 C CNN
+F 4 "" H 850 3950 50  0001 C CNN "Part"
+F 5 "594-MCT06030C1002FP5 " H 850 3950 50  0001 C CNN "PartNo"
+F 6 "Mouser" H 850 3950 50  0001 C CNN "Supplier"
+	1    850  3950
 	1    0    0    -1  
 $EndComp
 $Comp
 L Device:R_Small R26
 U 1 1 5EC624D6
-P 1250 3600
-F 0 "R26" H 1309 3646 50  0000 L CNN
-F 1 "10k" H 1309 3555 50  0000 L CNN
-F 2 "Resistor_SMD:R_0603_1608Metric_Pad1.05x0.95mm_HandSolder" H 1250 3600 50  0001 C CNN
-F 3 "~" H 1250 3600 50  0001 C CNN
-F 4 "" H 1250 3600 50  0001 C CNN "Part"
-F 5 "594-MCT06030C1002FP5 " H 1250 3600 50  0001 C CNN "PartNo"
-F 6 "Mouser" H 1250 3600 50  0001 C CNN "Supplier"
-	1    1250 3600
+P 850 3600
+F 0 "R26" H 909 3646 50  0000 L CNN
+F 1 "10k" H 909 3555 50  0000 L CNN
+F 2 "Resistor_SMD:R_0603_1608Metric_Pad1.05x0.95mm_HandSolder" H 850 3600 50  0001 C CNN
+F 3 "~" H 850 3600 50  0001 C CNN
+F 4 "" H 850 3600 50  0001 C CNN "Part"
+F 5 "594-MCT06030C1002FP5 " H 850 3600 50  0001 C CNN "PartNo"
+F 6 "Mouser" H 850 3600 50  0001 C CNN "Supplier"
+	1    850  3600
 	1    0    0    -1  
 $EndComp
 Text Label 2450 3850 0    50   ~ 0
@@ -1253,35 +1253,31 @@ F 3 "http://www.ti.com/lit/ds/symlink/lm321.pdf" H 1850 3850 50  0001 C CNN
 	1    0    0    -1  
 $EndComp
 Wire Wire Line
-	1250 3700 1250 3750
+	850  3700 850  3750
+Connection ~ 850  3750
 Wire Wire Line
-	1250 3750 1550 3750
-Connection ~ 1250 3750
+	850  3750 850  3850
 Wire Wire Line
-	1250 3750 1250 3850
-Wire Wire Line
-	1250 4050 1250 4250
+	850  4050 850  4250
 Wire Wire Line
 	1750 4150 1750 4250
 Wire Wire Line
 	1750 4250 1250 4250
-Connection ~ 1250 4250
 Wire Wire Line
 	1750 3550 1750 3400
 Wire Wire Line
 	1750 3400 1250 3400
-Connection ~ 1250 3400
 Wire Wire Line
-	1250 3400 1250 3500
+	850  3400 850  3500
 Wire Wire Line
 	1550 4150 1550 3950
 Wire Wire Line
-	2150 3850 2300 3850
+	2150 3850 2200 3850
 Wire Wire Line
-	2300 4150 2300 3850
-Connection ~ 2300 3850
+	2200 4150 2200 3850
+Connection ~ 2200 3850
 Wire Wire Line
-	2300 3850 2450 3850
+	2200 3850 2450 3850
 Wire Notes Line
 	2950 4550 2950 3150
 Wire Notes Line
@@ -1291,7 +1287,40 @@ Wire Notes Line
 Text HLabel 4400 4600 0    50   Output ~ 0
 Button
 Wire Wire Line
-	1550 4150 2300 4150
-Wire Wire Line
 	3600 1800 4050 1800
+Connection ~ 1250 3400
+Connection ~ 1250 4250
+Wire Wire Line
+	2550 5250 2550 5350
+$Comp
+L Device:C_Small C?
+U 1 1 604D0F1E
+P 1250 3950
+AR Path="/5E98FA8A/604D0F1E" Ref="C?"  Part="1" 
+AR Path="/5E903BF9/604D0F1E" Ref="C28"  Part="1" 
+F 0 "C28" H 1342 3996 50  0000 L CNN
+F 1 "100n" H 1342 3905 50  0000 L CNN
+F 2 "Capacitor_SMD:C_0805_2012Metric_Pad1.18x1.45mm_HandSolder" H 1250 3950 50  0001 C CNN
+F 3 "~" H 1250 3950 50  0001 C CNN
+F 4 "" H 1250 3950 50  0001 C CNN "Part"
+F 5 "963-EMF212B7104KGHT " H 1250 3950 50  0001 C CNN "PartNo"
+F 6 "Mouser" H 1250 3950 50  0001 C CNN "Supplier"
+	1    1250 3950
+	1    0    0    -1  
+$EndComp
+Wire Wire Line
+	850  3750 1250 3750
+Wire Wire Line
+	850  3400 1250 3400
+Wire Wire Line
+	850  4250 1250 4250
+Wire Wire Line
+	1250 3850 1250 3750
+Connection ~ 1250 3750
+Wire Wire Line
+	1250 3750 1550 3750
+Wire Wire Line
+	1250 4050 1250 4250
+Wire Wire Line
+	1550 4150 2200 4150
 $EndSCHEMATC

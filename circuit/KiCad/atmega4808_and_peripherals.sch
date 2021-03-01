@@ -841,7 +841,7 @@ F 0 "J4" H 9450 1350 50  0000 C CNN
 F 1 "Conn_01x04" H 9600 1450 50  0000 C CNN
 F 2 "atmevse-footprints:UART0-Header" H 9300 1550 50  0001 C CNN
 F 3 "~" H 9300 1550 50  0001 C CNN
-F 4 "710-61200821621 " H 9300 1550 50  0001 C CNN "PartNo"
+F 4 "" H 9300 1550 50  0001 C CNN "PartNo"
 F 5 "Mouser" H 9300 1550 50  0001 C CNN "Supplier"
 	1    9300 1550
 	1    0    0    -1  
@@ -917,21 +917,21 @@ F 6 "Mouser" H 10800 2950 50  0001 C CNN "Supplier"
 	1    0    0    -1  
 $EndComp
 $Comp
-L Connector_Generic:Conn_02x04_Top_Bottom J5
+L Connector_Generic:Conn_02x04_Odd_Even J5
 U 1 1 5EC1F0B2
 P 9100 2100
 F 0 "J5" H 9150 1800 50  0000 C CNN
-F 1 "Conn_02x04_Top_Bottom" H 9150 2326 50  0000 C CNN
+F 1 "Conn_02x04" H 9150 2326 50  0000 C CNN
 F 2 "atmevse-footprints:PROGRAM-Header" H 9100 2100 50  0001 C CNN
 F 3 "~" H 9100 2100 50  0001 C CNN
 F 4 "" H 9100 2100 50  0001 C CNN "Part"
-F 5 "710-61300821121" H 9100 2100 50  0001 C CNN "PartNo"
+F 5 "710-61200821621 " H 9100 2100 50  0001 C CNN "PartNo"
 F 6 "Mouser" H 9100 2100 50  0001 C CNN "Supplier"
 	1    9100 2100
 	1    0    0    -1  
 $EndComp
 $Comp
-L RF_Module:ESP32-WROOM-32 U9
+L RF_Module:ESP32-WROOM-32D U9
 U 1 1 5EC08E25
 P 9550 4400
 F 0 "U9" H 9550 6100 50  0000 C CNN

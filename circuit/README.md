@@ -9,7 +9,7 @@ The schematics used in this project have been adopted from the [SmatEVSE project
 - integrate power monitoring for improved load balancing;
 - layout with hand soldering in mind so we can build our own.
 
-The original adaption to our requirements was developed in course of a BA thesis at FAU/Erlangen and has been published in [this project](https://github.com/dreadnomad/FGCCS-Ctrl22). The present repository is a strip down to the essentials. You may want to inspect the original sources; in particular the [BA thesis](https://github.com/dreadnomad/FGCCS-Ctrl22/blob/master/doc/Bachelorarbeit_Pascal_Thurnherr.pdf) includes a convenient summary of the electrical specifications from the CCS standard IEC-62196, as far as relevant for the project at hand.
+The original adaption to the above requirements was developed in course of the BA thesis *Entwiclung, Aufbau und Test einer Ladeeinrichting für Elektrofahrzeuge nach IEC62169* by Pascal Thurnherr at FAU/Erlangen and has been published in [this project](https://github.com/dreadnomad/FGCCS-Ctrl22). The present repository is a strip down to the essentials. You may want to inspect the original sources; in particular the [BA thesis](../doc/Bachelorarbeit_Pascal_Thurnherr.pdf) includes a convenient summary of the electrical specifications from the CCS standard IEC-62196, as far as relevant for the project at hand.
 
 
 
@@ -21,7 +21,7 @@ We use an ATmega 4808 AVR uC to control the charging process. Its core tasks are
 - generate the control pilot signal (CP) to indicate to the car the amount of power available;
 - read back the buffered CP signal to figure the status of the car (e.g. present, charging);
 - read the proximity pilot (PP) to figure the current limit implied by the charging cable;
-- read the current actually drawn.    
+- read back the current actually drawn.    
 
 <img src="../images/circuit.png" alt="Circuit Overview" style="zoom:67%;" />
 
@@ -33,12 +33,12 @@ For the AVR, we provide the firmware [../ctrl22](../ctrl22/) which is controlled
 
 To get bootstrapped, we need to install an initial version of firmware for both the AVR uC and the ESP32 SoC. For this purpose, our board is equipped with the custom 8-pin header J5
 
-| Fnct.    | Pin | Pin | Fnct.     |
-|:--------:|:---:|:---:|:---------:|
-| AVR-UPDI |  1  |  5  | GND       |
-| ESP-TX0  |  2  |  6  | 3.3V      |
-| ESP-RX0  |  3  |  7  | ESP-IO15  |
-| ESP-IO0  |  4  |  8  | ESP-EN    |
+|  Fnct.   | Pin  | Pin  |  Fnct.   |
+| :------: | :--: | :--: | :------: |
+| AVR-UPDI |  1   |  2   |   GND    |
+| ESP-TX0  |  3   |  4   |   3.3V   |
+| ESP-RX0  |  5   |  6   | ESP-IO15 |
+| ESP-IO0  |  7   |  8   |  ESP-EN  |
 
 
 
@@ -47,9 +47,9 @@ To get bootstrapped, we need to install an initial version of firmware for both 
 The ATmega4808 used in our project is a modern incarnation of the ATmega series, and in many aspects more closely related to the XMega series. You will need a fairly recent version of `avr-gcc`, `avr-libc` and `avr-binutils` (verified with versions 7.3, 2.0.0 and 2.26, respectively):
 
 - for Linux an appropriate toolchain should be supplied by your distribution (verified for Debian);
-- for Mac OSX and Windows, the most pragmatic way to get a recent toolchain is to borrow it from an up-to-date Arduino installation (look for `_where_ever_Ardiono_is/Java/hardware/tools/avr/bin/` and set your `PATH` Vriable accordingly. 
+- for Mac OSX and Windows, the most pragmatic way to get a recent toolchain is to borrow it from an up-to-date Arduino installation (look for `_where_ever_Ardiono_is/Java/hardware/tools/avr/bin/` and set your `PATH` Variable accordingly. 
 
-Another speciality of the XMega series is that they are natively programmed via the so called UPDI one-pin interface. The official programmer Atmel ICE ($100+) works fine with WIndows and Atmel AVR Studio (Version 7 or latest) and provides professional grade debugging facilities. However, at the time of writing) it is not well supported by mainstream `avrdude`. Fortunately, the [`pyudpi`](https://github.com/mraardvark/pyupdi) project provides a low-cost alternative which only needs an of the shelf USB-to-serial converter and a single 4.7K resistor --- and which we used with no problems at all on Mac OSX and Linux. **Again: you will need a 3.3V USB-serial converter**.
+Another speciality of the XMega series is that they are natively programmed via the so called UPDI one-pin interface. The official programmer Atmel ICE ($100+) works fine with Windows and Atmel AVR Studio (Version 7 or latest) and provides professional grade debugging facilities. However, at the time of writing, it is not well supported by mainstream `avrdude`. Fortunately, the [`pyudpi project`](https://github.com/mraardvark/pyupdi) provides a low-cost alternative which only needs an of the shelf USB-to-serial converter and a single 4.7K resistor --- and which we used with no problems at all on Mac OSX and Linux. **Again: you will need a 3.3V USB-serial converter**.
 
 Short instructions:
 
@@ -61,20 +61,28 @@ Short instructions:
   USB-Serisl-GND<>------------<>GND  (aka connector J5 pin 5)
   ```
   
-- get `pyudpi` from Github
+- get `pyudpi.py` from Github; the 2021-02 version installs via `pip` and requires python3
 
-- install python add-ons `intelhex` and `serial`, e.g.
-  ```
-  sudo pip install intelhex
-  sudo pip install serial
-  ```
-  
 - get some device specs and check the connection
+
   ```
   pyupdi.py -d mega4808 -c /dev/{SOME_USB_SERIAL_DEV} -b 115400 -i
-  
   ```
-  
+
+- read fuses 
+
+  ```
+  pyupdi.py -d mega4808 -c /dev/{SOME_USB_SERIAL_DEV} -b 115400 -fr
+  ```
+
+- write fuses
+
+  ```
+  pyupdi.py -d mega4808 -c /dev/{SOME_USB_SERIAL_DEV} -b 115400 -fs {ADDRESS}:{VALUE}
+  ```
+
+   {ADDRESS}:{VALUE} is specified in the output format of `-fr`, e.g.,  `8:0x02` to set BOOTEND to 0x02 as propsoed below)
+
 - program flash memory, e.g. the Optiboot bootloader
 
   ```
@@ -83,20 +91,30 @@ Short instructions:
 
 Although you can flash any firmware via the routine described above, we need a bootloader for our project such that later firmware updates can be organised remotely. We use Optiboot for its compliance with the Arduino toolchain. Get your original copy of [Optiboot](https://github.com/Optiboot) or use the `.hex` file provided in our repository. 
 
-**Note:** in flash, Optiboot is located in the range from 0x0000 to 0x1ff and thus takes 512bytes. Hence if you use Optiboot, the `BOOTEND` fuse of the ATmega4808 needs to be set to 0x02.
+**Note:** in flash, Optiboot is located in the range from 0x0000 to 0x1ff and thus takes 512bytes. Hence if you use Optiboot, the `BOOTEND` fuse of the ATmega4808 needs to be set to 0x02. The overall setting of fuses depends of the actual firmware. For the provided firmware [ctrl22.c](../ctrl22/) we use the following settings
 
-Missing Topic:__ how we set the remeining fuses for our project__  
+| address:value | fuse     | comments                                                     |
+| ------------- | -------- | ------------------------------------------------------------ |
+| 0:0x00        | WDTCFG   | default 0x00, no watchdog                                    |
+| 1:0x00        | BODCFG   | default 0x00, test for1.8V@1kHz, disabled (see BOD.CTRLA)    |
+| 2:0x02        | OSCLOCK  | default 0x02, use 20MHz oscillator (which we later divide by 2) |
+| **5:0xC9**    | SYSCFG0  | default 0xC0, no application CRC, **have RESET pin**, **keep EEPROM on flash erase** |
+| 6:0x06        | SYSCFG1  | default 0x07, 64ms start-up-time on power on                 |
+| 7:0x00        | APPEND   | defaut 0x00, no explicit data section                        |
+| **8:0x02**    | BOOTEND  | default 0x00, **have 2x256bytes bootloader**                 |
+| 10:0xC5       | LOCKBITS | default 0xC5, no locks, i.e., UPDI fully enabled             |
+
 
 
 
 
 ### ESP32 Firmware
 
-The ESP32 SoC is more advanced than a plain AVR uC. It has a built in two-level bootloader and is programmed via the serial interface TX0/RX0. To enter bootloader mode, IO0 must be set low at the time when EN becomes high (EN acts as inverted RESET, and IO0 selects the bootmode).
+The ESP32 SoC is far more advanced than a plain AVR uC. It has a built in two-level bootloader and is programmed via the serial interface TX0/RX0. To enter bootloader mode, IO0 must be set low at the time when EN becomes high (EN acts as inverted RESET, and IO0 selects the bootmode).
 
 Short instructions:
-- set up our ESP32-MDF SDK and compile the firmware `demesh`; see [../demesh](../demesh/) for a concise introductions; 
-- set up our wiring
+- set up the ESP32-MDF SDK and compile the firmware `demesh`; see [../demesh](../demesh/) for a concise introductions; 
+- set up the wiring
   ```
   USB-Serial-TX>------------->ESP-RX0  (aka connector J5 pin 2)
   USB-Serial-RX<-------------<ESP-TX0  (aka connector J5 pin 3)
@@ -118,7 +136,7 @@ This is effectively the same procedure as with common ESP32 dev-boards such as N
 
 # Developing/Testing AVR Firmware
 
-Assumimg that you have installed Optiboot as described above, application frimware can be installed and tested via the J4 header in Arduino style, i.e., serial debugging via a terminal emulation and frimware flashing via `avrdude -carduino` over the same serial line. If you go this path, we recommend you set up a simple adaptor including a keyswitch an AVR-RST to conveniently enter bootloader mode, e.g.
+Assumimg that you have installed Optiboot as described above, application frimware can be installed and tested via the J4 header in Arduino style, i.e., serial debugging via a terminal emulation and frimware flashing via `avrdude -carduino` over the same serial line. If you go this path, we recommend you set up a simple adaptor including a keyswitch on the AVR reset-line to conveniently enter bootloader mode, e.g.
 
 ```
 USB-Serial-RX<-------------<AVR-TX0  (aka connector J4 pin 2)
@@ -129,9 +147,9 @@ USB-Serisl-GND<>---+------<>GND      (aka connector J4 pin 1)
 
 ```
 
-**Advanced Topic:** feel free to get an USB-to-Serial converter with DTR and wire DTR via an high-pass strategically to AVR-RST; i.e., copy the original Arduino schematics in this regard.  Your AGCCS board is then conveniently programmable from the Arduino IDE (using [MegaCoreX](https://github.com/MCUdude/MegaCoreX) extension).
+**Advanced Topic:** feel free to get an USB-to-Serial converter with DTR and wire DTR via an high-pass strategically to AVR-RST; e.g., copy the original Arduino schematics in this regard.  Your AGCCS board is then conveniently programmable from the Arduino IDE (using [MegaCoreX](https://github.com/MCUdude/MegaCoreX) extension).
 
-However, if you have installed the ESP32 with the provided firmware `demesh`, there is an even more convenient and --- given that we are running on maines power --- more safe alternative. On power-on, `demesh` reads a configurable IO pin (default IO15) to choose to boot into target-development mode. In this mode it will not setup a wifi mesh network but instead act as an accesspoint and provide a transparent telnet passthrough of the AVR serial port TX0/RX0 incl. the Optiboot bootloader. Thus, we can develop/test the AVR firmware largely independantly from the more involved wifi mesh but still have the convenience of "no wires from the charging station to my computer".
+However, if you have installed the ESP32 with the provided firmware `demesh`, there is an even more convenient and --- given that we are running on maines power --- more safe alternative. On power-on, `demesh` reads a configurable IO pin (default IO15) to choose to boot into *target-development mode*. In this mode it will not setup a wifi mesh network but instead act as an accesspoint and provide a transparent telnet passthrough of the AVR serial port TX0/RX0 incl. the Optiboot bootloader. Thus, we can develop/test the AVR firmware largely independantly from the more involved wifi mesh but still have the convenience of "no wires from the charging station directly to the computer".
 
 After connecting with the access point, the debug server can be accessed via
 
@@ -157,7 +175,7 @@ avrdude -patmega4808  -carduino -Pnet:192.168.4.1:2323 -U flash:w:{SOME_HEX_FILE
 
 # Hardware Revisions
 
-In this repository we currently provide the develoment version Rev-1-2 as an editable KiCad project and the schematics of Rev-1-1 for inspection. We are currently running a modded variant of the initial Rev-1-0 for evaluation purposes. We expect to finalise and test Rev-1-2 in very near future.
+In this repository we currently provide the develoment version Rev-1-2 as an editable KiCad project and the schematics of Rev-1-1 for inspection. We are currently running a modded variant of the initial Rev-1-0 for evaluation purposes. We expect to finalise and test Rev-1-2 in near future.
 
 
 Revision 1.1
@@ -180,8 +198,13 @@ Layout
 Revision 1.2
 
 Schematics
-- jet again the push button electronics ...
-- added a diode to seperate lock from 12V supply (brown out)
+- jet again the push button electronics
+- added a diode to seperate the lock from 12V supply (brown out)
+- improved current reading circuit
+
+Layout
+
+- trcak back changes in the schematics
 
 
 

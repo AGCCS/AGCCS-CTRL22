@@ -55,7 +55,7 @@ The protocol is strictly line based. That is, the host sends one line and expect
 | `ver?/r/n`        | `ver=14/r/n`      | read firmware version v1.4                                   |
 | `cmaxcur?/r/n`    | `cmaxcur=160/r/n` | read charging cable capacity 16.0A (-1 for no car detected)  |
 | `smaxcur=160/r/n` | `smaxcur=320/r/n` | set maximum available current to 32.0A                       |
-| `amaxcur?/r/n`    | `amaxcur=160/r/n` | read maximum current actually allocated to vehicle           |
+| `amaxcur?/r/n`    | `amaxcur=160/r/n` | read maximum current actually allocated to the vehicle       |
 | `phases=12/r/n`   | `phases=12/r/n`   | enable mains phases L1 and L2, i.e., decimal encoding        |
 | `cur1?/r/n`       | `cur1=65/r/n`     | read 6.5A as current drawn on phase L1; likewise phases L2 and L3 |
 
@@ -74,4 +74,4 @@ Thus, our ESP32 firmware shall filter any lines that start with `[` or `%`.
 
 We provide a `Makefile` that should be easily adaptable to Linux/MacOSX programming environments. The easiest way to get a recent AVR toolchain is to install the Arduino IDE and to figure the path of the relevant binaries. A simple `make` on the command line will then produce the binaries `ctrl22.bin` and `ctrl22.hex`. The fromer is required when updating firmware over the wireless mesh network (see [../demesh](../demesh/)), the latter when using `avrdude` via telnet or the J4 header (see [../circuit](../circuit/))
 
-The code itself has a number of debug switches right at the beginning which we use for "serial line debugging". If e.g. there are issues with the lock, it is worth turning on `#define DEBUG_LOCK`; or use `#debug_CCS` to trach progress in the CCS state machine depicted above.
+The code itself has a number of debug switches right at the beginning which we use for "serial line debugging". If e.g. there are issues with the lock, it is worth turning on `#define DEBUG_LOCK`; or use `#debug_CCS` to track progress in the CCS state machine depicted above.

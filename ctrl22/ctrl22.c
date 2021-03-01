@@ -903,8 +903,37 @@ void brownout_cb(void) {
 
 /*
 *************************************************************************
+set up internal voltage reference
+- we to avoid reconfiguring the reference, so there are two vialabe configurations
+a) set to 2.5V reference:
+   this is good for RMS measurement since it annihilates some of the VDD ripple;
+   however, it is not so good for temeparure reading since we loose resolution
+b) use 1.1V reference: 
+   good for for temperature measurement; the RMS measurement will then use
+   VDD as a reference
+*************************************************************************
+*/
+
+#define VREF25 // chosee this for a)
+//#define VREF11 // choose this for b)
+
+void vref_init(void) {
+#ifdef VREF25
+  VREF.CTRLA |= VREF_ADC0REFSEL_2V5_gc;          // provide 2.5V
+#endif
+#ifdef VREF11  
+  VREF.CTRLA |= VREF_ADC0REFSEL_1V1_gc;          // provide 1.5V 
+#endif
+  VREF.CTRLB |= VREF_ADC0REFEN_bm;               // permanently enable vref
+}
+
+
+
+
+/*
+*************************************************************************
 synchronous analog reading with ADC0
-- internal temperature sensor [status: not functional]
+- internal temperature sensor 
 - contact pilot CP on PD1
 - proximity pilot PP pn PD0
 - periodic update by main loop callback
@@ -920,8 +949,6 @@ int16_t g_pilots=0;      // enable periodic pilot reading
 
 // initialise vref and pins
 void adc_init(void) {
-  VREF.CTRLA |= VREF_ADC0REFSEL_1V1_gc;         // provide 1.1V vref for temperature sensor
-  VREF.CTRLB |= VREF_ADC0REFEN_bm;              // permanently enable vref
   PORTD.DIRCLR = PIN0_bm;
   PORTD.PIN0CTRL &= ~PORT_ISC_gm;
   PORTD.PIN0CTRL |= PORT_ISC_INPUT_DISABLE_gc;  // disable digital buffers and interrugt generation
@@ -937,44 +964,38 @@ bool adc_temp(void) {
   // dont run if ADC0 is busy
   if(g_adc0_bsy) return false;
   g_adc0_bsy=true;
-  // set up adc v1: by the books
-  /*
+  // set up adc 
   ADC0.CTRLA=0x0;                        // disable adc for re-config, 10bit resolution, all default
   ADC0.CTRLB= ADC_SAMPNUM_ACC16_gc;      // take 16 samples 
   ADC0.CTRLC=0x0;
   ADC0.CTRLC |= ADC_PRESC_DIV16_gc;      // 10Mhz vs div16 >> 625KHz >> vs 13clocks per sample >> about 0.3ms conversion
-  ADC0.CTRLC |= ADC_REFSEL_INTREF_gc;    // internal VREF aka 1.1V
+  ADC0.CTRLC |= ADC_REFSEL_INTREF_gc;    // internal VREF (by the books 1.1V, see vref_init())
   ADC0.CTRLC |= ADC_SAMPCAP_bm;          // reduced sampling capacity (atmel docs for temperature reading)
   ADC0.CTRLD=0x0;
   ADC0.CTRLD |= ADC_INITDLY_DLY64_gc;    // delay to take first sample in ADC_CLK  >> 0.1ms 
   ADC0.CTRLD |= ADC_ASDV_bm;             // variable delay between samples (0-15 ADC_CLK)
   ADC0.SAMPCTRL=31;                      // time to charge capacitor 0.05ms
   ADC0.MUXPOS = ADC_MUXPOS_TEMPSENSE_gc; // set mux on internal temperature sensor
-  ADC0.INTCTRL = 0x00;                    // no interrupts
-  */
-  // set up adc v2: playing along
-  ADC0.CTRLA=0x0;                        // disable adc for re-config, 10bit resolution, all default
-  ADC0.CTRLB= ADC_SAMPNUM_ACC1_gc;       // take only one sample
-  ADC0.CTRLC=0x0;
-  ADC0.CTRLC |= ADC_PRESC_DIV8_gc;       // 10Mhz vs div8 >> 1.25MHz
-  ADC0.CTRLC |= ADC_REFSEL_INTREF_gc;    // internal VREF aka 1.1V
-  ADC0.CTRLC |= ADC_SAMPCAP_bm;          // reduced sampling capacity
-  ADC0.CTRLD=0x0;
-  ADC0.CTRLD |= ADC_INITDLY_DLY64_gc;    // delay to take first sample in ADC_CLK
-  ADC0.SAMPCTRL=31;                      // clocks to charge capacitor
-  ADC0.MUXPOS = ADC_MUXPOS_TEMPSENSE_gc; // set mux on internal temperature sensor
-  ADC0.INTCTRL = 0x00;                    // no interrupts
+  ADC0.INTCTRL = 0x00;                   // no interrupts
   // run conversion
   ADC0.CTRLA |= ADC_ENABLE_bm;
   ADC0.COMMAND |= ADC_STCONV_bm;
   while(!(ADC0.INTFLAGS & ADC_RESRDY_bm));
   uint16_t temp = ADC0.RES;
-  //temp>>= 4;                            // compensate X accumulated samples
+  // compensate for 16 accumulated samples and/or non-standard ref aka different to 1.1V
+#ifdef VREF11  
+  temp= (temp+16/2)/16;                  // comp. 16 acc. samples
+#else
+#ifdef VREF25    
+  temp= (16L*((uint32_t) temp)+(16*16*11/25)/2)/(16*16*11/25); // comp. 16 acc. samples and 2.5V ref
+#else
+  temp=0
+#endif
+#endif    
   // use factory calibration (see atmel docs)
-  uint32_t ctemp = temp-SIGROW.TEMPSENSE1;
-  ctemp*=SIGROW.TEMPSENSE0;
-  ctemp+=0x80;
-  ctemp>>=8;
+  uint32_t ctemp = temp- ((int8_t) SIGROW.TEMPSENSE1);
+  ctemp*=((uint8_t) SIGROW.TEMPSENSE0);
+  ctemp=(ctemp+256/2)/256; 
   ctemp-=273;
   // record result
   g_temp=ctemp;
@@ -989,6 +1010,11 @@ bool adc_temp(void) {
   serial_write_int(ctemp);
   serial_write('@');
   serial_write_int(temp);
+  serial_write_str(" (");
+  serial_write_int(SIGROW.TEMPSENSE0);
+  serial_write_str("/");
+  serial_write_uint(SIGROW.TEMPSENSE1);
+  serial_write_str(")");
   serial_write_eol();
   serial_writeln_async();
 #endif  
@@ -1186,6 +1212,9 @@ void rms_init(void) {
 int16_t g_rms1=-1;
 int16_t g_rms2=-1;
 int16_t g_rms3=-1;
+int16_t g_sns1=-1;
+int16_t g_sns2=-1;
+int16_t g_sns3=-1;
 int16_t g_cur1=-1;
 int16_t g_cur2=-1;
 int16_t g_cur3=-1;
@@ -1198,7 +1227,7 @@ typedef enum {
   processing=2
 } rms_state_t;
 volatile rms_state_t g_rms_st=idle;       // state: 0<>idle; 1<>sampling; 2<> processing data
-#define RMS_CNT 1000                      // number of samples to record
+#define RMS_CNT 1000                      // number of samples to record (must be multiple of 4)
 int16_t g_rms_buf[RMS_CNT];               // actual buffer
 int g_rms_pos=0;                          // write pointer
 int g_rms_phase=0;                        // phase currently measured/processed
@@ -1222,11 +1251,15 @@ bool rms_start(char phase) {
   ADC0.CTRLB= ADC_SAMPNUM_ACC1_gc;        // no accumlation of samples
   ADC0.CTRLC=0x0;
   ADC0.CTRLC |= ADC_PRESC_DIV8_gc;        // 10Mhz vs div8 vs 13clocks per sample >>> about 100KHz max samp. freq.
-  ADC0.CTRLC |= ADC_REFSEL_VDDREF_gc;     // vdd rek aka 3.3V
+#ifdef VREF25
+  ADC0.CTRLC |= ADC_REFSEL_INTREF_gc;     // select internal reference if set on 2.5V
+#else
+  ADC0.CTRLC |= ADC_REFSEL_VDDREF_gc;     // fallback to VDD as reference aka 3.3V
+#endif  
   ADC0.CTRLC |= ADC_SAMPCAP_bm;           // reduced sampling capacity
   ADC0.CTRLD=0x0;
   ADC0.CTRLD |= ADC_INITDLY_DLY128_gc;    // delay to take first sample in ADC_CLK cycles
-  ADC0.SAMPCTRL=10;                       // take 10 ADC_CLK cycles to charge capacitor >> down to appx 50KHz max samp. freq.
+  ADC0.SAMPCTRL=10;                       // take 10 ADC_CLK cycles to charge capacitor >> down to appx 50KHz max samp. freq.  
   // selcet input pin
   switch(phase) {
   case 1:
@@ -1240,7 +1273,7 @@ bool rms_start(char phase) {
     break;
   default:
     g_adc0_bsy=false;
-    return false; // ignore out of range ohase
+    return false; // ignore out of range phase
   }
   g_rms_phase=phase;
   // enable interrupt
@@ -1269,17 +1302,6 @@ ISR(ADC0_RESRDY_vect) {
 }
 
 
-// parameters rms integer algorithm incl DT1
-//#define RMS_DT1
-#define RMS_K 8           // filter gain in bits, i.e. K=2**8=256  
-#define RMS_V1 2          // scaling sum of squares in bits, i.e., V1=2**2=4
-#define RMS_V2 10         // scaling sum of squares in bits, i.e., V2=2**10=1024
-/*
-#define RMS_K 4           // filter gain in bits, i.e. K=2**8=256  
-#define RMS_V1 2          // scaling sum of squares in bits, i.e., V1=2**2=4
-#define RMS_V2 6          // scaling sum of squares in bits, i.e., V2=2**10=1024
-*/
-#define RMS_NORM  ((2*RMS_V1+RMS_V2)/2 - RMS_K)  // normalise by "*Sqrt(V1V1V2)/K"
 
 
 // rms record processing
@@ -1293,82 +1315,64 @@ void rms_process(void) {
   static int rmsZero=512;
   static unsigned long int sum=0;
   static uint16_t rms=0;
-#ifdef RMS_DT1  
-  static int rmsSpre=0;
-  static long int rmsFpre=0;
-#endif
-  uint16_t vlt=0;
+  uint16_t sns=0;
   uint16_t cur=0;
   // do slice -1: figure zero by mean
   if(spos<0) {
     sum=0;
     for(spos=0;spos<RMS_CNT;++spos)
       sum+= g_rms_buf[spos];
-    rmsZero=(sum+(RMS_CNT>>1))/RMS_CNT;
+    rmsZero=(sum+(RMS_CNT/2))/RMS_CNT;
     // initialse rms
     sum=0;
     spos=0;
-#ifdef RMS_DT1  
-    rmsSpre=0;
-    rmsFpre=0;
-#endif    
     return;
   }
   // do slices 0,100,200, ... RMS_CNT: process 100 values
   if(spos<RMS_CNT) {
     int send=spos+100;
     if(send>RMS_CNT) send=RMS_CNT;    
-    // plain RMS: sum squares
-#ifndef RMS_DT1      
+    // sum the squares
     for(;spos<send;++spos) {
       int rmsS = g_rms_buf[spos]-rmsZero;
       if(rmsS<0) rmsS=-rmsS;
       unsigned long int rmsSQR = ((unsigned long int) rmsS) * ((unsigned long int) rmsS);
       sum += rmsSQR;
     }
-#else    
-    // RMS incl. DT1 (see above for commented version)
-    for(;spos<send;++spos) {
-      int rmsS = g_rms_buf[spos]-rmsZero;
-      long int rmsF=  rmsFpre +   ( ((long int) (rmsS - rmsSpre)) << RMS_K );
-      rmsF=  rmsF - ( rmsF>>RMS_K );  
-      long int rmsFpV1 = rmsF >> RMS_V1;
-      if(rmsFpV1<0) rmsFpV1=-rmsFpV1;
-      unsigned long int rmsFsqrpV = ((unsigned long int) rmsFpV1) * ((unsigned long int)  rmsFpV1) >> RMS_V2;
-      sum += rmsFsqrpV;
-      rmsSpre=rmsS;
-      rmsFpre=rmsF;
-    }
-#endif    
     return;
   }
   // slice RMS_CNT: take root
   if(spos==RMS_CNT) {
-    // take mean-root
-    rms=sqrt((sum+RMS_CNT/2)/RMS_CNT)+0.5;
-#ifdef RMS_DT1    
-    rms >>= -RMS_NORM;
-#endif    
+    // provide  mean-root by 11bit (i.e. keep one extra bit) 
+    rms=sqrt((sum+(RMS_CNT/4)/2)/(RMS_CNT/4))+0.5;
     spos++;
     return;
   }  
   // slice RMS_CNT: finilize result
   if(spos==RMS_CNT+1) {
-    // normalise mV/100mA    
-    vlt = ((uint32_t) rms * 3300 + 511)/1023;
-    cur = ((uint32_t) rms * 33 * 95 +511)/1023; //prelim calibration 1mV * 0.95 <> 100mA
+    // normalise mV/100mA
+#ifdef VREF25    
+    sns = ((uint32_t) rms * 2500 + (1023*2)/2)/(1023*2);
+    cur = ((uint32_t) rms * 25 * 95 + (1023*2)/2)/(1023*2); //prelim calibration 1mV * 0.95 <> 100mA
+#else
+    sns = ((uint32_t) rms * 3300 + (1023*2)/2)/(1023*2);
+    cur = ((uint32_t) rms * 33 * 95 + (1023*2)/2)/(1023*2); //prelim calibration 1mV * 0.95 <> 100mA
+#endif    
     // store to global param
     switch(g_rms_phase) {  
     case 1:
-      g_rms1=vlt;
+      g_rms1=rms;
+      g_sns1=sns;
       g_cur1=cur;
       break;
     case 2:
-      g_rms2=vlt;
+      g_rms2=rms;
+      g_sns2=sns;
       g_cur2=cur;
       break;
     case 3:
-      g_rms3=vlt;
+      g_rms3=rms;
+      g_sns3=sns;
       g_cur3=cur;
       break;
     default:
@@ -1381,13 +1385,25 @@ void rms_process(void) {
     // report
 #ifdef DEBUG_RMS
     serial_writeln_sync();
-    serial_write_str("% rms1=");
+    serial_write_str("% L1: ");
+    serial_write_uint(g_cur1);
+    serial_write_str(" (");
+    serial_write_uint(g_sns1);
+    serial_write_str("mV@");
     serial_write_uint(g_rms1);
-    serial_write_str("mV; rms2=");
+    serial_write_str("); L2: ");
+    serial_write_uint(g_cur2);
+    serial_write_str(" (");
+    serial_write_uint(g_sns2);
+    serial_write_str("mV@");
     serial_write_uint(g_rms2);
-    serial_write_str("mV; rms3=");
+    serial_write_str("); L3: ");
+    serial_write_uint(g_cur3);
+    serial_write_str(" (");
+    serial_write_uint(g_sns3);
+    serial_write_str("mV@");
     serial_write_uint(g_rms3);
-    serial_write_str("mV;");
+    serial_write_str(");");
     serial_write_eol();
     serial_writeln_async();
 #endif
@@ -1453,6 +1469,13 @@ int16_t rms3_start(int16_t val) {
 
 
 // development scratch for processing rms record (signature for cli wrapper)
+
+// (includes test code with DT1 )
+#define RMS_K 8           // filter gain in bits, i.e. K=2**8=256  
+#define RMS_V1 2          // scaling sum of squares in bits, i.e., V1=2**2=4
+#define RMS_V2 10         // scaling sum of squares in bits, i.e., V2=2**10=1024
+#define RMS_NORM  ((2*RMS_V1+RMS_V2)/2 - RMS_K)  // normalise by "*Sqrt(V1V1V2)/K"
+
 int16_t rms_dump(int16_t val) {
   if(val!=1) return 0;
   // check buffer
@@ -2090,6 +2113,7 @@ int main(){
   serial_init();
   ledbutton_init();
   dio_init();
+  vref_init();
   adc_init();
   rms_init();
   cppwm_init();
