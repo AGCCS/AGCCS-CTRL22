@@ -177,8 +177,7 @@ avrdude -patmega4808  -carduino -Pnet:192.168.4.1:2323 -U flash:w:{SOME_HEX_FILE
 
 In this repository we currently provide the develoment version Rev-1-2 as an editable KiCad project and the schematics of Rev-1-1 for inspection. We are currently running a modded variant of the initial Rev-1-0 for evaluation purposes. We expect to finalise and test Rev-1-2 in near future.
 
-
-Revision 1.1
+## Revision 1.1
 
 Schematics
 - seperate terminals J1/J2 and J6/J7
@@ -194,17 +193,16 @@ Layout
 - placed ESP32 on backside
 - track back changes in the schematics
 
-
-Revision 1.2
+## Revision 1.2
 
 Schematics
 - jet again the push button electronics
-- added a diode to seperate the lock from 12V supply (brown out)
+- brown ouutr detection incl. opening lock
 - improved current reading circuit
 
 Layout
 
-- trcak back changes in the schematics
+- track back changes in the schematics
 
 
 
