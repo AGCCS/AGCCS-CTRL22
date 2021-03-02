@@ -1021,7 +1021,6 @@ F 0 "J1" H 775 1900 50  0000 C CNN
 F 1 "Screw_Terminal_01x05" H 693 1926 50  0001 C CNN
 F 2 "atmevse-footprints:hv_screw_5pin_1" H 775 1600 50  0001 C CNN
 F 3 "~" H 775 1600 50  0001 C CNN
-F 4 "na" H 775 1600 50  0001 C CNN "PartNo"
 	1    775  1600
 	-1   0    0    -1  
 $EndComp

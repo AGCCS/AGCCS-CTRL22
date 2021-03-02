@@ -612,7 +612,7 @@ F 1 "BAT54S" V 3405 6488 50  0000 L CNN
 F 2 "Package_TO_SOT_SMD:SOT-23_Handsoldering" H 3525 6525 50  0001 L CNN
 F 3 "https://www.diodes.com/assets/Datasheets/ds11005.pdf" H 3330 6400 50  0001 C CNN
 F 4 "" H 3450 6400 50  0001 C CNN "Part"
-F 5 "757-TBAT54SLM " H 3450 6400 50  0001 C CNN "PartNo"
+F 5 " 757-TBAT54SLM " H 3450 6400 50  0001 C CNN "PartNo"
 F 6 "Mouser" H 3450 6400 50  0001 C CNN "Supplier"
 	1    3450 6400
 	0    1    -1   0   
@@ -626,7 +626,7 @@ F 1 "BAT54S" V 2905 6488 50  0000 L CNN
 F 2 "Package_TO_SOT_SMD:SOT-23_Handsoldering" H 3025 6525 50  0001 L CNN
 F 3 "https://www.diodes.com/assets/Datasheets/ds11005.pdf" H 2830 6400 50  0001 C CNN
 F 4 "" H 2950 6400 50  0001 C CNN "Part"
-F 5 "757-TBAT54SLM " H 2950 6400 50  0001 C CNN "PartNo"
+F 5 " 757-TBAT54SLM " H 2950 6400 50  0001 C CNN "PartNo"
 F 6 "Mouser" H 2950 6400 50  0001 C CNN "Supplier"
 	1    2950 6400
 	0    1    -1   0   
@@ -785,7 +785,7 @@ F 0 "J4" H 7100 1925 50  0000 C CNN
 F 1 "Conn_01x04" H 7400 1600 50  0001 C CNN
 F 2 "atmevse-footprints:UART0-Header" H 7100 1700 50  0001 C CNN
 F 3 "~" H 7100 1700 50  0001 C CNN
-F 4 "na" H 7100 1700 50  0001 C CNN "PartNo"
+F 4 "" H 7100 1700 50  0001 C CNN "PartNo"
 F 5 "Mouser" H 7100 1700 50  0001 C CNN "Supplier"
 	1    7100 1700
 	1    0    0    1   
@@ -1113,7 +1113,7 @@ F 1 "BAT54S" V 5125 6550 50  0000 L CNN
 F 2 "Package_TO_SOT_SMD:SOT-23_Handsoldering" H 5250 6625 50  0001 L CNN
 F 3 "https://www.diodes.com/assets/Datasheets/ds11005.pdf" H 5055 6500 50  0001 C CNN
 F 4 "" H 5175 6500 50  0001 C CNN "Part"
-F 5 "757-TBAT54SLM " H 5175 6500 50  0001 C CNN "PartNo"
+F 5 " 757-TBAT54SLM " H 5175 6500 50  0001 C CNN "PartNo"
 F 6 "Mouser" H 5175 6500 50  0001 C CNN "Supplier"
 	1    5175 6500
 	0    1    -1   0   
@@ -1159,7 +1159,7 @@ F 1 "BAT54S" V 1975 4175 50  0000 L CNN
 F 2 "Package_TO_SOT_SMD:SOT-23_Handsoldering" H 2100 4225 50  0001 L CNN
 F 3 "https://www.diodes.com/assets/Datasheets/ds11005.pdf" H 1905 4100 50  0001 C CNN
 F 4 "" H 2025 4100 50  0001 C CNN "Part"
-F 5 "757-TBAT54SLM " H 2025 4100 50  0001 C CNN "PartNo"
+F 5 " 757-TBAT54SLM " H 2025 4100 50  0001 C CNN "PartNo"
 F 6 "Mouser" H 2025 4100 50  0001 C CNN "Supplier"
 	1    2025 4100
 	0    -1   -1   0   

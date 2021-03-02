@@ -306,7 +306,7 @@ F 1 "BAT54S" V 8105 4813 50  0000 L CNN
 F 2 "Package_TO_SOT_SMD:SOT-23_Handsoldering" H 8225 4850 50  0001 L CNN
 F 3 "https://www.diodes.com/assets/Datasheets/ds11005.pdf" H 8030 4725 50  0001 C CNN
 F 4 "" H 8150 4725 50  0001 C CNN "Part"
-F 5 "757-TBAT54SLM " H 8150 4725 50  0001 C CNN "PartNo"
+F 5 " 757-TBAT54SLM " H 8150 4725 50  0001 C CNN "PartNo"
 F 6 "Mouser" H 8150 4725 50  0001 C CNN "Supplier"
 	1    8150 4725
 	0    1    -1   0   
@@ -744,7 +744,6 @@ F 0 "J6" H 10875 2950 50  0000 L CNN
 F 1 "Screw_Terminal_01x09" H 11005 2401 50  0001 L CNN
 F 2 "atmevse-footprints:lv_screw_9pin_1" H 10925 2450 50  0001 C CNN
 F 3 "~" H 10925 2450 50  0001 C CNN
-F 4 "na" H 10925 2450 50  0001 C CNN "PartNo"
 	1    10925 2450
 	1    0    0    -1  
 $EndComp
@@ -756,7 +755,7 @@ F 0 "J7" H 10875 2875 50  0000 L CNN
 F 1 "Screw_Terminal_01x09" H 11005 3351 50  0001 L CNN
 F 2 "atmevse-footprints:lv_screw_9pin_2" H 10925 3400 50  0001 C CNN
 F 3 "~" H 10925 3400 50  0001 C CNN
-F 4 "490-TB004-508-18BE " H 10925 3400 50  0001 C CNN "PartNo"
+F 4 " 490-TB004-508-18BE " H 10925 3400 50  0001 C CNN "PartNo"
 	1    10925 3400
 	1    0    0    -1  
 $EndComp
@@ -773,7 +772,7 @@ F 0 "D8" V 4246 2063 50  0000 L CNN
 F 1 "BAT54S" V 4155 2063 50  0000 L CNN
 F 2 "Package_TO_SOT_SMD:SOT-23_Handsoldering" H 4275 2100 50  0001 L CNN
 F 3 "https://www.diodes.com/assets/Datasheets/ds11005.pdf" H 4080 1975 50  0001 C CNN
-F 4 "757-TBAT54SLM " H 4200 1975 50  0001 C CNN "PartNo"
+F 4 " 757-TBAT54SLM " H 4200 1975 50  0001 C CNN "PartNo"
 F 5 "Mouser" H 4200 1975 50  0001 C CNN "Supplier"
 	1    4200 1975
 	0    1    -1   0   
@@ -786,7 +785,7 @@ F 0 "D9" V 4246 3313 50  0000 L CNN
 F 1 "BAT54S" V 4155 3313 50  0000 L CNN
 F 2 "Package_TO_SOT_SMD:SOT-23_Handsoldering" H 4275 3350 50  0001 L CNN
 F 3 "https://www.diodes.com/assets/Datasheets/ds11005.pdf" H 4080 3225 50  0001 C CNN
-F 4 "757-TBAT54SLM " H 4200 3225 50  0001 C CNN "PartNo"
+F 4 " 757-TBAT54SLM " H 4200 3225 50  0001 C CNN "PartNo"
 F 5 "Mouser" H 4200 3225 50  0001 C CNN "Supplier"
 	1    4200 3225
 	0    1    -1   0   
@@ -799,7 +798,7 @@ F 0 "D10" V 4246 4513 50  0000 L CNN
 F 1 "BAT54S" V 4155 4513 50  0000 L CNN
 F 2 "Package_TO_SOT_SMD:SOT-23_Handsoldering" H 4275 4550 50  0001 L CNN
 F 3 "https://www.diodes.com/assets/Datasheets/ds11005.pdf" H 4080 4425 50  0001 C CNN
-F 4 "757-TBAT54SLM " H 4200 4425 50  0001 C CNN "PartNo"
+F 4 " 757-TBAT54SLM " H 4200 4425 50  0001 C CNN "PartNo"
 F 5 "Mouser" H 4200 4425 50  0001 C CNN "Supplier"
 	1    4200 4425
 	0    1    -1   0   

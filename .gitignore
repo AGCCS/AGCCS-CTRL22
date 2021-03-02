@@ -20,6 +20,9 @@ ctrl22/*.o
 # KiKad
 circuit/KiCad/*.kicad_pcb-bak
 circuit/KiCad/*.sch-bak
+circuit/KiCad/*.bck
+circuit/KiCad/fp-info-cache
+circuit/KiCad/*-cache.lib 
 
 # local archive
 local

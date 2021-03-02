@@ -1,0 +1,13 @@
+EESchema-DOCLIB  Version 2.0
+#
+$CMP +12V_fused
+D Power symbol creates a global label with name "+12V_fused"
+K power-flag
+$ENDCMP
+#
+$CMP +12V_lock
+D Power symbol creates a global label with name "+12V_lock"
+K power-flag
+$ENDCMP
+#
+#End Doc Library
