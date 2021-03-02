@@ -1,6 +1,6 @@
 # Demesh --- ESP Firmware
 
-In a nutshell an ESP wireless mesh network (MWifi) is organised as a tree of nodes which pass on messages to their direct parent or children. This is a completely different story than common Wifi, where each station communicates directly with the access point. In particular, there are neither TCP sockets,  UDP telegrams or IP addresses in a MWifi. Benefits include a larger coverage without dedicated repeaters and a lower power comsumption. The tree will dynamically reconfigure itself dependend on channel quality. This all sounds very involved and indeeed is so. However, Espressif provides a ready-to-go SDK and all the magic happens under the hood; see [ESP-MDF on github](https://github.com/espressif/esp-mdf), including a large number of getting-started examples, and/or the [reference documentation](https://docs.espressif.com/projects/esp-mdf/en/latest/?badge=latest).
+In a nutshell an ESP wireless mesh network (MWifi) is organised as a tree of nodes which pass on messages to their direct parent or children. This is a completely different story than common Wifi, where each station communicates directly with the access point. In particular, there are neither TCP sockets,  UDP telegrams or IP addresses in a MWifi. Benefits include a larger coverage without dedicated repeaters and a lower power consumption. The tree will dynamically reconfigure itself dependent on channel quality. This all sounds very involved and indeed is so. However, Espressif provides a ready-to-go SDK and all the magic happens under the hood; see [ESP-MDF on GitHub](https://github.com/espressif/esp-mdf), including a large number of getting-started examples, and/or the [reference documentation](https://docs.espressif.com/projects/esp-mdf/en/latest/?badge=latest).
 
 
 
@@ -34,7 +34,7 @@ Effectively we tunnel the serial line of the target uC to the host. To be of pra
 
 In the case you are familar with ESP-MDF, check that you have updated at lesat to version "v1.0_107", so no "beta". This is crucial because the underlying  ESP-IDF was upgraded from "v3.3.2" to "v4.2.0" and we have updated `demesh.c` accordingly. You're then set to configure and compile `demesh`
 
-In the case you are not familar with ESP-MDF, there are a number of concepts to become aquainted to, but we believe its worth the effort. Go to the repository and get a copy of ESP-MDF "v1.0". This is described in [ESP-**M**DF Getting Started](https://docs.espressif.com/projects/esp-mdf/en/latest/get-started/index.html#get-esp-mdf): 
+In the case you are not familiar with ESP-MDF, there are a number of concepts to become acquainted to, but we believe its worth the effort. Go to the repository and get a copy of ESP-MDF "v1.0". This is described in [ESP-**M**DF Getting Started](https://docs.espressif.com/projects/esp-mdf/en/latest/get-started/index.html#get-esp-mdf): 
 
 ```
 mkdir esp
