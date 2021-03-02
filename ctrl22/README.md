@@ -12,7 +12,7 @@ The established way to charge an EV according the relevant CCS specification is 
 - (B) lock the charging cable, indicate available power, and wait for car to be ready to charge;
 - (C) forward the mains power to the car
 
-If the maximum available mains current and the allocated phases do not change, this is exaclty how our frmware behaves. However, when allocating the power dynamically, we need to take some extra precautions. The below proposal is an early draft and we expect some further tweaks to be required. To this end, it should work out fine for static power allocation.
+If the maximum available mains current and the allocated phases do not change, this is exactly how our firmware behaves. However, when allocating the power dynamically, we need to take some extra precautions. The below proposal is an early draft and we expect some further tweaks to be required. To this end, it should work out fine for static power allocation.
 
 
 

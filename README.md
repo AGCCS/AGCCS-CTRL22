@@ -1,7 +1,7 @@
 AGCCS-CTRL22
 ============
 
-The Combined Charging System [CCS] provides the today's standard for low-cost home-charging of electric vehicles with up to 22kW. The specification includes a simplistic protocol by which the vehicle and the charging station negotiate available power. Of-the-shelf wallboxes forward the common 3x230V supply at an adjustable current limit to the vehicle via the CCS standard.
+The Combined Charging System [CCS] provides the today's standard for low-cost home-charging of electric vehicles with up to 22kW. The specification includes a simplistic protocol by which the vehicle and the charging station negotiate available power. Of-the-shelf wall-boxes forward the common 3x230V supply at an adjustable current limit to the vehicle via the CCS standard.
 
 The aim of this project is to scale the simplicity of the low-cost single-user wallbox approach to larger parking lots in order to address appartment buildings or shopping venues. These configurations are characterised by a limited and possibly varying amount of available power. Hence, a fixed allocation per parking slot would be inefficient. Instead, we seek for an environment by which individual charging spots communicate and negotiate the power distribution dynamically. Conveivable schemes include first-come-first-serve, fairness-based energy distribution, or ready-to-go-by-schedule. Optionally, an external agent may limit the ussage of non-renewable enery in favour of e.g. available solar power at the given time to the day. 
 
@@ -15,7 +15,7 @@ Our implementation consists of three main components
 
 - a **hardware platform** to implement a relevant subset of the CCS standard
 - a **per node software** environment to control the charging process and to establish a communication network
-- a centralized host with **server sorftware** for dynamic power allocation and monitoring 
+- a centralised host with **server  for dynamic power allocation and monitoring 
 
 All three components are open source and can be hence adapted to best fit a variety of application scenarios.
 
@@ -66,7 +66,7 @@ Well, no turn-key solution ... but perhaps some interesting venues for the enthu
 
 This project is an initiative by Christoph Pflaum and Thomas Moor, both with FAU/Erlangen/Germany. We appreciate the following contributions by our students.
 
-- Pascal Thurnherr: [BA thesis](./doc/Bachelorarbeit_Pascal_Thurnherr.pdf) *Entwiclung, Aufbau und Test einer Ladeeinrichting für Elektrofahrzeuge nach IEC62169*, FAU, Erlangen 2020; see also [this project](https://github.com/dreadnomad/FGCCS-Ctrl22).
+- Pascal Thurnherr: [BA thesis](./doc/Bachelorarbeit_Pascal_Thurnherr.pdf) , Aufbau und Test einer Ladeneinrichtung für Elektrofahrzeuge nach IEC62169*, FAU, Erlangen 2020; see also [this project](https://github.com/dreadnomad/FGCCS-Ctrl22).
 - Antoine Schultz: BA thesis *Firmwareverwaltung drahtlos vernetzter Kleinstrechner mit angekoppelten Mikroprozessoren*, FAU, Erlangen 2020.
 - Xinhuang Gong: MA project at FAU/Erlangen, 2021, ongoing.
 
