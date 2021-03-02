@@ -10,4 +10,10 @@ D Power symbol creates a global label with name "12V_fused"
 K power-flag
 $ENDCMP
 #
+$CMP Opamp_Dual_Generic_SmallVcc
+D Dual operational amplifier
+K dual opamp
+F ~
+$ENDCMP
+#
 #End Doc Library

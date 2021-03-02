@@ -23,7 +23,7 @@ U 1 1 5E906C0D
 P 8500 1300
 F 0 "C20" H 8592 1346 50  0000 L CNN
 F 1 "100n" H 8592 1255 50  0000 L CNN
-F 2 "Capacitor_SMD:C_0805_2012Metric_Pad1.15x1.40mm_HandSolder" H 8500 1300 50  0001 C CNN
+F 2 "Capacitor_SMD:C_0805_2012Metric_Pad1.18x1.45mm_HandSolder" H 8500 1300 50  0001 C CNN
 F 3 "~" H 8500 1300 50  0001 C CNN
 F 4 "" H 8500 1300 50  0001 C CNN "Part"
 F 5 "963-EMF212B7104KGHT " H 8500 1300 50  0001 C CNN "PartNo"
@@ -71,7 +71,7 @@ F 5 "926-LM7332MA/NOPB" H 7700 3000 50  0001 C CNN "PartNo"
 	1    0    0    -1  
 $EndComp
 $Comp
-L Device:Opamp_Dual_Generic U11
+L agccs-ctrl22:Opamp_Dual_Generic_SmallVcc U11
 U 3 1 5E913947
 P 8100 1800
 F 0 "U11" H 8058 1846 50  0001 L CNN
@@ -118,7 +118,7 @@ U 1 1 5E918D93
 P 8300 2250
 F 0 "C18" H 8392 2296 50  0000 L CNN
 F 1 "100n" H 8392 2205 50  0000 L CNN
-F 2 "Capacitor_SMD:C_0805_2012Metric_Pad1.15x1.40mm_HandSolder" H 8300 2250 50  0001 C CNN
+F 2 "Capacitor_SMD:C_0805_2012Metric_Pad1.18x1.45mm_HandSolder" H 8300 2250 50  0001 C CNN
 F 3 "~" H 8300 2250 50  0001 C CNN
 F 4 "" H 8300 2250 50  0001 C CNN "Part"
 F 5 "963-EMF212B7104KGHT " H 8300 2250 50  0001 C CNN "PartNo"
@@ -358,8 +358,6 @@ Text HLabel 10725 2850 0    50   Input ~ 0
 Lock_W
 Text HLabel 7450 4400 0    50   Output ~ 0
 PP
-Text HLabel 1475 6400 0    50   Input ~ 0
-Signal_Relay
 Wire Notes Line
 	7350 800  7350 2450
 Wire Notes Line
@@ -377,7 +375,7 @@ CP_to_relay
 Text Label 9475 3100 0    50   ~ 0
 PP_to_relay
 Text HLabel 4525 1625 2    50   Output ~ 0
-CT0
+CT1
 $Comp
 L power:GND #PWR?
 U 1 1 5EC179B9
@@ -399,7 +397,7 @@ AR Path="/5E98FA8A/5EC179C0" Ref="C?"  Part="1"
 AR Path="/5E903BF9/5EC179C0" Ref="C23"  Part="1" 
 F 0 "C23" H 3717 2021 50  0000 L CNN
 F 1 "100n" H 3717 1930 50  0000 L CNN
-F 2 "Capacitor_SMD:C_0805_2012Metric_Pad1.15x1.40mm_HandSolder" H 3625 1975 50  0001 C CNN
+F 2 "Capacitor_SMD:C_0805_2012Metric_Pad1.18x1.45mm_HandSolder" H 3625 1975 50  0001 C CNN
 F 3 "~" H 3625 1975 50  0001 C CNN
 F 4 "" H 3625 1975 50  0001 C CNN "Part"
 F 5 "963-EMF212B7104KGHT " H 3625 1975 50  0001 C CNN "PartNo"
@@ -442,7 +440,7 @@ F 6 "Mouser" H 3000 1625 50  0001 C CNN "Supplier"
 	0    1    1    0   
 $EndComp
 Text HLabel 4525 2875 2    50   Output ~ 0
-CT1
+CT2
 $Comp
 L Device:C_Small C?
 U 1 1 5EC179F0
@@ -451,7 +449,7 @@ AR Path="/5E98FA8A/5EC179F0" Ref="C?"  Part="1"
 AR Path="/5E903BF9/5EC179F0" Ref="C24"  Part="1" 
 F 0 "C24" H 3717 3271 50  0000 L CNN
 F 1 "100n" H 3717 3180 50  0000 L CNN
-F 2 "Capacitor_SMD:C_0805_2012Metric_Pad1.15x1.40mm_HandSolder" H 3625 3225 50  0001 C CNN
+F 2 "Capacitor_SMD:C_0805_2012Metric_Pad1.18x1.45mm_HandSolder" H 3625 3225 50  0001 C CNN
 F 3 "~" H 3625 3225 50  0001 C CNN
 F 4 "" H 3625 3225 50  0001 C CNN "Part"
 F 5 "963-EMF212B7104KGHT " H 3625 3225 50  0001 C CNN "PartNo"
@@ -492,7 +490,7 @@ F 6 "Mouser" H 3000 2875 50  0001 C CNN "Supplier"
 	0    1    1    0   
 $EndComp
 Text HLabel 4525 4075 2    50   Output ~ 0
-CT2
+CT3
 $Comp
 L Device:C_Small C?
 U 1 1 5EC17A20
@@ -501,7 +499,7 @@ AR Path="/5E98FA8A/5EC17A20" Ref="C?"  Part="1"
 AR Path="/5E903BF9/5EC17A20" Ref="C25"  Part="1" 
 F 0 "C25" H 3717 4471 50  0000 L CNN
 F 1 "100n" H 3717 4380 50  0000 L CNN
-F 2 "Capacitor_SMD:C_0805_2012Metric_Pad1.15x1.40mm_HandSolder" H 3625 4425 50  0001 C CNN
+F 2 "Capacitor_SMD:C_0805_2012Metric_Pad1.18x1.45mm_HandSolder" H 3625 4425 50  0001 C CNN
 F 3 "~" H 3625 4425 50  0001 C CNN
 F 4 "" H 3625 4425 50  0001 C CNN "Part"
 F 5 "963-EMF212B7104KGHT " H 3625 4425 50  0001 C CNN "PartNo"
@@ -556,29 +554,25 @@ Wire Wire Line
 Wire Wire Line
 	10725 3800 10525 3800
 Text Label 10525 3300 0    50   ~ 0
-CT0_L
+CT1_L
 Text Label 10525 3400 0    50   ~ 0
-CT0_K
+CT1_K
 Text Label 10525 3500 0    50   ~ 0
-CT1_L
+CT2_L
 Text Label 10525 3600 0    50   ~ 0
-CT1_K
+CT2_K
 Text Label 10525 3700 0    50   ~ 0
-CT2_L
+CT3_L
 Text Label 10525 3800 0    50   ~ 0
-CT2_K
-Text Label 3075 1450 0    50   ~ 0
-CT0_L
-Text Label 2925 1450 2    50   ~ 0
-CT0_K
+CT3_K
 Text Label 3075 2700 0    50   ~ 0
-CT1_L
-Text Label 2925 2700 2    50   ~ 0
-CT1_K
-Text Label 3075 3900 0    50   ~ 0
 CT2_L
-Text Label 2925 3900 2    50   ~ 0
+Text Label 2925 2700 2    50   ~ 0
 CT2_K
+Text Label 3075 3900 0    50   ~ 0
+CT3_L
+Text Label 2925 3900 2    50   ~ 0
+CT3_K
 $Comp
 L power:+3.3V #PWR042
 U 1 1 5EC624C4
@@ -676,14 +670,7 @@ CP_to_relay
 Text Label 3325 6800 0    50   ~ 0
 CP_con
 Wire Wire Line
-	1825 6400 1825 6000
-Wire Wire Line
 	1825 6000 1975 6000
-Wire Wire Line
-	1825 6400 1475 6400
-Wire Wire Line
-	1825 6400 1825 6600
-Connection ~ 1825 6400
 Wire Wire Line
 	2475 6200 2225 6200
 Wire Wire Line
@@ -737,7 +724,7 @@ Wire Wire Line
 Wire Wire Line
 	2175 6000 2475 6000
 $Comp
-L Device:Opamp_Dual_Generic U11
+L agccs-ctrl22:Opamp_Dual_Generic_SmallVcc U11
 U 1 1 5E9126F4
 P 7900 1800
 F 0 "U11" H 8100 2000 50  0000 C CNN
@@ -768,6 +755,7 @@ F 0 "J7" H 10875 2875 50  0000 L CNN
 F 1 "Screw_Terminal_01x09" H 11005 3351 50  0001 L CNN
 F 2 "atmevse-footprints:lv_screw_9pin_2" H 10925 3400 50  0001 C CNN
 F 3 "~" H 10925 3400 50  0001 C CNN
+F 4 " 490-TB004-508-18BE " H 10925 3400 50  0001 C CNN "PartNo"
 	1    10925 3400
 	1    0    0    -1  
 $EndComp
@@ -1209,14 +1197,25 @@ Wire Notes Line
 Wire Wire Line
 	1525 1925 2175 1925
 $Comp
-L agccs-ctrl22:12V_fused #PWR?
+L agccs-ctrl22:12V_fused #PWR0121
 U 1 1 6046C524
 P 10725 2550
-F 0 "#PWR?" H 10725 2400 50  0001 C CNN
+F 0 "#PWR0121" H 10725 2400 50  0001 C CNN
 F 1 "12V_fused" V 10740 2677 50  0000 L CNN
 F 2 "" H 10725 2550 50  0001 C CNN
 F 3 "" H 10725 2550 50  0001 C CNN
 	1    10725 2550
 	0    -1   -1   0   
 $EndComp
+Wire Wire Line
+	1825 6000 1825 6600
+Text Label 2925 1450 2    50   ~ 0
+CT1_K
+Text Label 3075 1450 0    50   ~ 0
+CT1_L
+Text HLabel 1625 6000 0    50   Input ~ 0
+Signal_Relay
+Wire Wire Line
+	1825 6000 1625 6000
+Connection ~ 1825 6000
 $EndSCHEMATC
