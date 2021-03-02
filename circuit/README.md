@@ -46,7 +46,7 @@ Lock_W ---------------------[ actuator ] ---+
 																						|
 Lock_R -------------------------------------+
                                             |
-Lock_B -------------------  [ contact ]-----+
+Lock_B ---------------------[ contact ]-----+
 ```
 
 Here it is assumed that the lock closed when Lock_R is driven to 12V while Lock_W is driven to GND. 
