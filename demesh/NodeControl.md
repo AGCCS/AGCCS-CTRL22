@@ -20,7 +20,7 @@ The status request command is specified by `"cmd:"status"` and has no further pa
 | "rssi":^VAL^        | with ^VAL^ the RSSI to the parent; this indicates the signal quality to the uplink |
 | "layer":^VAL^       | with ^VAL^ the layer within the mesh; i.e., the number of nodes actually emitting a message until it reaches the access point |
 | "nodes":^VAL^       | with ^VAL^ the number of nodes in the entire mesh network    |
-| "plat":^VAL^        | with ^VAL^ the overall time ms for a message to be once propagated forth and back to the parent; i.e., parent-roundtrip latency |
+| "plat":^VAL^        | with ^VAL^ the overall time in ms for a message to be once propagated forth and back to the parent; i.e., parent-roundtrip latency |
 
 To gather all  relevant data to figure the mesh topology, the host may send `{"dst":"*","cmd":"status"}` via TCP to the root node. 
 
