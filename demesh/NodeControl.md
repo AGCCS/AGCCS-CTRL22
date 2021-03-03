@@ -1,6 +1,6 @@
 # Node Control Protocol
 
-Individual Nodes receive messages from the host via the root node and the mesh network. All such messages and the respective acknowledgements are JSON encoded ASCII strings, i.e., records of key-value pairs in a human readable format. Any request sent must include an entry `"cmd":"&lt;CMD&gt;"`, where &lt;CMD&gt; specifies the request. The task `node_read_task()` indefinitely waits for messages, dispatches the requests accordingly and issues ancknowledgement. The latter must include a `"src":"&lt;ADDR&gt;"`entry and an `"mtype":"&lt;TYPE&gt;"`entry to indicate the reporting node and the format of any further key-value pairs in the reply, respectively. Most commonly, &lt;TYPE&gt; is set to &lt;CMD&gt; as this is sufficient for the host to adequately interpret the message. 
+Individual Nodes receive messages from the host via the root node and the mesh network. All such messages and the respective acknowledgements are JSON encoded ASCII strings, i.e., records of key-value pairs in a human readable format. Any request sent must include an entry `"cmd":"~CMD~"`, where ~CMD~ specifies the request. The task `node_read_task()` indefinitely waits for messages, dispatches the requests accordingly and issues ancknowledgement. The latter must include a `"src":"~ADDR~"`entry and an `"mtype":"~TYPE~"`entry to indicate the reporting node and the format of any further key-value pairs in the reply, respectively. Most commonly, ~TYPE~ is set to ~CMD~ as this is sufficient for the host to adequately interpret the message. 
 
 **Example.** When node d8:a0:1d:55:a7:10 receives  the message  `{"cmd":"status"}`, the node replies with a record like `{"src":"d8:a0:1d:55:a7:10", "mtype":"status", "parent":"d8:a0:1d:55:37:cd", "rssi":-40, "layer":2,"nodes":3, "plat":57}`.  By identifying ``"mtype":"status"`the host knows how to read the further key-value pairs in the reply. In this example, node d8:a0:1d:55:a7:10 reports on the status of its connection status to the mesh network. 
 
@@ -14,13 +14,13 @@ A restart request is specified by `"cmd:"restart"` and has no further parameters
 
 The status request command is specified by `"cmd:"status"` and has no further parameters. The acknowledgement indicates the connection status in the mesh network and includes the following keys.
 
-| Key                       | Comment                                                      |
-| ------------------------- | ------------------------------------------------------------ |
-| "parent":"&lt;PARENT&gt;" | the address &lt;PARENT&gt; of this nodes parent; the root node will fill this value with the access point MAC address |
-| "rssi":&lt;VAL&gt;        | with &lt;VAL&gt; the RSSI to the parent; this indicates the signal quality to the uplink |
-| "layer":&lt;VAL&gt;       | with &lt;VAL&gt; the layer within the mesh; i.e., the number of nodes actually emitting a message until it reaches the access point |
-| "nodes":&lt;VAL&gt;       | with &lt;VAL&gt; the number of nodes in the entire mesh network |
-| "plat":&lt;VAL&gt;        | with &lt;VAL&gt; the overall time ms for a message to be once propagated forth and back to the parent; i.e., parent-roundtrip latency |
+| Key                 | Comment                                                      |
+| ------------------- | ------------------------------------------------------------ |
+| "parent":"~PARENT~" | the address ~PARENT~ of this nodes parent; the root node will fill this value with the access point MAC address |
+| "rssi":~VAL~        | with ~VAL~ the RSSI to the parent; this indicates the signal quality to the uplink |
+| "layer":~VAL~       | with ~VAL~ the layer within the mesh; i.e., the number of nodes actually emitting a message until it reaches the access point |
+| "nodes":~VAL~       | with ~VAL~ the number of nodes in the entire mesh network    |
+| "plat":~VAL~        | with ~VAL~ the overall time ms for a message to be once propagated forth and back to the parent; i.e., parent-roundtrip latency |
 
 To gather all  relevant data to figure the mesh topology, the host may send `{"dst":"*","cmd":"status"}` via TCP to the root node. 
 
@@ -30,13 +30,13 @@ To gather all  relevant data to figure the mesh topology, the host may send `{"d
 
 The system report request command is specified by `"cmd:"system"` and has no further parameters. The acknowledgement reports the overal system status  and includes the following keys.
 
-| Key                                 | Comment                                                      |
-| ----------------------------------- | ------------------------------------------------------------ |
-| "time":&lt;TIME&gt;                 | system time &lt;TIME&gt; in ms; all nodes have manage a synchronised system time with a role-ove at 3600000, i.e., one hour |
-| "version":"&lt;MAJ&gt;.&lt;MIN&gt;" | version of the firmware as string with &lt;MAJ&gt; and &lt;MIN&gt; one decimal digit each |
-| "board":"&lt;BOARD&gt;"             | hardware platform identigyer, e.g. `"board":"m5stick"` for the M5StickC or `"board"="agccs12"` for our charging station with a Rev-1-2 board |
-| "avrver":&lt;VER&gt;                | version of the firmware of the attached AVR as an integer; our firmware `ctrl22.c` reports a two digit number with the first digit the major versiom and the secont the minor version; version 0 is recerved to indicate "no AVR attached" |
-| "plat"=&lt;LATENCY&gt;              | the estimated latency in ms to snd a message to the root     |
+| Key                     | Comment                                                      |
+| ----------------------- | ------------------------------------------------------------ |
+| "time":~TIME~           | system time ~TIME~ in ms; all nodes have manage a synchronised system time with a role-ove at 3600000, i.e., one hour |
+| "version":"~MAJ~.~MIN~" | version of the firmware as string with ~MAJ~ and ~MIN~ one decimal digit each |
+| "board":"~BOARD~"       | hardware platform identigyer, e.g. `"board":"m5stick"` for the M5StickC or `"board"="agccs12"` for our charging station with a Rev-1-2 board |
+| "avrver":~VER~          | version of the firmware of the attached AVR as an integer; our firmware `ctrl22.c` reports a two digit number with the first digit the major versiom and the secont the minor version; version 0 is recerved to indicate "no AVR attached" |
+| "plat"=~LATENCY~        | the estimated latency in ms to snd a message to the root     |
 
 To obtain an overview over all nodes and their respective firmware versions, the host may send `{"dst":"*","cmd":"system"}` via TCP to the root node. 
 
@@ -46,11 +46,11 @@ To obtain an overview over all nodes and their respective firmware versions, the
 
 A time synchronisation request is specified by `"cmd:"tsync"` and has no further parameters. It triggers a synchronisation of the system time as seen by the respective node with its parent. The acknowledgement reports the the time stamps taken.
 
-| Key                 | Comment                                                      |
-| ------------------- | ------------------------------------------------------------ |
-| "tsync1":&lt;T1&gt; | system time &lt;T1&gt; of the respective node when it sent the "ping" to its parent |
-| "tsync2":&lt;T2&gt; | system time &lt;T2&gt; of the parent  when it received the "ping" |
-| "tsync3":&lt;T3&gt; | system time &lt;T3&gt; of the respective node when it received the acknowledgement from the parent |
+| Key           | Comment                                                      |
+| ------------- | ------------------------------------------------------------ |
+| "tsync1":~T1~ | system time ~T1~ of the respective node when it sent the "ping" to its parent |
+| "tsync2":~T2~ | system time ~T2~ of the parent  when it received the "ping"  |
+| "tsync3":~T3~ | system time ~T3~ of the respective node when it received the acknowledgement from the parent |
 
 
 
@@ -60,10 +60,10 @@ The relevant state of the attached AVR is encoded in a set of parameters to asse
 
 
 
-| Key                    | Comment                                                      |
-| ---------------------- | ------------------------------------------------------------ |
-| "avrpar":"&lt;PAR&gt;" | symbolic name &lt;PAR&gt; of the parameter to access; available parameters for our charging station are documented [here](../ctrl22/README.md#Serial-Line-Protocol). |
-| "avrval":&lt;VAL&gt;   | value read from or to be written to the process image; in the acknowledgement on a write access, &lt;VAL&gt; will be set to `"ok"` on success. |
+| Key              | Comment                                                      |
+| ---------------- | ------------------------------------------------------------ |
+| "avrpar":"~PAR~" | symbolic name ~PAR~ of the parameter to access; available parameters for our charging station are documented [here](../ctrl22/README.md#Serial-Line-Protocol). |
+| "avrval":~VAL~   | value read from or to be written to the process image; in the acknowledgement on a write access, ~VAL~ will be set to `"ok"` on success. |
 
 To have all charging stations flash their LED button twice at the beginning of every two-seconds period, the host may send `{"dst":"*", "cmd":"avrsetpar", "avrpar":"blinks", "avrval":2}` via TCP to the root node. 
 
@@ -75,10 +75,10 @@ To have all charging stations flash their LED button twice at the beginning of e
 
 A firmware ugrade request is specified by `"cmd:"upgrade"` and refers to the ESP32 firmware `demesh.c`. There is no acknowledgement to this command. It should be followed up by a system report request. Parameters are provided as follows.
 
-| Key                                 | Comment                                                      |
-| ----------------------------------- | ------------------------------------------------------------ |
-| "board":"&lt;BOARD&gt;"             | hardware platform as configured via `make menuconfig` when specifying the board and as in indicated by system report request; e.g. `"board":"m5stick"` for the M5StickC or `"board"="agccs12"` for our charging station with a Rev-1-2 board |
-| "version":"&lt;MAJ&gt;.&lt;MIN&gt;" | version to upgrade to in the same format as in a system report request reply |
+| Key                     | Comment                                                      |
+| ----------------------- | ------------------------------------------------------------ |
+| "board":"~BOARD~"       | hardware platform as configured via `make menuconfig` when specifying the board and as in indicated by system report request; e.g. `"board":"m5stick"` for the M5StickC or `"board"="agccs12"` for our charging station with a Rev-1-2 board |
+| "version":"~MAJ~.~MIN~" | version to upgrade to in the same format as in a system report request reply |
 
 The upgrade  process is organised by the root note and this is the only node to accept a `"cmd":"upgrade"`.  From the board and version data, the root node infers the firmware filename by convention, e.g., `demesh_m5stick_3_5` for a firmware operable on M5StickC hardware in version v3.5; the prefix `demesh` can be configured via `make menuconfig`, the remaining conventions are hardcoded in `demesh.c`. In particular, there must be one digit for the major version and one digit for the minor version. The root node then connects to an HTTP server to download the firmware file. The IP address defaults to the server to which the root node connects via TCP, the port defaults to 8071; again both configurable via  `make menuconfig`. Once the root has obtained the firmware, is offers it to all other nodes via "ESP-MDF magic". Indivual nodes aill accept the upgrade provided that board matches and the version is different to one it is currently running on.
 
