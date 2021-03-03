@@ -6,24 +6,22 @@
 agccs ctrl22 -- 2021.02.20
 
 - target platform agccs board rev 1.2
-- compiles with avr-gcc 
-- requires avr-libc 2.0. and gcc 7.3
-- although this is a complete re-write, this project benefits from earlier work
-  (a) the SmartEVSE by Michael Stegen (https://github.com/SmartEVSE) and
-  (b) Pascal Thurnherr's Bachelor Thesis (https://github.com/dreadnomad/FGCCS-Ctrl22)
-- this software is (C) Thomas Moor 2020, 2021
-- this software  is distributed by the same license terms as the projects (a) and (b) above. 
-
-revisions since first release
-- xxx
-
+- compiles with avr-gcc, verified avr-libc 2.0. and gcc 7.3
+- although this code is a complete re-write from scratch, we did 
+  (a) conceptually benefit from inspecting the SmartEVSE firmware by 
+  Michael Stegen (https://github.com/SmartEVSE and more speifically the code 
+  in "SmartEVSE-2/SmartEVSE2.X/EVSE.c")
+  (b) build upon the first-installation code by Pascal Thurnherr's regarding
+  port configuration (https://github.com/dreadnomad/FGCCS-Ctrl22)
+- this software is distributed by the same license terms as the projects 
+  (a) and (b) above, except that the copyright is with Thomas Moor. 
 
 
 *************************************************************************
 *************************************************************************
 *************************************************************************
 
-Copyright THomas Moor 2020-2021
+Copyright Thomas Moor 2020-2021
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal

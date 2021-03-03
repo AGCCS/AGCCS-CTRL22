@@ -1,10 +1,10 @@
 /* 
 ===========================================================================
 ===========================================================================
-The below code has been developed to meet its specifc purpose. However, 
-basic core functionality has been derived directly from the examples
-provided by the ESP-IDF and ESP-MDF, such as
-- the Mupgrade example.
+The below code has been developed from scratch to meet its specifc purpose. 
+However, the buiding blocks of basic functionality have been derived 
+from the examples provided by the ESP-IDF and ESP-MDF, in particuar
+- the Mupgrade example
 - the TCP-client example
 - the UART echo example
 We hence inherit the Apache License, Version 2.0, and the code can be 

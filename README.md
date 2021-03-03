@@ -75,11 +75,13 @@ This project is an initiative by Christoph Pflaum and Thomas Moor, both with FAU
 
 # Acknowledgements
 
-The Wikipedia articles on the [SAE 1772](https://de.wikipedia.org/wiki/SAE_J1772nd), the [IEC 62196](https://de.wikipedia.org/wiki/IEC_62196)  and the [IEC 62196 Type 2](https://de.wikipedia.org/wiki/IEC_62196_Typ_2) standards provide an excellent entry point to learn about EV charging technology and we would like thank the respective autors for their effort. Regarding the electrical engineeering aspects of this project, we hereby acknowlegde the inspiration gained from the [SmartEVSE](https://www.smartevse.nl/) and [OpenEVSE](https://www.openevse.com/). On a more general scale, we appreciate the fact that nowerdays relevent software tools are made freely available, such as  the [KiCad EDA](https://kicad.org) , the [Espressif SDKs](https://github.com/espressif), and the [GCC](https://gcc.gnu.org/)-based XTENSA and AVR toolchains, naming the ones most relevant for our project.
+The Wikipedia articles on the [SAE 1772](https://de.wikipedia.org/wiki/SAE_J1772nd), the [IEC 62196](https://de.wikipedia.org/wiki/IEC_62196)  and the [IEC 62196 Type 2](https://de.wikipedia.org/wiki/IEC_62196_Typ_2) standards provide an excellent entry point to learn about EV charging technology and we would like thank the respective autors for their effort. Regarding the electrical engineeering aspects of this project, we hereby acknowlegde that the projects [SmartEVSE](https://www.smartevse.nl/) and [OpenEVSE](https://www.openevse.com/) make their hardware solution available for us to re-use. Starting from scratch would have been so much more tedious. On a more general scale, we appreciate the fact that nowerdays relevent software tools are made freely available, such as  the [KiCad EDA](https://kicad.org) , the [Espressif SDKs](https://github.com/espressif), and the [GCC](https://gcc.gnu.org/)-based XTENSA and AVR toolchains, naming the ones most relevant for our project.
 
 
 
+# Copyright
 
+All software compents in this project are _Copyright by the Authors_ and have been developed independently and from scratch. We procide them Open Source under terms of the MIT License and/or the Apache License, as indicated in the respective code headers.  In particular, you are invited to re-cycle whatever you find useful in whatever project you are after. In the case you feel that you gained a relevant benefit, we would appreciate an acknowledgement, e.g., by linking to our GitHub repository. Regarding the hardware circuitry, our work in relevant aspects is a direct derivative of [SmartEVSE](https://www.smartevse.nl/) distributed as Open Source via [GitHub](https://github.com/SmartEVSE) with no specific license stated, and we pass on our variation likewise. 
 
 
 
