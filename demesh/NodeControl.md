@@ -1,14 +1,14 @@
 # Node Control Protocol
 
-Individual Nodes receive messages from the host via the root node and the mesh network. All such messages and the respective acknowledgements are JSON encoded ASCII strings, i.e., records of key-value pairs in a human readable format. Any request sent must include an entry `"cmd":"<CMD>"`, where <CMD> specifies the request. The task `node_read_task()` indefinitely waits for messages, dispatches the requests accordingly and issues ancknowledgement. The latter must include a `"src":"<ADDR>"`entry and an `"mtype":"<TYPE>"`entry to indicate the reporting node and the format of any further key-value pairs in the reply, respectively. Most commonly, <TYPE> is set to <CMD> as this is sufficient for the host to adequately interpret the message. 
+Individual Nodes receive messages from the host via the root node and the mesh network. All such messages and the respective acknowledgements are JSON encoded ASCII strings, i.e., records of key-value pairs in a human readable format. Any request sent must include an entry `"cmd":"<CMD>"`, where &lt;CMD> specifies the request. The task `node_read_task()` indefinitely waits for messages, dispatches the requests accordingly and issues ancknowledgement. The latter must include a `"src":"<ADDR>"`entry and an `"mtype":"<TYPE>"`entry to indicate the reporting node and the format of any further key-value pairs in the reply, respectively. Most commonly, &lt;TYPE> is set to &lt;CMD> as this is sufficient for the host to adequately interpret the message. 
 
 **Example.** When node d8:a0:1d:55:a7:10 receives  the message  `{"cmd":"status"}`, the node replies with a record like `{"src":"d8:a0:1d:55:a7:10", "mtype":"status", "parent":"d8:a0:1d:55:37:cd", "rssi":-40, "layer":2,"nodes":3, "plat":57}`.  By identifying ``"mtype":"status"`the host knows how to read the further key-value pairs in the reply. In this example, node d8:a0:1d:55:a7:10 reports on the status of its connection status to the mesh network. 
 
-Most relevant requests and their specific key-value pairs given below.
+Most relevant requests and their specific key-value pairs given below. During development and/or for first-installation, the listed requests can initiated by the command-line tool  [dmctrl.py](../utils/).
 
 ### Restart Request
 
-A restart request is specified by `"cmd:"restart"` and has no further parameters. The effect is a soft-reset of the ESP32.
+A restart request is specified by `"cmd:"restart"` and has no further parameters. The effect is a soft-reset of the ESP32. E.g. to restart all nodes in the mesh, the host may send `{"dst"="*","cmd"="restart"}` via TCP to the root node. 
 
 ### Status Request
 
@@ -16,11 +16,15 @@ The status request command is specified by `"cmd:"status"` and has no further pa
 
 | Key                 | Comment                                                      |
 | ------------------- | ------------------------------------------------------------ |
-| "parend":"<PARENT>" | the address <PARENT> of this nodes parent; the root node will fill this value with the access point MAC address |
-| "rssi":<VAL>        | the RSSI to the parent; this indicates the signal quality to the uplink |
-| "layer":<VAL>       | the layer within the mesh; i.e., the number of nodes actually emitting a message until it reaches the accesspoimnt |
-| "nodes":<VAL>       | number of nodes in the entire mesh network                   |
-| "plat":<LATENCY>    | overall time ms for a message to be once propagated forth and back to the parent; i.e., parent-roundtrip latency |
+| "parend":"<PARENT>" | the address &lt;PARENT> of this nodes parent; the root node will fill this value with the access point MAC address |
+| "rssi":&lt;VAL>     | with &lt;VAL> the RSSI to the parent; this indicates the signal quality to the uplink |
+| "layer":&lt;VAL>    | with &lt;VAL> the layer within the mesh; i.e., the number of nodes actually emitting a message until it reaches the access point |
+| "nodes":&lt;VAL>    | with &lt;VAL> the number of nodes in the entire mesh network |
+| "plat":&lt;VAL>     | with &lt;VAL> the overall time ms for a message to be once propagated forth and back to the parent; i.e., parent-roundtrip latency |
+
+To gather all  relevant data to figure the mesh topology, the host may send `{"dst":"*","cmd":"status"}` via TCP to the root node. 
+
+
 
 ### System Report Request
 
@@ -28,11 +32,13 @@ The system report request command is specified by `"cmd:"system"` and has no fur
 
 | Key                     | Comment                                                      |
 | ----------------------- | ------------------------------------------------------------ |
-| "time":<TIME>           | system time <TIME> in ms; all nodes have manage a synchronised system time with a role-ove at 3600000, i.e., one hour |
-| "version":"<MAJ>.<MIN>" | version of the firmware as string with <MAJ> and <MIN> one decimal digit each |
-| "board":"<BOARD>"       | hardware platform identigyer, e.g. `"board":"m5stick"` for the M5StickC or `"board"="agccs12"` for our charging station with a Rev-1-2 board |
-| "avrver":<VER>          | version of the firmware of the attached AVR as an integer; our firmware `ctrl22.c` reports a two digit number with the first digit the major versiom and the secont the minor version; version 0 is recerved to indicate "no AVR attached" |
-| "plat"=<LATENCY>        | the estimated latency in ms to snd a message to the root     |
+| "time":<TIME>           | system time &lt;TIME> in ms; all nodes have manage a synchronised system time with a role-ove at 3600000, i.e., one hour |
+| "version":"<MAJ>.<MIN>" | version of the firmware as string with &lt;MAJ> and &lt;MIN> one decimal digit each |
+| "board":"&lt;BOARD>"    | hardware platform identigyer, e.g. `"board":"m5stick"` for the M5StickC or `"board"="agccs12"` for our charging station with a Rev-1-2 board |
+| "avrver":&lt;VER>       | version of the firmware of the attached AVR as an integer; our firmware `ctrl22.c` reports a two digit number with the first digit the major versiom and the secont the minor version; version 0 is recerved to indicate "no AVR attached" |
+| "plat"=&lt;LATENCY>     | the estimated latency in ms to snd a message to the root     |
+
+To obtain an overview over all nodes and their respective firmware versions, the host may send `{"dst":"*","cmd":"system"}` via TCP to the root node. 
 
 
 
@@ -40,11 +46,11 @@ The system report request command is specified by `"cmd:"system"` and has no fur
 
 A time synchronisation request is specified by `"cmd:"tsync"` and has no further parameters. It triggers a synchronisation of the system time as seen by the respective node with its parent. The acknowledgement reports the the time stamps taken.
 
-| Key           | Comment                                                      |
-| ------------- | ------------------------------------------------------------ |
-| "tsync1":<T1> | system time <T1> of the respective node when it sent the "ping" to its parent |
-| "tsync2":<T2> | system time <T2> of the parent  when it received the "ping"  |
-| "tsync3":<T3> | system time <T3> of the respective node when it received the acknowledgement from the parent |
+| Key              | Comment                                                      |
+| ---------------- | ------------------------------------------------------------ |
+| "tsync1":&lt;T1> | system time &lt;T1> of the respective node when it sent the "ping" to its parent |
+| "tsync2":&lt;T2> | system time &lt;T2> of the parent  when it received the "ping" |
+| "tsync3":&lt;T3> | system time &lt;T3> of the respective node when it received the acknowledgement from the parent |
 
 
 
@@ -54,10 +60,12 @@ The relevant state of the attached AVR is encoded in a set of parameters to asse
 
 
 
-| Key              | Comment                                                      |      |
-| ---------------- | ------------------------------------------------------------ | ---- |
-| "avrpar":"<PAR>" | symbolic name <PAR> of the parameter to access; available parameters for our charging station are documented [here](../ctrl22/README.md#Serial-Line-Protocol). |      |
-| "avrval":<VAL>   | value read from or to be written to the process image; in he acknowledgement on a written access, <VAL> will be set to `"ok"` on success. | ss.  |
+| Key               | Comment                                                      |
+| ----------------- | ------------------------------------------------------------ |
+| "avrpar":"<PAR>"  | symbolic name &lt;PAR> of the parameter to access; available parameters for our charging station are documented [here](../ctrl22/README.md#Serial-Line-Protocol). |
+| "avrval":&lt;VAL> | value read from or to be written to the process image; in the acknowledgement on a write access, &lt;VAL> will be set to `"ok"` on success. |
+
+To have all charging stations flash their LED button twice at the beginning of every two-seconds period, the host may send `{"dst":"*", "cmd":"avrsetpar", "avrpar":"blinks", "avrval":2}` via TCP to the root node. 
 
 **Note**. For sake o simplicity, `demesh.c` restricts the type of parameter values to  32bit signed integers, so there are no floats or strings;  the AVR firmware for our charging station further restricts this to a maximum of 16bit.
 
@@ -72,11 +80,13 @@ A firmware ugrade request is specified by `"cmd:"upgrade"` and refers to the ESP
 | "board":"<BOARD>"       | hardware platform as configured via `make menuconfig` when specifying the board and as in indicated by system report request; e.g. `"board":"m5stick"` for the M5StickC or `"board"="agccs12"` for our charging station with a Rev-1-2 board |
 | "version":"<MAJ>.<MIN>" | version to upgrade to in the same format as in a system report request reply |
 
-The upgrade  process is organised by the root note and this is the only node to accept a `"cmd":"upgrade"`.  From the board and version data, the root node infers the firmware filename by convention, e.g., `demesh_m5stick_3_5` for a firmware operable on M5StickC hardware in version v3.5; the prefix `demesh` can be configured via `make menuconfig`, the remaining conventions are hardcoded in `demesh.c`. In particular, there must be one digit for the major version and one digit for the minor version. The root node then connects to an HTTP server to download the firmware file. The IP address defaults to the server to which the root node connects via TCP, the port defaults to 8071; again both configurable via  `make menuconfig`. Once the root has obtained the firmware, is offers it to all other nodes via "ESP MDF magic". Indivual nodes aill accept the upgrade provided that board matches and the version is different to one it is currently running on.
+The upgrade  process is organised by the root note and this is the only node to accept a `"cmd":"upgrade"`.  From the board and version data, the root node infers the firmware filename by convention, e.g., `demesh_m5stick_3_5` for a firmware operable on M5StickC hardware in version v3.5; the prefix `demesh` can be configured via `make menuconfig`, the remaining conventions are hardcoded in `demesh.c`. In particular, there must be one digit for the major version and one digit for the minor version. The root node then connects to an HTTP server to download the firmware file. The IP address defaults to the server to which the root node connects via TCP, the port defaults to 8071; again both configurable via  `make menuconfig`. Once the root has obtained the firmware, is offers it to all other nodes via "ESP-MDF magic". Indivual nodes aill accept the upgrade provided that board matches and the version is different to one it is currently running on.
+
+On host side, the overall process has been implemented in the utility [dmctrl.py](../utils/) for inspection.
 
 ### Firmware Upgrade for the attached AVR
 
-Also the attached AVR can be updated over the air (OTA), however, we are in charge to organise the process on our own, no "ESP MDF magic" at this end. Our solution is not quite as sneak as Espressifs OTA, however, it is functional. In particular, the upgrade here is on a per node basis so the host needs ti track which nodes need an update. We use two commands to control the process.
+Also the attached AVR can be updated over the air (OTA), however, we are in charge to organise the process on our own, no "ESP-MDF magic" at this end. Our solution is not quite as sneak as Espressifs OTA, however, it is functional. In particular, the upgrade here is on a per node basis so the host needs ti track which nodes need an update. We use two commands to control the process.
 
 First, the host issues a `"cmd":"avrota"`with the additional key  `"state":"recimg"` to alert the node to receive the firmware image we are going to send. The node confirms its AVR OTA state in its reply, so the is aware that it now may send the actual image.
 
@@ -84,7 +94,7 @@ Second, the host issues a number of `"cmd":"avrimg"` requests to transfer the fi
 
 Third, the host issues a `"cmd":"avrota"` with the additional key `"state":"flash"` to ask the ESP32 to forward the image to the attached AVR via the serial line using the Optiboot protocol and to finally have Optiboot to flash the new firmware. On success, the ESP acknowledges with the key-value pair `"state":"running"` , errors are indicated by  `"state":"halted"`.
 
-On host side, the overall process has been implemented in the utility [dmctrl.py](../dmctrl/) for inspection.
+On host side, the overall process has been implemented in the utility [dmctrl.py](../utils/) for further inspection.
 
 
 
