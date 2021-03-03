@@ -12,7 +12,7 @@ This Python script is meant for command line invocation on a per-task fashion. I
 ./dmctrl '{"dst":"*","cmd":"status"}'
 ```
 
-listens TCP port 8070 and sends the string `{"dst":"*","cmd":"status"}` to the next client to connect (observe the two shell escape characters `'` which are not part of the message). The client will be the rote node of the mesh netword and, assuming that it runs the [demesh.c](../demesh/) firmware, will decode the JSON formatted message string. It hence notes the mesh broadcast address `"*"` and forwards the message to all nodes in the mesh. The in turn decode the message, identify the command `"status"` and reply to the root by a JSON encoded status report regarding their connection to the mesh, i.e. who is the parent, how is the RSSI, etc. The root note in turn forwards the reply via the TCP connection to the host running `dmctrl.py`. Example incl. reply:
+listens TCP port 8070 and sends the string `{"dst":"*","cmd":"status"}` to the next client to connect (observe the two shell escape characters `'` which are not part of the message). The client will be the role node of the mesh netword and, assuming that it runs the [demesh.c](../demesh/) firmware, will decode the JSON formatted message string. It hence notes the mesh broadcast address `"*"` and forwards the message to all nodes in the mesh. The individual nodes in turn decode the message, identify the command `"status"` and reply to the root by a JSON encoded status report regarding their connection to the mesh. Available commands are further explained in the [demesh.c documentation](../demesh/NodeControl.md). The root note in turn forwards the reply via the TCP connection to the host running `dmctrl.py`. Example incl. reply:
 
 ```
 pi@lrt101:~ $ ./dmctrl.py '{"dst":"*","cmd":"status"}'
@@ -67,7 +67,7 @@ this will compose a number of adequate JSON encoded messages to be forwarded to 
   ```
   ./dmctrl.py avrsetpar blinks 5
   ```
-respectively; this will compose an appropriate JSON encoded message to ask the ESP32 to set/get the respective parameter from the AVR attached via the serial line; available parameters depend on the AVR firmware, for `ctrl22.c` see [xx](../ctrl22/README.md#Serial-Line-Protocol)
+respectively; this will compose an appropriate JSON encoded message to ask the ESP32 to set/get the respective parameter from the AVR attached via the serial line; available parameters depend on the AVR firmware, for `ctrl22.c` the serial line protocol is further explained [here](../ctrl22/README.md#Serial-Line-Protocol).
 
  
 

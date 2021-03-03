@@ -23,12 +23,28 @@ Each node consist of an ESP32 SoC with an attached ACR uC, also referred to as t
 Effectively we tunnel the serial line of the target uC to the host. To be of practical use we also provide some convenience features
 
 - we synchronize systemtime such that our charging stations can flash their operator buttons nicely in sync;
+
 - as an alternativ to plain TCP/IP sockets, the root not also publishes the hearbeat messages to an MQTT broker and  subscribes to command messages;
+
 - we allow to update the ESP32 firmware over the air (OTA);
 
 - we allow to update the target uC firmware OTA; for this, the host first forwards the desired firmware image to the ESP32 which in turn runs an implementation of the Optiboot (subset of STK500) programmer emulation.
 
   
+
+
+
+## Implementation Overview
+
+The ESP32 is quite a powerfull SoC, providing two cores and 380kB RAM. The ESP-MDF SDK is built on to of the FreeRTOS operating system and we thus have taks, timers and socket IO. Indeed, programming the ESP32 feels much more like programming a POSIX compliment "System" than just a "Chip". We give run through of the main building blcoks of the provided firmware with a focus in message forwarding
+
+**Upstream Link -- Receiving Messages from the Host.** The only node that can directly receive messages from the host is the root node. It connetcs via a TCP soccket to the designated host, which is configurabe at compile time via `make menuconfig`.  The root node runs the task `upstream_read_task()` to read from this socket and expects commands aka requests. These are JSON encoded records of key-value pairs and must include a `"dst"="ADDR"` entry. The message is then forwarded by the mesh network the the node with the specified mesh address <ADDR>. We implement two special purpose addresses, namely `"dst="*"` for a broadcast to all nodes in the mesh and `"dst="root"` for the root node in its role as an ordinary node.
+
+**Upstream Link -- Sending Messages to the Host.** The only node that can directly send mesages to the host is again the root node. It does so via the same TCP socket on which it receives messages from the host, see above. On the root node runs the task  `root_read_task()` to receive messages from any other node and to do so in its specific role as root. The root node will foreward any message received in this role to the host via the TCP socket. Thus, any node can talk to the host by sending a mesh-network explicitly to the root node. This is completely transparent, the root will not take any further actions.   
+
+**Mesh-Network Messages.** Every node runs the task `node_read_task()` to receive messages. This includes the root note, however, in its secondary role as an ordinary node. Typically the messages originate from the host and have been propageted through the mesh. Such messages are referred to as _commands_ or _reuquests_  and are meant to control the individual nodes. Technically, commands are JSON encoded key-value pairs. The key `"cmd"` specifies the action to be taken and this impicitly refines the effective data type of the remeinder of the message; i.e., which further keys must be present and how they affect the action to be taken. In turn, the node replys to any command with a JSON encoded message, i.e., it send an acknowledgement to the root note to be forwarded to the host. Any acknowledgement must contain the reserved keys  `src` and `mtype` to specify the sending node and the type of the message. Although the mesh network does not prvide TCP like sockets, the host utilise the  `src` and `mtype` entiries to untangle any incomming message. Relevant commands are documented on more detail [here](./NodeControl.md).
+
+
 
 ## Compiling and Installing ESP32 Firmware
 

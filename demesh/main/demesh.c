@@ -1763,7 +1763,7 @@ void upstream_read_task(void *arg)
 
  - forward firmware upgrade related messages to ESP-MDF mupgrade handler
  - forward node messages to upstream server
-   messages should be JSON encode and include a "src" record and an "mtype" record;
+   messages should be JSON encoded and include a "src" record and an "mtype" record;
    the latter indicates whether the message is an acknowledgements to commands or not;
    examples
      {"src":"24:6f:28:22:83:ac","mtype":"status", "parent":"d8:a0:1d:55:a7:11","rssi":-34, [..aso..]}
@@ -2167,8 +2167,8 @@ static void node_read_task(void *arg)
 		// reply to root only if not self generated
 		if(!strcmp(command, "tsync")) {
                     rsize = asprintf(&rdata,
-	               "{\"src\":\"" MACSTR "\",\"mtype\":\"tsync\",\"tsync1\":%d,\"tsync2\":%d,\"tsync3\":%d,\"tsyncd\":%d}\r\n",
-			   MAC2STR(sta_mac), json_t1->valueint,json_t2->valueint,t3,g_systime_roundtrip);
+	               "{\"src\":\"" MACSTR "\",\"mtype\":\"tsync\",\"tsync1\":%d,\"tsync2\":%d,\"tsync3\":%d}\r\n",
+			   MAC2STR(sta_mac), json_t1->valueint,json_t2->valueint,t3);
                     ret = mwifi_write(NULL, &rdata_type, rdata, rsize, true); 
                     if(ret != MDF_OK) { // tm: is there a macro fo rthis construct?
                         MDF_LOGD("<%s> mwifi_write", mdf_err_to_name(ret));
