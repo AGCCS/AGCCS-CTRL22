@@ -49,16 +49,16 @@ usage:
   ```
   ./dmctrl.py upgrade v3.5 m5stick
   ```
-  this compose an appropriate JSON message, send it to the root node and runs an HTTP server on TCP port 8071; the root will download the file `demesh_m5stick_3_5.bin`, distribute it to the nodes wich run on a  appropriate board with a version different to v3.5; this will take some time, check back with `dmctrl.py system`; in the case some nodes missed out, repress the procedure.
+  this composes an appropriate JSON message, sends it to the root node and runs an HTTP server on TCP port 8071; the root will download the file `demesh_m5stick_3_5.bin` from the HTTP server, distribute it to those nodes that run on a  appropriate board with a version different to v3.5; this will take some time, check back with `dmctrl.py system`; in the case some nodes missed out, repeat the procedure.
 
 
-- to upgrade the firmware AVR attached to the ESP32 node d8:a0:1d:55:a7:10to version 1.2, run
+- to upgrade the firmware AVR attached to the ESP32 node d8:a0:1d:55:a7:10 to version 1.2, run
   ```
   ./dmctrl.py avrflash ctrl22_1_2.bin d8:a0:1d:55:a7:10
   ```
 this will compose a number of adequate JSON encoded messages to be forwarded to node `d8:a0:1d:55:a7:10` and a final message to ask the ES32 to flash the AVR via the Optiboot protocol; you may check back by inquiring the value of the AVR parameter `"ver".`
 
-- to get a parameter `"ver"`from (or to set the parameter `"blinks"` to `"5"` for) the target AVR on node d8:a0:1d:55:a7:10, run
+- to get a parameter `"ver"` from (or to set the parameter `"blinks"` to `"5"` for) the target AVR on node d8:a0:1d:55:a7:10, run
 
   ```
   ./dmctrl.py avrgetpar ver
@@ -67,7 +67,7 @@ this will compose a number of adequate JSON encoded messages to be forwarded to 
   ```
   ./dmctrl.py avrsetpar blinks 5
   ```
-respectively; this will compose an appropriate JSON encoded message to ask the ESP32 to set/get the respective parameter from the AVR attached via the serial line; available parameters depend on the AVR firmware, for `ctrl22.c` the serial line protocol is further explained [here](../ctrl22/README.md#Serial-Line-Protocol).
+respectively; this will compose an appropriate JSON encoded message to ask the ESP32 to set/get the respective parameter to/from the AVR attached via the serial line; available parameters depend on the AVR firmware, for `ctrl22.c` the serial line protocol is further explained [here](../ctrl22/README.md#Serial-Line-Protocol).
 
  
 

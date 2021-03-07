@@ -21,7 +21,7 @@ All three components are open source and can be hence adapted to best fit a vari
 
 **DISCLAIMER 1** We do not provide a turn-key solution and do not plan to do so in near future. Rather we invite the enthusiast to actively contribute or to passively make use of our collection of resources and to share their experience. The current project status is **"work in progress"**.
 
-**DISCLAIMER 2** All material provided in this repository comes *'as is'* with no explicit or implied warranty. In particular, the development of equipment that directly connects to mains power should only be considered be individuals with adequate skills and with particular care.
+**DISCLAIMER 2** All material provided in this repository comes *'as is'* with no explicit or implied warranty. In particular, the development of equipment that directly connects to mains power should only by considered be individuals with adequate skills and with particular care.
 
 
 
@@ -65,9 +65,9 @@ Well, no turn-key solution ... but perhaps some interesting venues for the enthu
 
 This project is an initiative by Christoph Pflaum and Thomas Moor, both with FAU/Erlangen/Germany. We appreciate the following contributions by our students.
 
-- Pascal Thurnherr: [BA thesis](./doc/Bachelorarbeit_Pascal_Thurnherr.pdf) , Aufbau und Test einer Ladeneinrichtung für Elektrofahrzeuge nach IEC62169*, FAU, Erlangen 2020; see also [this project](https://github.com/dreadnomad/FGCCS-Ctrl22).
+- Pascal Thurnherr: [BA thesis](./doc/Bachelorarbeit_Pascal_Thurnherr.pdf) , _Aufbau und Test einer Ladeneinrichtung für Elektrofahrzeuge nach IEC62169_, FAU/Erlangen 2020; see also [this project](https://github.com/dreadnomad/FGCCS-Ctrl22).
 
-- Antoine Schultz: BA thesis *Firmwareverwaltung drahtlos vernetzter Kleinstrechner mit angekoppelten Mikroprozessoren*, FAU, Erlangen 2020.
+- Antoine Schultz: BA thesis *Firmwareverwaltung drahtlos vernetzter Kleinstrechner mit angekoppelten Mikroprozessoren*, FAU/Erlangen 2020.
 
 - Xinhuang Gong: MA project at FAU/Erlangen, 2021, ongoing.
 
@@ -75,13 +75,13 @@ This project is an initiative by Christoph Pflaum and Thomas Moor, both with FAU
 
 # Acknowledgements
 
-The Wikipedia articles on the [SAE 1772](https://de.wikipedia.org/wiki/SAE_J1772nd), the [IEC 62196](https://de.wikipedia.org/wiki/IEC_62196)  and the [IEC 62196 Type 2](https://de.wikipedia.org/wiki/IEC_62196_Typ_2) standards provide an excellent entry point to learn about EV charging technology and we would like thank the respective autors for their effort. Regarding the electrical engineeering aspects of this project, we hereby acknowlegde that the projects [SmartEVSE](https://www.smartevse.nl/) and [OpenEVSE](https://www.openevse.com/) make their hardware solution available for us to re-use. Starting from scratch would have been so much more tedious. On a more general scale, we appreciate the fact that nowerdays relevent software tools are made freely available, such as  the [KiCad EDA](https://kicad.org) , the [Espressif SDKs](https://github.com/espressif), and the [GCC](https://gcc.gnu.org/)-based XTENSA and AVR toolchains, naming the ones most relevant for our project.
+The Wikipedia articles on the [SAE 1772](https://de.wikipedia.org/wiki/SAE_J1772nd), the [IEC 62196](https://de.wikipedia.org/wiki/IEC_62196)  and the [IEC 62196 Type 2](https://de.wikipedia.org/wiki/IEC_62196_Typ_2) standards provide an excellent entry point to learn about EV charging technology and we would like thank the respective autors for their effort. Regarding the electrical engineeering aspects of this project, we hereby acknowlegde that the projects [SmartEVSE](https://www.smartevse.nl/) and [OpenEVSE](https://www.openevse.com/) make their hardware solution available for us to re-use. Starting from scratch would have been so much more tedious. On a more general scale, we appreciate the fact that nowerdays relevent software tools are made freely available, such as  the [KiCad EDA](https://kicad.org) , the [Espressif SDKs](https://github.com/espressif), and the [GCC](https://gcc.gnu.org/)-based XTENSA and AVR toolchains, naming the ones most crucial for our project.
 
 
 
 # Copyright
 
-All software compents in this project are _Copyright by the Authors_ and have been developed independently and from scratch. We procide them Open Source under terms of the MIT License and/or the Apache License, as indicated in the respective code headers.  In particular, you are invited to re-cycle whatever you find useful in whatever project you are after. In the case you feel that you gained a relevant benefit, we would appreciate an acknowledgement, e.g., by linking to our GitHub repository. Regarding the hardware circuitry, our work in relevant aspects is a direct derivative of [SmartEVSE](https://www.smartevse.nl/) distributed as Open Source via [GitHub](https://github.com/SmartEVSE) with no specific license stated, and we pass on our variation likewise. 
+All software compents in this project are _Copyright by the Authors_ and have been developed independently and from scratch. We provide them as  _Open Source_ under terms of the MIT License and/or the Apache License, as indicated in the respective code headers.  In particular, you are invited to re-cycle whatever you find useful in whatever project you are after. In the case you feel that you gained a relevant benefit, we would appreciate an acknowledgement, e.g., by linking to our GitHub repository. Regarding the hardware circuitry, our work in relevant aspects is a direct derivative of [SmartEVSE](https://www.smartevse.nl/) distributed as _Open Source_ via [GitHub](https://github.com/SmartEVSE) with no specific license stated, and we pass on our contribution to the circuitry likewise. 
 
 
 

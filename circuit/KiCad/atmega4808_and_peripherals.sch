@@ -5,8 +5,8 @@ $Descr A4 11693 8268
 encoding utf-8
 Sheet 3 4
 Title "AGCCS-Ctrl22"
-Date "2021-02-15"
-Rev "1.2"
+Date "2021-03-02"
+Rev "1.x"
 Comp ""
 Comment1 ""
 Comment2 ""
