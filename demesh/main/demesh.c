@@ -6,7 +6,6 @@ However, the buiding blocks of basic functionality have been derived
 from the examples provided by the ESP-IDF and ESP-MDF, in particuar
 - the Mupgrade example
 - the TCP-client example
-- the UART echo example
 We hence inherit the Apache License, Version 2.0, and the code can be 
 used/modified/distributed under that license:
 
@@ -30,70 +29,27 @@ limitations under the License.
 /*  
 ===========================================================================
 ===========================================================================
-We address the following overall setup
+Regarding communications, we address the following overall setup
 
-[Host]<=>[WLAN AP]<=>(ESP Mesh Network)<=>[ESP32 nodes]<=>(RS232)<=>[AVR target uC]
-                            ^^===========>[ESP32 nodes]<=>(RS232)<=>[AVR target uC]
+[Host]<=>[WLAN AP]<=>(ESP Mesh Network)<=>[ESP32 node]<=>(RS232)<=>[AVR target uC]
+                            ^^===========>[ESP32 node]<=>(RS232)<=>[AVR target uC]
                             ^^                ...                       ...
-                            ^^===========>[ESP32 nodes]<=>(RS232)<=>[AVR target uC]
+                            ^^===========>[ESP32 node]<=>(RS232)<=>[AVR target uC]
 
 In our specfic setup, the [Host] and the [WLAN AP} are realised as one
 unit by a Raspberry Pi. Likewise, each [ESP32] node together with one
-AVR uC form a single hardware component, which in our use case is integrated
+[AVR target uC] form a single hardware component, which in our use case is integrated
 with an EV charging station. In contrast to the one and only [Host], we use
 the (ESP Mesh Network) to hook up a "large number" of [ESP32 nodes] with
-one [AVR uC] each. We comment on the roles of the individual components.
+one [AVR target uC] each. 
 
-[AVR target uC]
-- The uC physically interacts with its environment in a real-time fashion to 
-  implement safety critical functionality. This is the final payload of our
-  entire setup.
-- The uC behaviour is parametrised by a set of 32bit integer variables,
-  accessible with a human readable get/set line based protocoll over a RS232 
-  serial interface. This protocol shall be tunneled for the [Host] to 
-  coordinate/control all [AVR target uCs] in the network. 
-- The same RS232 interface can be used to update the AVR firmware
-  via a bootloader with the Ardiono Optiboot protocol. This functionality
-  shall also be accessible to the [Host].
-
-[ESP32 node]
-- All [ESP32 nodes] communicate via the ESP Mesh Network implemented by the
-  ESP-MDF SDK. I.e., there is one dynamcally elected root node which effectively can
-  interchange messages with every other node 
-- The unique root node can access the [Host] via IP WLAN. On this end, the root 
-  behaves as a TCP client and expects a TCP server on the [Host] to accept one 
-  incomming connection on a specific port. The root node accepts JSON encoded commands 
-  in the format {"dst":"xyz", "cmd":...}, dispatches them to the respective
-  destination node "xyz" and awaits the reply to be forwarded to the [Host]. 
-- Using the boradcast address "*" and the command "status", each node replys by 
-  a JSON encoded status, including its address. Hence, the [Host] can figure the 
-  network topology.
-- When a node receives a message with command "avrgetpar", it queries the respective
-  parameter from the [AVR target uC] via RS232 and returns the value to the
-  root for fowarding to the [Host]. Likewise, there is a "avrsetpar" command.  
-- There is also a command "avrimage" for the host to downstream firmware for
-  the [AVR target uC]. This is organised in small packeges, which are 
-  buffered in a specific partition of the [ESP32]. Once the firmware has
-  been received completely, the [ESP32] can re-programm the [AVR target uC] via
-  RS232 using the Optiboot protocol 
-- The [ESP32 nodes] implement the OTA firmware upgrade as proposed by the MDF.
-  Hence, the [Host] can downstream firmware upgrades for the ESP32s via this mechanism.
-  Technically, it sends the specfig command "upgrade" to the root node which in turn
-  downloads the firmware from the [Host] via http. The firmware is then distributed
-  over all nodes in the mesh network (largely by "ESP-MDF magic"). 
-
-[Host/WLAN SP]
-- The implemented protocolls allow to manage the distribution of firmware both for 
-  the [ESP32] nodes and the attached [AVR target uCs]. We refer to this as a networked 
-  firmware management system.
-- In normal operation, the [Host] can also control the operation of the individial
-  [AVR target uCs] by setting/getting parameter values via the [ESP32 nodes].
-
+More detailed documentation is provided by the README.md in the very same 
+repository.
 ===========================================================================
 ===========================================================================
 */
 
-// firmware version string (relevant format for OTA: "OneDigit.OneDigit", nothing else tested)
+// firmware version string (relevant format for OTA: "<OneDigit>.<OneDigit>", nothing else tested)
 #define DEMESH_VERSION "6.3"
 
  
@@ -131,22 +87,25 @@ static int g_mqtt_stop=0;
 
 
 // DEMESH globals, local copy of target uC state for heartbeat
-// Note: if it was not for target simulation, we should be transparent regarding the target state
+// Note: if it was not for target simulation, we should be transparent regarding the target state interface
 static int g_heartbeat_period=5000;  // period to send heartbeat in ms
 static int g_tstate_version=0;    // target uC firmware version 
 static int g_tstate_ccss=0;       // state in CCS charging scheme (0<>idle ... 30<> charging, >=50 error)
 static int g_tstate_phases=0;     // phases to operate  
-static int g_tstate_maxcur=0;     // max alllowed current per phase (unit 100mA, aka "10" reads "1A")
+static int g_tstate_smaxcur=0;    // max current per phase by mains supply (unit 100mA, aka "10" reads "1A")
+static int g_tstate_cmaxcur=0;    // max current per phase by charging cable (unit 100mA, aka "10" reads "1A")
 static int g_tstate_cur1=0;       // actual current drawn on phase 1 (unit 100mA %)
 static int g_tstate_cur2=0;       // actual current drawn on phase 1 (unit 100mA %)
 static int g_tstate_cur3=0;       // actual current drawn on phase 1 (unit 100mA %)
 
 
 // DEMESH globals, local copy of target uC control parameters (fake when simulating)
-// Note: if it was not for target simulation, we should be transparent regarding the target control
-static int g_tcontrol_blinks=0;       // operator button flash light (not simulated)
-static int g_tcontrol_maxcur=0;       // mac allowed current (unit 100mA)
-static int g_tcontrol_phases=0;       // enabled phases (i.e. "1" for use phase 1 only) 
+// Note: if it was not for target simulation, we should be transparent regarding the target control interface
+static int g_tcontrol_blinks=-1;       // operator button flash light (not simulated)
+static int g_tcontrol_smaxcur=-1;      // current allowed by supply (unit 100mA)
+static int g_tcontrol_cmaxcur=-1;      // current allowed by cable (unit 100mA) (convenience remote overwrite)
+static int g_tcontrol_phases=-1;       // enabled phases (i.e. "1" for use phase 1 only) 
+static int g_tcontrol_opbutton=-1;     // operator button pressed (convenience remote overwrite)
 
 
 // DEMESH globals, debug server
@@ -159,14 +118,14 @@ static int g_station_cnt    = 0;
 #define LSDMAC2STR(a) (a)[2], (a)[3], (a)[4], (a)[5]
 #define LSDMACSTR "%02x:%02x:%02x:%02x"
 
-// convenience macros to printf the MAC address without colons (MQTT topic)
+// convenience macros to printf the MAC address without colons (i.e. as MQTT topic)
 #define NOCMAC2STR(a) (a)[0], (a)[1], (a)[2], (a)[3], (a)[4], (a)[5]
 #define NOCMACSTR "%02x%02x%02x%02x%02x%02x"
 
-// forward declr.: query our very own system time (ms, defined rollover, synched ... code given below)
+// forward declr.: query our very own system time (ms, defined rollover, synced ... code given below)
 static TickType_t systime(void);
 
-// forward declr.: trigger heartbeat (publish MQTT and send over plain TCP socket) 
+// forward declr.: trigger heartbeat (published via MQTT and sent over plain TCP socket) 
 static void heartbeat_trigger(void);
 
 
@@ -174,9 +133,11 @@ static void heartbeat_trigger(void);
 ===========================================================================
 ===========================================================================
 Hardware configuration: we provide a limited number of hardware configurations,
-scaling  from "nothing", "blink a LED" to "M5Stick with bells and whistles".
+scaling  from "nothing", "blink an LED" to "M5Stick with bells and whistles".
 Most likely, you will need to adapt this to your needs. Use "nope" as a
-template, inspect "m5stick" for inspiration to create your own.
+template, inspect "m5stick" for inspiration to create your own. For neat
+integration with the build process, you should follow-uop your extensions
+in "Kconfig.projbuild" and in your upload scripts.
 ===========================================================================
 ===========================================================================
 */
@@ -188,8 +149,8 @@ template, inspect "m5stick" for inspiration to create your own.
  Hardware configuration: any ESP32, we dont touch your peripherials
 
  "No peripherials" translates "no feedback". You dont realy  want this.
- Use it as a templete to handle your hardware, at least a LED to flash
- is a realistic minimum during deveopment. If you have/need more, see
+ Use it as a templete to handle your hardware, at least an LED to flash
+ is a realistic minimum during development. If you have/need more, see
  below the code specific to the M5Stick.
 
  [The hardware configuration is conveniently chosen via "make menuconfig"]
@@ -200,12 +161,12 @@ template, inspect "m5stick" for inspiration to create your own.
 
 #ifdef CONFIG_TARGET_BOARD_NOPE
 
-#define DEMESH_BOARD "nope"            
+#define DEMESH_BOARD "nope"                  // define your board name
 
 #undef AVR_PRESENT                           // dont have anything, even no AVR attached
 
 
-// you have at least an LED to flash? enter here
+// you have at least one LED to flash? enter here
 //#define BLINK_GPIO GPIO_NUM_2             // GPIO pad to flash ...
 //#define BLINK_ON 1                        // ... and its active on
 
@@ -317,10 +278,10 @@ static void status_screen_update_b(void)
 {
     static int rmaxcur=0;
     static int rcur=0;
-    g_screen_nub = g_screen_nub || (g_tstate_maxcur!=rmaxcur);
+    g_screen_nub = g_screen_nub || (g_tstate_smaxcur!=rmaxcur);
     g_screen_nub = g_screen_nub || (g_tstate_cur!=rcur);
     if(!g_screen_nub) return;
-    rmaxcur=g_tstate_maxcur;
+    rmaxcur=g_tstate_smaxcur;
     rcur=g_tstate_cur;
     g_screen_nub=false;
     char strbuff[5];
@@ -349,7 +310,7 @@ static void status_screen_update_b(void)
     TFT_print(strbuff, 5, 0);
     sprintf(strbuff, "CCSState: %2d[P=%03d]", g_tstate_ccss, g_tstate_phases);
     TFT_print((char *)strbuff, 5, 12);
-    sprintf(strbuff, "MaxCur:        %4.1f", g_tstate_maxcur/10.0);
+    sprintf(strbuff, "SMaxCur:       %4.1f", g_tstate_smaxcur/10.0);
     TFT_print((char *)strbuff, 5, 24);
     sprintf(strbuff, "Current 1:     %4.1f", g_tstate_cur1/10.0);
     TFT_print(strbuff, 5, 36);
@@ -401,11 +362,9 @@ static void buttonEvent(void *handler_arg, esp_event_base_t base, int32_t id, vo
 	    g_screen='a';
         }}
     }
-    // button B starts/stops charging simulation
+    // button B starts/stops charging simulation aka operator button
     if((base == button_b.esp_event_base) && (id == BUTTON_PRESSED_EVENT)) {
-      if(g_tstate_ccss==0) g_tstate_ccss=10;
-	else g_tstate_ccss=0;
-      heartbeat_trigger();
+        g_tcontrol_opbutton=1;
     }
 }
 
@@ -543,6 +502,57 @@ void init_devices(void)
 }
 
 #endif
+
+
+/*
+ **********************************************************************
+ **********************************************************************
+ Hardware configuration: FGCCS board, rev 1.2
+
+ This is our second revision of the EV CCS charging station  --- we choose
+ debug mode and blink on an extra dedicated GPIO
+
+ [The hardware configuration is conveniently chosen via "make menuconfig"]
+ **********************************************************************
+ **********************************************************************
+ */
+
+#ifdef CONFIG_TARGET_BOARD_FGCCS_1_2
+
+#define DEMESH_BOARD "fgccs12"
+
+#define BLINK_GPIO  GPIO_NUM_0            // blink LED on programming adapter
+#define BLINK_ON 0                        // blink LED is active low
+#define DEBUG_GPIO  GPIO_NUM_15           // debug target avr  
+#define DEBUG_ON 1                        // active low 0 (set to high 1 to boot into debug mode by default)
+
+#define AVR_PRESENT                       // we do have an AVR taget to care
+#define AVR_TXD_GPIO  GPIO_NUM_17         // target AVR serial: pins to transmit
+#define AVR_RXD_GPIO  GPIO_NUM_16         // target AVR serial: pins to receive
+#define AVR_BAUDRATE  115200              // target AVR serial: baudrate (always "8N1")
+#define AVR_RST_GPIO  GPIO_NUM_12         // target AVR: how to reset
+#define AVR_RST_ACTIVE  1                 // target AVR: be always active (incl. "high" for "run")
+#define AVR_IMG_CNT     (47*1024)         // target AVR: size of firmware (e.g. ATMega4808  "48k - bootloader")
+#define AVR_OPT_CNT     128               // target AVR: byte count per page write (128 bytes are common practice)
+#define AVR_OPT_BADDR                     // target AVR: Optiboot_x uses byte addresses as opposed to word addresses
+#define AVR_OPT_TADDR   0x200             // target AVR: offset for application code 0.5kByte (botloader)
+
+
+void init_devices(void)
+{
+    // avr reset pin
+    gpio_pad_select_gpio(AVR_RST_GPIO);
+    gpio_set_direction(AVR_RST_GPIO, GPIO_MODE_OUTPUT);
+    gpio_set_level(AVR_RST_GPIO,1);
+
+    // debug select pin
+    gpio_pad_select_gpio(DEBUG_GPIO);
+    gpio_set_direction(DEBUG_GPIO, GPIO_MODE_INPUT);
+    gpio_set_pull_mode(DEBUG_GPIO, GPIO_PULLUP_ONLY);
+}
+
+#endif
+
 
 
 /*
@@ -920,9 +930,11 @@ typedef struct {
 const tpartable_t g_tpartable[]={
     {"ver",     &g_tstate_version,   NULL},
     {"blinks",  NULL,                &g_tcontrol_blinks},
-    {"maxcur",  &g_tstate_maxcur,    &g_tcontrol_maxcur},
+    {"smaxcur", &g_tstate_smaxcur,   &g_tcontrol_smaxcur},
+    {"cmaxcur", &g_tstate_cmaxcur,   &g_tcontrol_cmaxcur},  // simulation: set cable capacity remotely
     {"phases",  &g_tstate_phases,    &g_tcontrol_phases},
     {"ccss",    &g_tstate_ccss,      NULL},
+    {"opbutton",NULL,                &g_tcontrol_opbutton}, // simulation: trigger button remotely
     {"cur1",    &g_tstate_cur1,      NULL},
     {"cur2",    &g_tstate_cur2,      NULL},
     {"cur3",    &g_tstate_cur3,      NULL},
@@ -975,36 +987,43 @@ int command_avrgetstate(void) {
 
 
 
-// This task is called at a 1000ms period and is meant to simulate EV charging.
-// It assumes that fake hardware will set/clear the local copy of the CCS state to "button pressed"
-// by some operator interaction (e.g. M5Stick via button B). The task will directly write
-// on relevant components of the local copy of the target uC state, which are in turn forwarded
-// via the periodical heartbeat.
+// This task is called with a 1000ms period and is meant to simulate EV charging.
+// It assumes that fake hardware will set g_tcontrol_opbutton to mimic operator interaction
+// (e.g. M5Stick via button B). This task will directly write on relevant components of
+// the local copy of the target uC state, which are in turn forwarded via the periodical heartbeat.
 static void simulate_target_timercb(void *timer) {
     // pseudo globals for simulation state
     static int ccss=0;
     static int level=0;
-    static int cmaxcur=0;
+    static int smaxcur=0;
+    static int cmaxcur=100; // default to a 10A cable to facilitate simulation
     static int bphases=0;
     static int expire=0;
     static const int capacity=1000;
     // have fake version number (reads "v0.0" nor "none" to indicate simulation)
     g_tstate_version=0;
-    // allocated maxcur is set by g_tcontrol_maxcur and expires after 10sec
-    if(g_tcontrol_maxcur >= 0) {
-        cmaxcur= g_tcontrol_maxcur;
-        g_tcontrol_maxcur=-1;
-        expire=10; 
+    // allocated smaxcur is set by g_tcontrol_smaxcur and expires after 20sec
+    if(g_tcontrol_smaxcur >= 0) {
+        smaxcur= g_tcontrol_smaxcur;
+        g_tcontrol_smaxcur=-1;
+        expire=20; 
     }  
     if(expire>0) {
         expire--;
     }
     if(expire==0) {
-        cmaxcur=0;
+        smaxcur=0;
     }
-    g_tstate_maxcur=cmaxcur;
+    // cable capacity cmaxcur is set by g_tcontrol_cmaxcur remotely
+    if(g_tcontrol_cmaxcur>=0) {
+        cmaxcur=g_tcontrol_cmaxcur;
+	g_tcontrol_cmaxcur=-1;
+    }	
+    // copy local state to externally accessible state
+    g_tstate_smaxcur=smaxcur;
+    g_tstate_cmaxcur=cmaxcur;    
     // copy and decode phase from control data
-    if(g_tstate_phases!=g_tcontrol_phases) {
+    if(g_tcontrol_phases>=0) {
         bphases=0;
         int dphases=g_tcontrol_phases;
         while(dphases>0) {
@@ -1013,43 +1032,57 @@ static void simulate_target_timercb(void *timer) {
             dphases = dphases /10;
         }  
         g_tstate_phases=g_tcontrol_phases;
-    }  
-    // CCS state 0: wait for operator button (mimiqued e.g. by M5Stick button A)
+	g_tcontrol_phases=-1;
+    }
+    // CCS state 0: wait for operator button (mimiqued e.g. by M5Stick button B)
     if(ccss==0) {
       g_tstate_cur1=0;
       g_tstate_cur2=0;
       g_tstate_cur3=0;   
-      if(g_tstate_ccss>0) ccss=1;
+      if(g_tcontrol_opbutton ==1) {
+	g_tcontrol_opbutton =-1;
+	ccss=1;
+      }	
     }
     // CCS state 1: wait for car (ignored in simulation)
     if(ccss==1) {
-      ccss=2;
+        ccss=2;
     }  
     // CCS state 2: wait for load allocation
     if(ccss==2) {
-      if((cmaxcur>50) && (bphases!=0)) {
-        level=0;
-        ccss=3;
-      }  
+        if((smaxcur>50) && (bphases!=0)) {
+            level=0;
+            ccss=3;
+        }  
+        if(g_tcontrol_opbutton ==1) {
+   	    g_tcontrol_opbutton =-1;
+   	    ccss=0;
+	} 
     }
     // CCS state 3: run primitive PT1-style charging curves
     if(ccss==3) {
         int cur = 320.0 * (capacity - level) / capacity; // max 32A
-        if(cur>cmaxcur) cur=cmaxcur;
-        if(cur<50) cur=0; // min 5A
+        if(cur>smaxcur) cur=smaxcur; // limit current by supply
+        if(cur>cmaxcur) cur=cmaxcur; // limit current by cable
+        if(cur<50) cur=0;            // min 5A
         g_tstate_cur1= bphases & 0x01 ? cur : 0;
         g_tstate_cur2= bphases & 0x02 ? cur : 0;
         g_tstate_cur3= bphases & 0x04 ? cur : 0;
         level+= cur*0.1;  // scale timing 0.1 <> 40sec for one charge
         if(cur==0) ccss=0;
         if(bphases==0) ccss=0;
+        if(g_tcontrol_opbutton ==1) {
+	    g_tcontrol_opbutton =-1;
+            ccss=0;
+	}
     }
-    // sense charge abort by operator (mimiqued e.g. by M5Stick button A)
-    if((g_tstate_ccss==0) && (ccss!=0)) {
-        ccss=0;
-    }  
-    // forward CCS state (one extra digit for compatibility with CTRL22 target firmware)
-    g_tstate_ccss=10*ccss;
+    // clear opbutton anyway
+    g_tcontrol_opbutton=0;
+    // copy local state (one extra digit for compatibility with actual AGCCS hardware)
+    if(g_tstate_ccss!=10*ccss) {
+        g_tstate_ccss=10*ccss;
+        heartbeat_trigger();
+    }     
 }
 
 
@@ -2037,6 +2070,7 @@ static void node_read_task(void *arg)
     cJSON *json_version               = NULL;
     cJSON *json_board                 = NULL;
     cJSON *json_avrstate              = NULL;
+    cJSON *json_hb                    = NULL;
     cJSON *json_avrimgcnt             = NULL;
     cJSON *json_avrdata               = NULL;
     cJSON *json_avraddr               = NULL;
@@ -2176,6 +2210,15 @@ static void node_read_task(void *arg)
 		}
 	    }}}	        
 	} else {
+	// dispatch command: aet heartbeat period
+ 	if (!strcmp(command, "hbperiod")) {
+ 	    json_hb = cJSON_GetObjectItem(json_root, "val");
+             if(!json_hb) { 
+ 		MDF_ERROR_GOTO(json_hb, FREE_MEM, "node read parse error (spourious parameter)");
+ 	        MDF_ERROR_GOTO(!cJSON_IsNumber(json_hb), FREE_MEM, "node read parse error (hb num)");
+ 	    }
+ 	    g_heartbeat_period = json_hb->valueint;
+ 	} else {
 	// dispatch commands: initiate ESP32 OTA firmware upgrade (only root can do this)
         if (!strcmp(command, "upgrade")) {
   	    MDF_ERROR_GOTO(!esp_mesh_is_root(), FREE_MEM, "node read refuses upgrade command (not root)");
@@ -2289,7 +2332,7 @@ static void node_read_task(void *arg)
             if(ret != MDF_OK) { 
               MDF_LOGD("<%s> mwifi_write", mdf_err_to_name(ret));
 	    }  
-	}}}}}}}}}
+	}}}}}}}}}}
 
     FREE_MEM:
 
@@ -2430,8 +2473,8 @@ static void heartbeat_task(void *qrg)
 	
         // compose message
         size = asprintf(&data,
-           "{\"src\":\"" MACSTR "\",\"mtype\":\"heartbeat\",\"rssi\":%d,\"ccss\":%d,\"maxcur\":%d,\"phases\":%d,\"cur1\":%d,\"cur2\":%d,\"cur3\":%d}\r\n",
-	   MAC2STR(sta_mac), mesh_ap.rssi, g_tstate_ccss, g_tstate_maxcur, g_tstate_phases, g_tstate_cur1, g_tstate_cur2, g_tstate_cur3);
+           "{\"src\":\"" MACSTR "\",\"mtype\":\"heartbeat\",\"rssi\":%d,\"ccss\":%d,\"smaxcur\":%d,\"cmaxcur\":%d,\"phases\":%d,\"cur1\":%d,\"cur2\":%d,\"cur3\":%d}\r\n",
+			MAC2STR(sta_mac), mesh_ap.rssi, g_tstate_ccss, g_tstate_smaxcur, g_tstate_cmaxcur, g_tstate_phases, g_tstate_cur1, g_tstate_cur2, g_tstate_cur3);
 
         // send message
         ret = mwifi_write(NULL, &data_type, data, size, true); 
@@ -3202,7 +3245,7 @@ void app_main()
 
 #endif    
 
-    // both mesh and aoftap need nvs
+    // both mesh and softap need nvs
     mdf_err_t ret=nvs_flash_init();
     if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
         MDF_ERROR_ASSERT(nvs_flash_erase());
@@ -3227,7 +3270,7 @@ void app_main()
     xTimerStart(stimer, 0);
 #endif    
 
-    // start periodic sysinfo
+    // start periodic sysinfo (serial line debugging)
     if(!g_debug_target) {
         TimerHandle_t ptimer = xTimerCreate("print_system_info", 10000 / portTICK_PERIOD_MS,
                                        true, NULL, print_system_info_timercb);

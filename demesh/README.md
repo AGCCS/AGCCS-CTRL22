@@ -38,13 +38,77 @@ Effectively we tunnel the serial line of the target uC to the host. To be of pra
 
 The ESP32 is quite a powerfull SoC, providing two cores and 380kB RAM. The ESP-MDF SDK is built on to of the FreeRTOS operating system and we thus have taks, timers and socket IO. Indeed, programming the ESP32 feels much more like programming a POSIX compliment "System" than just a "Chip". We give run through of the main building blcoks of the provided firmware with a focus in message forwarding
 
-**Upstream Link -- Receiving Messages from the Host.** The only node that can directly receive messages from the host is the root node. It connetcs via a TCP soccket to the designated host, which is configurabe at compile time via `make menuconfig`.  The root node runs the task `upstream_read_task()` to read from this socket and expects commands aka requests. These are JSON encoded records of key-value pairs and must include a `"dst"="ADDR"` entry. The message is then forwarded by the mesh network the the node with the specified mesh address <ADDR>. We implement two special purpose addresses, namely `"dst="*"` for a broadcast to all nodes in the mesh and `"dst="root"` for the root node in its role as an ordinary node.
+**Upstream Link -- Receiving Messages from the Host.** The only node that can directly receive messages from the host is the root node. It connetcs via a TCP socket to the designated host, which is configurabe at compile time via `make menuconfig`.  The root node runs the task `upstream_read_task()` to read from this socket and expects commands aka requests. These are JSON encoded records of key-value pairs and must include a `"dst"="^ADDR^"` entry. The message is then forwarded by the mesh network the the node with the specified mesh address ^ADDR^. We implement two special purpose addresses, namely `"dst="*"` for a broadcast to all nodes in the mesh and `"dst="root"` for the root node in its role as an ordinary node.
 
 **Upstream Link -- Sending Messages to the Host.** The only node that can directly send mesages to the host is again the root node. It does so via the same TCP socket on which it receives messages from the host, see above. On the root node runs the task  `root_read_task()` to receive messages from any other node and to do so in its specific role as root. The root node will foreward any message received in this role to the host via the TCP socket. Thus, any node can talk to the host by sending a mesh-network explicitly to the root node. This is completely transparent, the root will not take any further actions.   
 
-**Mesh-Network Messages.** Every node runs the task `node_read_task()` to receive messages. This includes the root note, however, in its secondary role as an ordinary node. Typically the messages originate from the host and have been propageted through the mesh. Such messages are referred to as _commands_ or _reuquests_  and are meant to control the individual nodes. Technically, commands are JSON encoded key-value pairs. The key `"cmd"` specifies the action to be taken and this impicitly refines the effective data type of the remeinder of the message; i.e., which further keys must be present and how they affect the action to be taken. In turn, the node replys to any command with a JSON encoded message, i.e., it send an acknowledgement to the root note to be forwarded to the host. Any acknowledgement must contain the reserved keys  `src` and `mtype` to specify the sending node and the type of the message. Although the mesh network does not prvide TCP like sockets, the host utilise the  `src` and `mtype` entiries to untangle any incomming message. Relevant commands are documented on more detail [here](./NodeControl.md).
+**Mesh-Network Messages.** Every node runs the task `node_read_task()` to receive messages. This includes the root note, however, in its secondary role as an ordinary node. Typically the messages originate from the host and have been propageted through the mesh. Such messages are referred to as _commands_ or _reuquests_  and are meant to control the individual nodes. Technically, commands are JSON encoded key-value pairs. The key `"cmd"` specifies the action to be taken and this impicitly refines the effective data type of the remeinder of the message; i.e., which further keys must be present and how they affect the action to be taken. In turn, the node replys to any command with a JSON encoded message, i.e., it send an acknowledgement to the root note to be forwarded to the host. Any acknowledgement must contain the reserved keys  `src` and `mtype` to specify the sending node and the type of the message. Although the mesh network does not provide TCP-like sockets, the host utilises the  `src` and `mtype` entiries to untangle any incomming message. Relevant commands are documented on more detail in [NodeControl.md](./NodeControl.md).
+
+To actually send a command to a node, the host needs to listen on the designated TCP port and on connection write an appropriately encoded JSON message to the respective socket. This can be tested with general purpose tools like `netcat` aka `nc`; e.g., run `nc -l 8070` on the host to listen on the default port 8070 and on connection type `{"dst":"*","cmd"="status"}` to broadcast a status request -- and await the reply. For convenience, we provide the Python script [dmcrl.py](../utilities/)  which facilitates this process; e.g., run `./dmctrl.py status` to broadcast the same status request. 
 
 
+
+## Node Control via MQTT
+
+In addition to the elementary connection via a plaIn TCP socket, the root subscribes to a designated MQTT broker to receive commands and it published the acknowledgements to the same broker. The address of the broker defaults to the access-point IP at port 1884; this is configured at compile time via `make menuconfig`, see also below. In our specific set-up, we start the MQTT broker mosquitto on the RasPi as follows: 
+
+```
+pi@lrt101:~/ $ mosquitto -v -p 1884
+1615160674: Opening ipv4 listen socket on port 1884.
+1615160683: New client connected from 192.168.5.135 as ESP32_55A56C (c1, k120).
+1615160683: Received SUBSCRIBE from ESP32_55A56C
+1615160683: 	/DEMESH/+/control (QoS 0)
+1615160686: Received PUBLISH from ESP32_55A56C '/DEMESH/d8a01d55a56c/heartbeat'
+[...]
+```
+
+Here, we first observe the root node to subscribe to `/DEMESH/+/control`. The root node will forward any control message the mesh network in the same way it does with messages received via the plain TCP socket. We will also observe  periodic heartbeat publications at   `/DEMESH/+/heartbeat`  from all nodes. Once this is functional on the broker side, we may run it in daemon mode, e.g.
+
+```
+pi@lrt101:~/ $ mosquitto -d -p 1884
+```
+
+Any message published to `/DEMESH/^ADDR^/control` will be forwarded as a node message to the node specified by `^ADDR^`. The address format for this purpose is "MAC address without the colons" with `ffffffffffff` for broadcast over the entire mesh network. In response to any command the node will publish to `/DEMESH/^ADDR^/acknowledge`. The protocol (i.e. accepted messages and the format of the expected reply) is documented in [NodeControl.md](./NodeControl.md).
+
+
+
+**Example.** To subscribe to any acknowledgement and/or heartbeat messages, run
+
+```
+$ mosquitto_sub -h lrt101 -p 1884 -t /DEMESH/+/heartbeat -t /DEMESH/+/acknowledge
+```
+
+on any machine in the local network. Here, `lrt101` is the DNS name of the host which runs the broker, i.e., the RasPi. Expect heartbeat messages at a default period of 5secs from each node, e.g,
+
+```
+{"dev":"d8a01d55a56c","mtype":"heartbeat","rssi":-72,"ccss":0,"smaxcur":0,"cmaxcur":100,"phases":123,"cur1":0,"cur2":0,"cur3":0}
+```
+
+
+
+**Example.** To broadcast a status request, run
+
+```
+$ mosquitto_pub -h lrt101 -p 1884 -t /DEMESH/ffffffffffff/control -m '{"cmd":"status"}'
+```
+
+If you are still subscribed to `/DEMESH/+/acknowledge`, you will be forwarded the replies, e.g.
+
+```
+{"dev":"d8a01d55a56c","mtype":"status","parent":"dc:a6:32:6b:28:60","rssi":-69,"layer":1,"nodes":1,"plat":0}
+```
+
+
+
+**Example**. For charging cycle at a max of 32A on all three phases simulated on an M5Stick at address d8a01d55a56c, send the following control messages
+
+```
+$ mosquitto_pub -h lrt101 -p 1884 -t /DEMESH/d8a01d55a56c/control -m '{"cmd":"avrsetpar","avrpar":"smaxcur","avrval":320}'
+$ mosquitto_pub -h lrt101 -p 1884 -t /DEMESH/d8a01d55a56c/control -m '{"cmd":"avrsetpar","avrpar":"phases","avrval":123}'
+$ mosquitto_pub -h lrt101 -p 1884 -t /DEMESH/d8a01d55a56c/control -m '{"cmd":"avrsetpar","avrpar":"opbutton","avrval":1}'
+```
+
+The first target-AVR parameter `smaxcur` limits the mains supply current, the second `phases` enables all three phases. The third triggers the charging cycle by mimicking the operator button of the charging station; see [ctrl22.c](../ctrl22/) for detailed information of relevant target-AVR parameters.
 
 ## Compiling and Installing ESP32 Firmware
 

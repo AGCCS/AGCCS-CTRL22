@@ -1,10 +1,10 @@
 # Node Control Protocol
 
-Individual Nodes receive messages from the host via the root node and the mesh network. All such messages and the respective acknowledgements are JSON encoded ASCII strings, i.e., records of key-value pairs in a human readable format. Any request sent must include an entry `"cmd":"^CMD^"`, where ^CMD^ specifies the request. The task `node_read_task()` indefinitely waits for messages, dispatches the requests accordingly and issues ancknowledgement. The latter must include a `"src":"^ADDR^"`entry and an `"mtype":"^TYPE^"`entry to indicate the reporting node and the format of any further key-value pairs in the reply, respectively. Most commonly, ^TYPE^ is set to ^CMD^ as this is sufficient for the host to adequately interpret the message. 
+Individual Nodes receive messages from the host via the root node and the mesh network. All such messages and the respective acknowledgements are JSON encoded ASCII strings, i.e., records of key-value pairs in a human readable format. Any request sent must include an entry `"cmd":"^CMD^"`, where ^CMD^ specifies the request. The task `node_read_task()` indefinitely waits for messages, dispatches the requests accordingly and issues acknowledgement. The latter must include a `"src":"^ADDR^"`entry and an `"mtype":"^TYPE^"`entry to indicate the reporting node and the format of any further key-value pairs in the reply, respectively. Most commonly, ^TYPE^ is set to ^CMD^ as this is sufficient for the host to adequately interpret the message. 
 
-**Example.** When node d8:a0:1d:55:a7:10 receives  the message  `{"cmd":"status"}`, the node replies with a record like `{"src":"d8:a0:1d:55:a7:10", "mtype":"status", "parent":"d8:a0:1d:55:37:cd", "rssi":-40, "layer":2,"nodes":3, "plat":57}`.  By identifying ``"mtype":"status"`the host knows how to read the further key-value pairs in the reply. In this example, node d8:a0:1d:55:a7:10 reports on the status of its connection status to the mesh network. 
+**Example.** When node d8:a0:1d:55:a7:10 receives  the message  `{"cmd":"status"}`, the node replies with a record like `{"src":"d8:a0:1d:55:a7:10", "mtype":"status", "parent":"d8:a0:1d:55:37:cd", "rssi":-40, "layer":2,"nodes":3, "plat":57}`.  By identifying `"mtype":"status"`, the host knows how to read the further key-value pairs in the reply. In this example, node d8:a0:1d:55:a7:10 reports on the status of its connection status to the mesh network. 
 
-Most relevant requests and their specific key-value pairs given below. During development and/or for first-installation, the listed requests can initiated by the command-line tool  [dmctrl.py](../utils/).
+Relevant requests and their specific key-value pairs are given below. During development and/or for first-installation, the listed requests can initiated by the command-line tool [dmctrl.py](../utils/) which implements a plain TCP interface with the root node. For more convenient access, the protocol is also available via MQTT. Here, the root node subscribes to the topics `\DEMESH\+\control`  and forwards the messages received to the respective node. Here, the wildcard `+` stands for the node address in the format "MAC address without the colons". Likewise, the host publishes any reply to the topic `\DEMESH\+\ackowledge`. For cosmetic reasons, the entry `"src":"^ADDR^"` of the original reply is then substituted by `"dev":"^MADDR^"` with ^MADDR^ in MQTT-topic style "MAC address without colons". Otherwise, the message formats used via MQTT and plain TCP are just the same. 
 
 ### Restart Request
 
@@ -98,4 +98,4 @@ On host side, the overall process has been implemented in the utility [dmctrl.py
 
 
 
-## 
+ 

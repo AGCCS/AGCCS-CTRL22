@@ -8,11 +8,13 @@ choice TARGET_BOARD
 config TARGET_BOARD_NOPE
      bool "Nope (dont touch my hardware)"
 config TARGET_BOARD_M5
-     bool "M5StickC (report statud via built-in OLED)"
+     bool "M5StickC (report status via built-in TFT)"
 config TARGET_BOARD_GPIO2
      bool "Barebones with LED on GPIO 2"
 config TARGET_BOARD_FGCCS_1_0
-     bool "FGCCS board, rev 1.0"
+     bool "AGCCS board, rev 1.0"
+config TARGET_BOARD_FGCCS_1_2
+     bool "AGCCS board, rev 1.2"
 endchoice
 
 

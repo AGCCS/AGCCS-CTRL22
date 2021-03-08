@@ -81,7 +81,7 @@ class MonitorTCPHandler(socketserver.BaseRequestHandler):
                     parse_heartbeat(jreply)
         except socket.error:
             print('timeout')
-        print('shutting down demesh tcp server')
+        print('shutting down demesh tcp heartbeat server')
         shutdown_evt.set()
         
 
@@ -107,7 +107,7 @@ class CommandTCPHandler(socketserver.BaseRequestHandler):
                     break
         except socket.error:
             print('timeout')
-        print('shutting down demesh tcp server')
+        print('shutting down demesh tcp command server')
         shutdown_evt.set()
 
 
@@ -203,7 +203,7 @@ class AvrflashTCPHandler(socketserver.BaseRequestHandler):
                     print("writing firmware to target AVR succeeded")
 
         # done        
-        print('shutting down demesh server')
+        print('shutting down demesh avrots server')
         shutdown_evt.set()
 
 
