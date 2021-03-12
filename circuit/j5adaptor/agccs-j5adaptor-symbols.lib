@@ -1,0 +1,24 @@
+EESchema-LIBRARY Version 2.4
+#encoding utf-8
+#
+# USB-to-Serial
+#
+DEF USB-to-Serial J 0 40 Y Y 1 F N
+F0 "J" 350 300 50 H V C CNN
+F1 "USB-to-Serial" 100 -300 50 H V L CNN
+F2 "" 0 0 50 H I C CNN
+F3 "" 0 0 50 H I C CNN
+$FPLIST
+ Connector*:*_1x??-1MP*
+$ENDFPLIST
+DRAW
+S -50 250 800 -250 1 1 10 f
+X 3.3V 1 -200 -200 150 R 50 50 1 1 w
+X TxD 2 -200 -100 150 R 50 50 1 1 O
+X RxD 3 -200 0 150 R 50 50 1 1 I
+X GND 4 -200 100 150 R 50 50 1 1 B
+X 5V 5 -200 200 150 R 50 50 1 1 w
+ENDDRAW
+ENDDEF
+#
+#End Library

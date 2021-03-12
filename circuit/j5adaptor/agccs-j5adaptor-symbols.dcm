@@ -1,0 +1,9 @@
+EESchema-DOCLIB  Version 2.0
+#
+$CMP USB-to-Serial
+D USB-to-Serial
+K connector
+F ~
+$ENDCMP
+#
+#End Doc Library

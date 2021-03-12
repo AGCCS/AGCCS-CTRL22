@@ -1,0 +1,3 @@
+(sym_lib_table
+  (lib (name agccs-j5adaptor-symbols)(type Legacy)(uri ${KIPRJMOD}/agccs-j5adaptor-symbols.lib)(options "")(descr ""))
+)

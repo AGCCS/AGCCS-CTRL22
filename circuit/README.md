@@ -204,7 +204,7 @@ avrdude -patmega4808  -carduino -Pnet:192.168.4.1:2323 -U flash:w:{SOME_HEX_FILE
 
 # Hardware Revisions
 
-In this repository we provide the current stage of development and version Rev-1-2 both as editable KiCad projects. For documentation purposes, earlier revisions are provided as PDFs for inspection. 
+In this repository we provide the current stage of development Rev-1-x and latest stable version Rev-1-2 both as editable KiCad projects. For documentation purposes, earlier revisions are provided as PDFs for inspection. 
 
 The initial revision Rev-1-0 passed our tests conducted with a first-installation firmware archived in [Pascal Thurnherrs repository](https://github.com/dreadnomad/FGCCS-Ctrl22)). Rev-1-1 is an incremental upgrade by the same team, it should be fine too from an electronics perspective. We are currently ordering/assembling our intermediate finalist Rev-1-2, keeping our fingers crossed. Once Rev-1-2 has been positively evaluated with our production firmware [ctrl22](../ctrl22/), we'll tidy up the repository and remove obsolete earlier revisions.
 
@@ -236,16 +236,22 @@ The initial revision Rev-1-0 passed our tests conducted with a first-installatio
 ## Revision 1.2
 
 - jet again the push button electronics ... this time we should have got them right
+
 - brown out detection incl. "opening lock on power down"
+
 - improved current reading circuitry to decouple individual phases
 
 - further optimized the spacing in the layour for hans soldering
 
-- general tidying up schmetics and the layout 
+- general tidying up schematics and the layout 
 
   
 
-  
+## Revision 1.x
+
+- minor flaws in 1.2 PCB layout  (weak fill on backside layer, not so nice front silk screen)
+
+
 
 **Some notes on assembly/first-installation:** since PP is only connected to a resistor within the plug at the charging outlet, we almost certainly may short the relay U12 (and hence not populate it); we never actually used the RS485 option (and hence may not even populate U7); watch out, there are smart and less smart orders in which to solder the individual parts depending on their physical dimensions and locations; the tantalum capacitor C16 is polarised; regarding functional modules, plan for incremental tests, e.g., first install the 3.3V regulator and run/test from a 12V bench supply, then install the AVR minimalistically and program via UPDI (an indicator LED is useful here, may blink TX2 on the extension connector), then add the ESP32 and set it to target-AVR debug mode, from now on "no wires from the board to your computer", you can further populate/test individual functional modules safly isolated ... a.s.o. ... the 230V/12V converter comes definitely last; clean your glasses, sharpen your tweezers, have fun.  
 
