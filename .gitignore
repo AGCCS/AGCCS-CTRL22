@@ -18,11 +18,11 @@ ctrl22/*.o
 **/.DS_Store
 
 # KiKad
-circuit/KiCad/*.kicad_pcb-bak
-circuit/KiCad/*.sch-bak
-circuit/KiCad/*.bck
-circuit/KiCad/fp-info-cache
-circuit/KiCad/*-cache.lib 
+circuit/**/*.kicad_pcb-bak
+circuit/**/*.sch-bak
+circuit/**/*.bck
+circuit/**/fp-info-cache
+circuit/**/*-cache.lib 
 
 # local archive
 local
