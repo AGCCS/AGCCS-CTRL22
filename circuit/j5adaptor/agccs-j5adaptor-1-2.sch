@@ -221,8 +221,6 @@ $EndComp
 Wire Wire Line
 	6850 1750 7400 1750
 Wire Wire Line
-	7400 1750 7400 3525
-Wire Wire Line
 	7400 3725 7400 4150
 Connection ~ 7400 4150
 Wire Wire Line
@@ -261,8 +259,23 @@ Wire Wire Line
 	9150 4150 9850 4150
 Text Notes 3450 2650 0    59   ~ 0
 *** keep unattained to pass on serial line to ESP \n(programming and monitoring)\n*** hold down for UPDI programming the AVR with \nPyupdi (the ESP will then lalso listen to the UPDI \nprogramming protocol, but this does not matter)\n*** on the AGCCS board, this is the RED switch
-Text Notes 4675 3775 0    59   ~ 0
-*** when pulled to ground, our firmeware “demesh.c”\nwill go in target-debug mode (i.e. accespoint with telnet\nforwarding of the AVRs Tx0 und Rx0)
-Text Notes 6350 4425 0    59   ~ 0
-*** ESP serial line programming: hold down ESP_BOOT while cycling ESP_EN;\non the AGCCS board, ESP_BOOT is BLACK and ESP_EN is GREY
+Text Notes 4525 3775 0    59   ~ 0
+*** when pulled to ground, our firmeware “demesh.c”\nwill boot into target-debug mode (i.e. accespoint with telnet\nforwarding of the AVRs Tx0 und Rx0); cycle  EPS_EN to\ntrigger re-boot. 
+Text Notes 6375 4500 0    59   ~ 0
+*** ESP serial line programming: hold down ESP_BOOT while cycling ESP_EN;\nstart “make flash” before releasing ESP_BOOT; on the AGCCS board, \nESP_BOOT is BLACK and ESP_EN is GREY
+$Comp
+L Device:R R?
+U 1 1 604BA489
+P 7400 3175
+F 0 "R?" H 7470 3221 50  0001 L CNN
+F 1 "120" H 7330 3175 50  0000 R CNN
+F 2 "" V 7330 3175 50  0001 C CNN
+F 3 "~" H 7400 3175 50  0001 C CNN
+	1    7400 3175
+	-1   0    0    -1  
+$EndComp
+Wire Wire Line
+	7400 3325 7400 3525
+Wire Wire Line
+	7400 3025 7400 1750
 $EndSCHEMATC
