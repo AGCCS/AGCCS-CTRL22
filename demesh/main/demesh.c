@@ -50,7 +50,7 @@ repository.
 */
 
 // firmware version string (relevant format for OTA: "<OneDigit>.<OneDigit>", nothing else tested)
-#define DEMESH_VERSION "6.3"
+#define DEMESH_VERSION "6.4"
 
  
 // minimum includes
@@ -1954,8 +1954,11 @@ static esp_err_t mqtt_event_handler(esp_mqtt_event_handle_t event)
 {
     esp_mqtt_client_handle_t client = event->client;
     int msg_id;
-    uint8_t dst_addr[MWIFI_ADDR_LEN]  = {0x0};
-    mwifi_data_type_t data_type       = {0x0};
+    uint8_t topic_addr[MWIFI_ADDR_LEN] = {0x0};
+    uint8_t any_addr[MWIFI_ADDR_LEN]   = MWIFI_ADDR_ANY;
+    uint8_t root_addr[MWIFI_ADDR_LEN]  = MWIFI_ADDR_ROOT;
+    uint8_t *dst_addr                  = NULL;
+    mwifi_data_type_t data_type        = {0x0};
 
     switch (event->event_id) {
         case MQTT_EVENT_CONNECTED:
@@ -1979,15 +1982,44 @@ static esp_err_t mqtt_event_handler(esp_mqtt_event_handle_t event)
             ESP_LOGI(TAG, "MQTT_EVENT_DATA");
             MDF_LOGI("TOPIC=%.*s", event->topic_len, event->topic);
             MDF_LOGI("DATA=%.*s", event->data_len, event->data);
+	    // test for topic to begin with "/DEMESH/"
 	    if( strncmp(event->topic, "/" CONFIG_MESH_ID "/",strlen("/" CONFIG_MESH_ID "/")) ) break;
-	    if( strncmp(event->topic + strlen("/" CONFIG_MESH_ID "/123456123456"), "/control", strlen("/control")) ) break;
-	    char* dev_addr=event->topic+strlen("/" CONFIG_MESH_ID "/");
-	    for (int i = 0; i < MWIFI_ADDR_LEN; i++) { 
-	        uint32_t ux;
-	        sscanf(dev_addr+2*i,"%02x",&ux);
-	        dst_addr[i]=ux;	    
-	    }  
-	    MDF_LOGI("mqtt dispatching to " MACSTR, MAC2STR(dst_addr)); 
+	    int apos=strlen("/" CONFIG_MESH_ID "/");
+	    // test for topic to end with "/control"
+	    int cpos=apos;
+	    while((cpos<event->topic_len) && (event->topic[cpos]!='/')) ++cpos;
+	    if(cpos+strlen("control")>=event->topic_len) break;	  
+	    if(strncmp(event->topic + cpos, "/control", strlen("/control")) ) break;
+	    dst_addr=NULL;
+	    // figure addess a) "root"
+	    if(!strncmp(event->topic + apos, "root/", strlen("root/"))) {
+  	        dst_addr=root_addr;
+  	        MDF_LOGI("mqtt dispatching to root");
+	    }
+	    // figure addess b) "*"
+	    if(!strncmp(event->topic + apos, "*/", strlen("*/"))) {
+	        dst_addr=any_addr;
+  	        MDF_LOGI("mqtt dispatching as broadcast");
+	    }
+	    // figure addess c) "123456789abc"
+	    if((dst_addr==NULL) &&  (cpos-apos==12)) {
+	        int i;
+	        for(i = 0; i < MWIFI_ADDR_LEN; i++) { 
+	            uint32_t ux;
+	            if(sscanf(event->topic+apos+2*i,"%02x",&ux)!=1) break;
+	      	    topic_addr[i]=ux;	    
+	        }
+	       if(i==MWIFI_ADDR_LEN) {
+    	           MDF_LOGI("mqtt dispatching to " MACSTR, MAC2STR(topic_addr)); 
+	           dst_addr=topic_addr;
+	       }  
+	    }
+	    // sense address error
+	    if(dst_addr==NULL) {
+	        MDF_LOGI("mqtt failed to parse address"); 
+	        break;
+	    }	
+	    // do dispatch 
             if(mwifi_write(dst_addr, &data_type, event->data, event->data_len, true) != MDF_OK)
 	        MDF_LOGW("mqtt client failed to write to mesh"); 
             break;

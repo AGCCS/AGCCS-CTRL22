@@ -167,8 +167,6 @@ Wire Wire Line
 Wire Wire Line
 	5200 1650 6350 1650
 Wire Wire Line
-	4175 1750 3700 1750
-Wire Wire Line
 	5350 1750 5350 1450
 Wire Wire Line
 	5350 1450 2700 1450
@@ -243,11 +241,9 @@ Wire Wire Line
 Wire Wire Line
 	6850 1850 8375 1850
 Wire Wire Line
-	2475 4150 7400 4150
+	3000 4150 7400 4150
 Wire Wire Line
-	2475 1850 2350 1850
-Wire Wire Line
-	2475 1850 2475 4150
+	3000 1850 2350 1850
 Wire Wire Line
 	9150 3325 9150 3425
 Wire Wire Line
@@ -278,4 +274,10 @@ Wire Wire Line
 	7400 3325 7400 3525
 Wire Wire Line
 	7400 3025 7400 1750
+Wire Wire Line
+	3700 1750 4200 1750
+Wire Wire Line
+	3000 1850 3000 4150
+Text Notes 900  2625 0    59   ~ 0
+*** we  use a USB-to-Serial converter \nwith a  CP102 chip from Silicon Labs; it \nis fast and reliable. \n*** double check the output voltage … \nmust not be more than 3.3V (!)
 $EndSCHEMATC

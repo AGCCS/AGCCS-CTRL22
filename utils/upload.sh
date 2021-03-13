@@ -25,12 +25,7 @@ fi
 # file to upload
 BIN=$BASE/demesh/build/demesh.bin
 
-# make sure we are up to date
-rm -f $BIN > /dev/null
-CDIR=$(pwd)
-cd $BASE/demesh
-make -s -j20 > /dev/null
-cd $CDIR
+# check for file
 if [ ! -f $BIN ]; then
    echo binary $BIN not found
    exit;
