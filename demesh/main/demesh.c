@@ -101,7 +101,7 @@ static int g_tstate_cur3=0;       // actual current drawn on phase 1 (unit 100mA
 
 // DEMESH globals, local copy of target uC control parameters (fake when simulating)
 // Note: if it was not for target simulation, we should be transparent regarding the target control interface
-static int g_tcontrol_blinks=-1;       // operator button flash light (not simulated)
+static int g_tcontrol_blinks=-1;       // operator button flash light 
 static int g_tcontrol_smaxcur=-1;      // current allowed by supply (unit 100mA)
 static int g_tcontrol_cmaxcur=-1;      // current allowed by cable (unit 100mA) (convenience remote overwrite)
 static int g_tcontrol_phases=-1;       // enabled phases (i.e. "1" for use phase 1 only) 
@@ -1002,6 +1002,11 @@ static void simulate_target_timercb(void *timer) {
     static const int capacity=1000;
     // have fake version number (reads "v0.0" nor "none" to indicate simulation)
     g_tstate_version=0;
+    // forward blink to e.g. m5stick
+    if(g_tcontrol_blinks>=0) {
+      g_blinks=g_tcontrol_blinks;
+      g_tcontrol_blinks=-1;
+    }  
     // allocated smaxcur is set by g_tcontrol_smaxcur and expires after 20sec
     if(g_tcontrol_smaxcur >= 0) {
         smaxcur= g_tcontrol_smaxcur;
@@ -1034,7 +1039,7 @@ static void simulate_target_timercb(void *timer) {
         g_tstate_phases=g_tcontrol_phases;
 	g_tcontrol_phases=-1;
     }
-    // CCS state 0: wait for operator button (mimiqued e.g. by M5Stick button B)
+    // CCS state 0 (OFF): wait for operator button (mimiqued e.g. by M5Stick button B)
     if(ccss==0) {
       g_tstate_cur1=0;
       g_tstate_cur2=0;
@@ -1044,11 +1049,11 @@ static void simulate_target_timercb(void *timer) {
 	ccss=1;
       }	
     }
-    // CCS state 1: wait for car (ignored in simulation)
+    // CCS state 1 (A): wait for car (ignored in simulation)
     if(ccss==1) {
         ccss=2;
     }  
-    // CCS state 2: wait for load allocation
+    // CCS state 2 (B): wait for load allocation
     if(ccss==2) {
         if((smaxcur>50) && (bphases!=0)) {
             level=0;
@@ -1059,7 +1064,7 @@ static void simulate_target_timercb(void *timer) {
    	    ccss=0;
 	} 
     }
-    // CCS state 3: run primitive PT1-style charging curves
+    // CCS state 3 (C): run primitive PT1-style charging curves
     if(ccss==3) {
         int cur = 320.0 * (capacity - level) / capacity; // max 32A
         if(cur>smaxcur) cur=smaxcur; // limit current by supply
