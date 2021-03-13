@@ -68,10 +68,10 @@ config FIRMWARE_SERVER_PORT
             Server port.
 
 config FIRMWARE_BASENAME
-    string "Firmware filename (w/o extension)"
+    string "Firmware prefix (w/o extension)"
     default "demesh"
     help
-        Base of firmware file, no versions, no extension.
+        Prefix of firmware file, incl. path, but no versions, no extension.
 
 config MQTT_BROKER_URL
     string "MQTT broker address"
