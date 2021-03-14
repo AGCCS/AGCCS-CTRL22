@@ -60,7 +60,7 @@ Here it is assumed that the lock closes when Lock_R is driven to 12V while Lock_
 
 # Installing Firmware (first time only)
 
-To get bootstrapped, we need to install an initial version of firmware for both the AVR uC and the ESP32 SoC. For this purpose, our board is equipped with the custom 8-pin header J5. For you own convenience, we propose that you set up a programming adaptor following these  [schematics](agccs-j5adaptor-schematics.pdf ). 
+To get bootstrapped, we need to install an initial version of firmware for both the AVR uC and the ESP32 SoC. For this purpose, our board is equipped with the custom 8-pin header J5. For you own convenience, we propose that you set up a programming adaptor following these  [schematics](agccs-j5adaptor-schematic.pdf ). 
 
 |  Fnct.   | Pin  | Pin  |  Fnct.   |
 | :------: | :--: | :--: | :------: |
