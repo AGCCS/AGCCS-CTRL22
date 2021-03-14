@@ -25,7 +25,23 @@ All three components are open source and can be hence adapted to best fit a vari
 
 
 
-# Hardware Platform
+## Contents of this Repository
+
+- [./circuit](./circuit/): hardware platform, incl. schematics and a HowTo on firmware installation
+
+- [./ctrl22](./ctrl22/): AVR firmware to control the charging process
+
+- [./demesh](./demesh/): ESP32 firmware to organise messaging over a wireless mesh network
+
+- [./wegbui](./webgui/): server software for overall control and monitoring the charging station network
+
+- [./utils](./utils/): scripts to facilitate first-installation and debugging
+
+- [./doc](./doc/): Thesis and other documents regarding this project
+
+  
+
+## Hardware Platform
 
 [Our hardware platform](./circuit/) consists of 
 

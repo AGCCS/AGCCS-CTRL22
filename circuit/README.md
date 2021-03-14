@@ -54,13 +54,13 @@ Lock_B <---------------------[ contact ]-----+
 
 Here it is assumed that the lock closes when Lock_R is driven to 12V while Lock_W is driven to GND. 
 
-**Power Rails**. Our circuit generates the relevant power rails +12V, -12V and +3.3V in the usual manner using two cascaded switching regulators and a voltage inverter. The +12V rail derived by an integrated component directly from mains. We have opted for 800mA as a reasonable maximum rating. However, the lock motor (or solenoid) will on operation draw up to 3A. Thus, we buffer the 12V line via the Schottky diode D12 and the capacitor C12 [rated 15000uF]  with the current limiting resistor R3-R6 [typ. 25R]. The resistor limits the maximum current on the 12V rail to about 500mA while the low voltage across D12 assures a charge to almost 12V. Since the closing or opening of the lock only takes a view ms [we experienced approx. 20ms], the mechanism is effectively driven by the energy held up in the capacitor C12. As a side effect, this construct allows us to address brown-out situations: at power loss during charging we shall release the lock. Since power loss may be caused by issues with the charging process in conjunction with mandatory leakage current detection this scenario is more likely than it appears and it would make our costumers really unhappy. We therefor generate the brown-out signal  BOT when the 12V rail falls below approx. 10V, leaving the AVR time to release the lock via the remaining charge of capacitor C12. The minimum dimension of C2 will crucially depend on the actual lock.  **Not all locks are the same:** if you plan to use a lock, you should check on the values of C12 and R3-R6. Charge C12, disconnect power and test whether you can open/close the lock. If you have other units living on the 12V rail, you may increase R3-R6., to reduce the current used when charging C12.
+**Power Rails**. Our circuit generates the relevant power rails +12V, -12V and +3.3V in the usual manner using two cascaded switching regulators and a voltage inverter. The +12V rail derived by an integrated component directly from mains. We have opted for 800mA as a reasonable maximum rating. However, the lock motor (or solenoid) will on operation draw up to 3A. Thus, we buffer the 12V line via the Schottky diode D12 and the capacitor C12 [rated 15000uF]  with the current limiting resistor R3-R6 [typ. 25R]. The resistor limits the maximum current on the 12V rail to about 500mA while the low voltage across D12 assures a charge to almost 12V. Since the closing or opening of the lock only takes a view ms [we experienced approx. 20ms], the mechanism is effectively driven by the energy held up in the capacitor C12. As a side effect, this construct allows us to address brown-out situations: at power loss during charging we shall release the lock. Since power loss may be caused by issues with the charging process in conjunction with mandatory leakage current detection this scenario is more likely than it appears and it would make our costumers really unhappy. We therefor generate the brown-out signal  BOT when the 12V rail falls below approx. 10V, leaving the AVR time to release the lock via the remaining charge of capacitor C12. The minimum dimension of C2 will crucially depend on the actual lock.  **Not all locks are the same:** if you plan to use a lock, you should check on the values of C12 and R3-R6. Charge C12, disconnect power and test whether you can open/close the lock. If you plan on additional units living on the 12V rail, you may increase R3-R6, to reduce the current used when charging C12.
 
-**Digital IOs.** Our circuitry includes digital IOs for an operator button, an operator indicator (LED)  and to individually control each of the three phases L1, L2 and L3 via external contactors driven by the SSRs  U1, U2 and U3. In addition, we have included the signal relays U12 and U13 to virtually disconnect the EV from the charging station. Since certain EVs will "fall to sleep" when charging does non commence within a certain amount of time, the signal relay is when charging by schedule or power allocation by an external agent; e.g. only start charging when solar power is available. 
+**Digital IOs.** Our circuitry includes digital IOs for an operator button, an operator indicator (LED)  and to individually control each of the three phases L1, L2 and L3 via external contactors driven by the SSRs  U1, U2 and U3. In addition, we have included the signal relays U12 and U13 to virtually disconnect the EV from the charging station. Since certain EVs will "fall to sleep" when charging does non commence within a certain amount of time, the signal relay becomes relevant when charging by schedule or power allocation by an external agent; e.g. only start charging when solar power is available. 
 
 # Installing Firmware (first time only)
 
-To get bootstrapped, we need to install an initial version of firmware for both the AVR uC and the ESP32 SoC. For this purpose, our board is equipped with the custom 8-pin header J5
+To get bootstrapped, we need to install an initial version of firmware for both the AVR uC and the ESP32 SoC. For this purpose, our board is equipped with the custom 8-pin header J5. For you own convenience, we propose that you set up a programming adaptor following these  [schematics](agccs-j5adaptor-schematics.pdf ). 
 
 |  Fnct.   | Pin  | Pin  |  Fnct.   |
 | :------: | :--: | :--: | :------: |
@@ -154,10 +154,10 @@ Short instructions:
                      +-[/]--->ESP-EN   (aka connector J5 pin 8)
   ```
 - to flash the `demesh` firmware
-  - set ESP-EN and ESP-IO0 to low
-  - set ESP-EN to not-connected
+  - set ESP-EN and ESP-IO0 to low (on our adaptor: press the black and the grey button)
+  - set ESP-EN to not-connected (on our adaptor: release the black button)
   - run `make flash`
-  - set ESP-IO0 to not-connected
+  - set ESP-IO0 to not-connected (on our adaptor: release all buttons)
   
 
 This is effectively the same procedure as with common ESP32 dev-boards such as NodeMCU, except that dev-boards will have convenient key-switches built-in while we need to do some external wiring. **One last word of warning: make sure your USB-to-Serial converter  is 3.3V.**
@@ -206,7 +206,7 @@ avrdude -patmega4808  -carduino -Pnet:192.168.4.1:2323 -U flash:w:{SOME_HEX_FILE
 
 In this repository we provide the current stage of development Rev-1-x and latest stable version Rev-1-2 both as editable KiCad projects. For documentation purposes, earlier revisions are provided as PDFs for inspection. 
 
-The initial revision Rev-1-0 passed our tests conducted with a first-installation firmware archived in [Pascal Thurnherrs repository](https://github.com/dreadnomad/FGCCS-Ctrl22)). Rev-1-1 is an incremental upgrade by the same team, it should be fine too from an electronics perspective. We are currently ordering/assembling our intermediate finalist Rev-1-2, keeping our fingers crossed. Once Rev-1-2 has been positively evaluated with our production firmware [ctrl22](../ctrl22/), we'll tidy up the repository and remove obsolete earlier revisions.
+The initial revision Rev-1-0 passed our tests conducted with a first-installation firmware archived in [Pascal Thurnherrs repository](https://github.com/dreadnomad/FGCCS-Ctrl22). Rev-1-1 is an incremental upgrade by the same team, it should be fine too from an electronics perspective. We are currently ordering/assembling our intermediate finalist Rev-1-2, keeping our fingers crossed. Once Rev-1-2 has been positively evaluated with our production firmware [ctrl22](../ctrl22/), we'll tidy up the repository and remove obsolete earlier revisions.
 
 
 

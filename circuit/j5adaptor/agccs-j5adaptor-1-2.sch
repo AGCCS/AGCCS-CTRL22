@@ -256,9 +256,9 @@ Wire Wire Line
 Text Notes 3450 2650 0    59   ~ 0
 *** keep unattained to pass on serial line to ESP \n(programming and monitoring)\n*** hold down for UPDI programming the AVR with \nPyupdi (the ESP will then lalso listen to the UPDI \nprogramming protocol, but this does not matter)\n*** on the AGCCS board, this is the RED switch
 Text Notes 4525 3775 0    59   ~ 0
-*** when pulled to ground, our firmeware “demesh.c”\nwill boot into target-debug mode (i.e. accespoint with telnet\nforwarding of the AVRs Tx0 und Rx0); cycle  EPS_EN to\ntrigger re-boot. 
+*** when pulled to ground, our firmeware “demesh.c”\nwill boot into target-debug mode (i.e. accespoint with telnet\nforwarding of the AVRs Tx0 und Rx0); cycle  EPS_EN to\ntrigger re-boot. (OPTIONAL — you may prefer to use a plain\njumper wire from ESP_IO15 to GND directly)
 Text Notes 6375 4500 0    59   ~ 0
-*** ESP serial line programming: hold down ESP_BOOT while cycling ESP_EN;\nstart “make flash” before releasing ESP_BOOT; on the AGCCS board, \nESP_BOOT is BLACK and ESP_EN is GREY
+*** ESP serial line programming: hold down ESP_BOOT while cycling ESP_EN;\nstart “make flash” before releasing ESP_BOOT; on the AGCCS board, \nESP_EN is BLACK and ESP_BOOT is GREY
 $Comp
 L Device:R R?
 U 1 1 604BA489
@@ -280,4 +280,16 @@ Wire Wire Line
 	3000 1850 3000 4150
 Text Notes 900  2625 0    59   ~ 0
 *** we  use a USB-to-Serial converter \nwith a  CP102 chip from Silicon Labs; it \nis fast and reliable. \n*** double check the output voltage … \nmust not be more than 3.3V (!)
+Text Label 6875 1750 0    59   ~ 0
+ESP_IO15
+Wire Notes Line
+	8900 1700 9475 1700
+Wire Notes Line
+	9475 1700 9475 2650
+Wire Notes Line
+	8900 1700 8900 2650
+Wire Notes Line
+	8900 2650 9475 2650
+Text Notes 8775 1450 0    59   ~ 0
+OPTIONAL LED: show blink \ncodes from demesh.c
 $EndSCHEMATC
