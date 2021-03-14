@@ -49,7 +49,7 @@ THE SOFTWARE.
 
 
 // firmware version
-#define CTRL22_VERSION 12  // XY reads vX.Y
+#define CTRL22_VERSION 12  // XY reads vX.Y, i.e., one digit for major and minor, resp.
 
 
 // 10 MHz clock on fgccs board 
