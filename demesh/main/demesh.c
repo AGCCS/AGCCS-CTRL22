@@ -1626,9 +1626,9 @@ static void upgrade_task(void* ard)
         MDF_LOGW("Upgrade: not a sinlge device recieved and accepted the upgrade");
         goto FREE_MEM;
       }
-      MDF_LOGI("Upgrdae: firmware sent to relevant devices, spent time %ds",
+      MDF_LOGI("Upgrade: firmware sent to relevant devices, spent time %ds",
 	       (xTaskGetTickCount() - start_time) * portTICK_PERIOD_MS / 1000);
-      MDF_LOGI("Upgrade: #%d devices completed,  #%d devices unfinished", upgrade_result.successed_num, upgrade_result.unfinished_num);
+      MDF_LOGI("Upgarde: #%d devices completed,  #%d devices unfinished", upgrade_result.successed_num, upgrade_result.unfinished_num);
 
       // 6. the root notifies nodes to restart
       const char *restart_str = "{\"cmd\": \"restart\"}";
@@ -3292,7 +3292,7 @@ void app_main()
 
     // start network
     if(!g_debug_target) {
-        // start mesh, incl. event loop --- this drives all of our main functionallity
+        // start mesh, incl. event loop --- this drives all of our main functionality
         MDF_ERROR_ASSERT(mesh_init());
     } else {
         // start softap, incl. debug event loop --- this drives all of our target uC debug functionallity
