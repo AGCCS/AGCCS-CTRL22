@@ -3,9 +3,9 @@
 *************************************************************************
 *************************************************************************
 
-agccs ctrl22 -- 2021.02.20
+agccs ctrl22 -- 2021.27.03
 
-- target platform agccs board rev 1.2
+- target platform agccs board (set revision as runtime parameter)
 - compiles with avr-gcc, verified avr-libc 2.0. and gcc 7.3
 - although this code is a complete re-write from scratch, we did 
   (a) conceptually benefit from inspecting the SmartEVSE firmware by 
@@ -49,7 +49,7 @@ THE SOFTWARE.
 
 
 // firmware version
-#define CTRL22_VERSION 12  // XY reads vX.Y, i.e., one digit for major and minor, resp.
+#define CTRL22_VERSION 13  // XY reads vX.Y, i.e., one digit for major and minor, resp.
 
 
 // 10 MHz clock on fgccs board 
@@ -89,7 +89,8 @@ calibration and configuration (defaults can be saved/loaded to/from eeprom)
 *************************************************************************
 */
 
-#define PARCNT 4          // number of parameters
+#define PARCNT 5          // number of parameters
+int16_t p_boardrev=12;    // board rev 1.2
 int16_t p_smaxcur=160;    // max current in [100mA]
 int16_t p_phases=123;     // enabled phases
 int16_t p_lclosems=100;   // ms to close lock (set to 0 for no lock)
@@ -606,10 +607,11 @@ void conf_load(void){
     return;
   }  
   // load 
-  p_smaxcur  = nvm_read( 0);
-  p_phases   = nvm_read( 1);
-  p_lopenms  = nvm_read( 2);
-  p_lclosems = nvm_read( 3);
+  p_boardrev = nvm_read( 0);
+  p_smaxcur  = nvm_read( 1);
+  p_phases   = nvm_read( 2);
+  p_lopenms  = nvm_read( 3);
+  p_lclosems = nvm_read( 4);
 }
 
 // write parameters to eeprom (signature for cli, return 1 on success)
@@ -623,10 +625,11 @@ int16_t conf_save(int16_t val){
   // save
   CPU_SREG &= ~CPU_I_bm;
   g_nvmchk=0;
-  nvm_write( 0,p_smaxcur);
-  nvm_write( 1,p_phases);
-  nvm_write( 2,p_lopenms);
-  nvm_write( 3,p_lclosems);
+  nvm_write( 0,p_boardrev);
+  nvm_write( 1,p_smaxcur);
+  nvm_write( 2,p_phases);
+  nvm_write( 3,p_lopenms);
+  nvm_write( 4,p_lclosems);
   nvm_write(PARCNT,g_nvmchk);
   CPU_SREG |= CPU_I_bm;
 #ifdef DEBUG_NVM
@@ -889,6 +892,9 @@ int16_t sigrel(int16_t val) {
 
 // check brown out (open lock is our last action)
 void brownout_cb(void) {
+  // no brown-out in early boards
+  if(p_boardrev<1.2) return;
+  // read brown-out detector
   bool bot = !(PORTF.IN & PIN0_bm);
   if(!bot) return;
   ldrive(ldopen);
@@ -1045,13 +1051,21 @@ bool adc_pilots(void) {
   while (!(ADC0.INTFLAGS & ADC_RESRDY_bm));
   int16_t cp=ADC0.RES;
   cp >>= 2;  
-  // convert to CP value
+  // convert to CP value (changed R13 on board rev1.2)
   int16_t cpv;
-  if(cp > 980)  cpv=12;                          //  12V +/- tolerance (tolerances taken from Thurnherr original source)
-  else if((cp >  860) && (cp < 915)) cpv=9;      //   9V +/- tolerance
-  else if((cp >  720) && (cp < 800)) cpv=6;      //   6V +/- tolerance
-  else if((cp > 1024) &&  (cp <  1))  cpv=3;     //   3V +/- tolerance [not implementet]
-  else cpv=-1;                                   // invalid reading
+  if(p_boardrev<12) {
+    if(cp > 980)  cpv=12;                          //  12V +/- tolerance (tolerances taken from Thurnherr original source)
+    else if((cp >  860) && (cp < 915)) cpv=9;      //   9V +/- tolerance
+    else if((cp >  720) && (cp < 800)) cpv=6;      //   6V +/- tolerance
+    else if((cp > 1024) &&  (cp <  1)) cpv=3;      //   3V +/- tolerance [not implementet >> invalid]
+    else cpv=-1;                                   // invalid reading
+  } else {  
+    if(cp > 861)  cpv=12;                          //  12V +/- tolerance [11V..12V]
+    else if((cp >  779) && (cp < 834)) cpv=9;      //   9V +/- tolerance [8V..10V]
+    else if((cp >  697) && (cp < 752)) cpv=6;      //   6V +/- tolerance [5V..7V]
+    else if((cp > 1024) &&  (cp <  1)) cpv=3;      //   3V +/- tolerance [not implementet >> invalid]
+    else cpv=-1;                                   // invalid reading
+  }  
   // filter
   static int16_t cpnxt=0;
   static char cpcnt=0;
@@ -1070,10 +1084,15 @@ bool adc_pilots(void) {
   while (!(ADC0.INTFLAGS & ADC_RESRDY_bm));
   int16_t dt=ADC0.RES;
   dt >>= 2;  
-  // convert to CP value
+  // convert to CP value (changed R13 on board rev1.2)
   int16_t dtv;
-  if((dt > 25) && (dt < 95))   dtv=1;          // 0.6V +/- tolerance
-  else dtv=-1;                                 // invalid reading
+  if(p_boardrev<12) {
+    if((dt > 25) && (dt < 95))   dtv=1;          // -12V +/- tolerance [taken from Thurnherr original source] 
+    else dtv=-1;                                 // invalid reading
+  } else {
+    if((dt > 204) && (dt < 259)) dtv=1;          // -12V +/- tolerance [-13V..-11V]
+    else dtv=-1;                                 // invalid reading
+  }
   // filter
   static int16_t dtnxt=0;
   static char dtcnt=0;

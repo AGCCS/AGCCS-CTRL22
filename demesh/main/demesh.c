@@ -50,7 +50,7 @@ repository.
 */
 
 // firmware version string (relevant format for OTA: "<OneDigit>.<OneDigit>", nothing else tested)
-#define DEMESH_VERSION "6.4"
+#define DEMESH_VERSION "6.5"
 
  
 // minimum includes
@@ -87,7 +87,7 @@ static int g_mqtt_stop=0;
 
 
 // DEMESH globals, local copy of target uC state for heartbeat
-// Note: if it was not for target simulation, we should be transparent regarding the target state interface
+// Note: we should be transparent regarding the target state interface
 static int g_heartbeat_period=5000;  // period to send heartbeat in ms
 static int g_tstate_version=0;    // target uC firmware version 
 static int g_tstate_ccss=0;       // state in CCS charging scheme (0<>idle ... 30<> charging, >=50 error)
@@ -98,15 +98,12 @@ static int g_tstate_cur1=0;       // actual current drawn on phase 1 (unit 100mA
 static int g_tstate_cur2=0;       // actual current drawn on phase 1 (unit 100mA %)
 static int g_tstate_cur3=0;       // actual current drawn on phase 1 (unit 100mA %)
 
-
-// DEMESH globals, local copy of target uC control parameters (fake when simulating)
-// Note: if it was not for target simulation, we should be transparent regarding the target control interface
+// DEMESH globals, target uC control parameters (used for simulation only)
 static int g_tcontrol_blinks=-1;       // operator button flash light 
 static int g_tcontrol_smaxcur=-1;      // current allowed by supply (unit 100mA)
 static int g_tcontrol_cmaxcur=-1;      // current allowed by cable (unit 100mA) (convenience remote overwrite)
 static int g_tcontrol_phases=-1;       // enabled phases (i.e. "1" for use phase 1 only) 
 static int g_tcontrol_opbutton=-1;     // operator button pressed (convenience remote overwrite)
-
 
 // DEMESH globals, debug server
 static bool g_debug_target=false;
@@ -126,7 +123,7 @@ static int g_station_cnt    = 0;
 static TickType_t systime(void);
 
 // forward declr.: trigger heartbeat (published via MQTT and sent over plain TCP socket) 
-static void heartbeat_trigger(void);
+//static void heartbeat_trigger(void);
 
 
 /*
@@ -136,7 +133,7 @@ Hardware configuration: we provide a limited number of hardware configurations,
 scaling  from "nothing", "blink an LED" to "M5Stick with bells and whistles".
 Most likely, you will need to adapt this to your needs. Use "nope" as a
 template, inspect "m5stick" for inspiration to create your own. For neat
-integration with the build process, you should follow-uop your extensions
+integration with the build process, you should follow-up your extensions
 in "Kconfig.projbuild" and in your upload scripts.
 ===========================================================================
 ===========================================================================
@@ -184,13 +181,13 @@ void init_devices(void)
 /*
  **********************************************************************
  **********************************************************************
- Hardware configuration: M5StickC  (LED at GPIO10, LCD, ButtonA/B)
+ Hardware configuration: M5StickC  (LED at GPIO10, TFT, ButtonA/B)
 
- The M5StickC is a neat litle ESP32 bases device. We use the built in
- OLED display to monitor global variables, e.g., display our mac address
+ The M5StickC is a neat litle ESP32 based device. We use the built in
+ TFT display to monitor global variables, e.g., display our mac address
  and given some minimum info on the mesh topology. We use the
  built-in LED to flash debugging and/or status information, this is provided 
- as part if demesh's infrastructure. The OLED stuff etc is put in seperate
+ as part if demesh's infrastructure. The TFT stuff etc is put in seperate
  RTOS tasks, cicked-off by "init_devices()". 
 
  [The hardware configuration is conveniently chosen via "make menuconfig"]
@@ -213,7 +210,7 @@ void init_devices(void)
 // we dont care about an attached AVR (because there is no such ...)
 #undef  AVR_PRESENT
 
-// set OLED brightness (stolen from the Arduino SDK)
+// set TFT brightness (stolen from the Arduino SDK)
 static void AXP192ScreenBreath(uint8_t brightness)
 {
     if (brightness > 12) brightness = 12;
@@ -225,7 +222,7 @@ static void AXP192ScreenBreath(uint8_t brightness)
 int g_screen_nua=true;
 int g_screen_nub=true;
 
-// update OLED with current mesh status (edit here to change content/layout)
+// update TFT with current mesh status (edit here to change content/layout)
 static void status_screen_update_a(void)
 {
     mesh_addr_t parent_bssid        = {0};
@@ -271,7 +268,7 @@ static void status_screen_update_a(void)
 }
 
 
-// update OLED with current target uC status (edit here to change content/layout)
+// update TFT with current target uC status (edit here to change content/layout)
 // (old version with large digits ... keeping this for reference)
 /*
 static void status_screen_update_b(void)
@@ -299,7 +296,7 @@ static void status_screen_update_b(void)
 }
 */
 
-// update OLED with current target uC status (edit here to change content/layout)
+// update TFT with current target uC status (edit here to change content/layout)
 static void status_screen_update_b(void)
 {
     TFT_setFont(SMALL_FONT, NULL);
@@ -368,7 +365,7 @@ static void buttonEvent(void *handler_arg, esp_event_base_t base, int32_t id, vo
     }
 }
 
-// initialise M5Stick hardware (incl. register button A/B to kick-off OLED update)
+// initialise M5Stick hardware (incl. register button A/B to kick-off TFT update)
 static void init_devices(void)
 {
     M5Init();
@@ -403,7 +400,7 @@ static void init_devices(void)
  **********************************************************************
  Hardware configuration: DOIT ESP32 dev-board (LED at GPIO2)
 
- This plain dev board comes with a LED which we use to blink debug
+ This plain dev board comes with an LED which we use to blink debug
  codes and/or status information --- the bare minimum we need to
  keep track. We have an AVR target MCU attached though, as this is
  the purpose of this exercise.
@@ -442,9 +439,6 @@ void init_devices(void)
     gpio_set_direction(DEBUG_GPIO, GPIO_MODE_INPUT);
     gpio_set_pull_mode(DEBUG_GPIO, GPIO_PULLUP_ONLY);
     
-    // wait to give user a chance to switch to debug
-    vTaskDelay(1000 / portTICK_RATE_MS);
-
 }
 
 #endif
@@ -524,7 +518,7 @@ void init_devices(void)
 #define BLINK_GPIO  GPIO_NUM_0            // blink LED on programming adapter
 #define BLINK_ON 0                        // blink LED is active low
 #define DEBUG_GPIO  GPIO_NUM_15           // debug target avr  
-#define DEBUG_ON 1                        // active low 0 (set to high 1 to boot into debug mode by default)
+#define DEBUG_ON 0                        // active low (set to 1 to boot into debug mode by default)
 
 #define AVR_PRESENT                       // we do have an AVR taget to care
 #define AVR_TXD_GPIO  GPIO_NUM_17         // target AVR serial: pins to transmit
@@ -535,7 +529,7 @@ void init_devices(void)
 #define AVR_IMG_CNT     (47*1024)         // target AVR: size of firmware (e.g. ATMega4808  "48k - bootloader")
 #define AVR_OPT_CNT     128               // target AVR: byte count per page write (128 bytes are common practice)
 #define AVR_OPT_BADDR                     // target AVR: Optiboot_x uses byte addresses as opposed to word addresses
-#define AVR_OPT_TADDR   0x200             // target AVR: offset for application code 0.5kByte (botloader)
+#define AVR_OPT_TADDR   0x200             // target AVR: offset for application code 0.5kByte (bootloader)
 
 
 void init_devices(void)
@@ -900,8 +894,22 @@ FREE_MEM:
 
 // get entire target state
 int command_avrgetstate(void) {
-  // TODO: get all relevant AVR state parameters to local copy
-  return MDF_OK;
+  int ret=MDF_OK;
+  if(command_avrgetpar("ccss", &g_tstate_ccss)!=MDF_OK) ret=MDF_FAIL;
+  if(command_avrgetpar("cmaxcur", &g_tstate_cmaxcur)!=MDF_OK) ret=MDF_FAIL;
+  if(command_avrgetpar("smaxcur", &g_tstate_smaxcur)!=MDF_OK) ret=MDF_FAIL;
+  if(command_avrgetpar("pahes", &g_tstate_phases)!=MDF_OK) ret=MDF_FAIL;
+  if(command_avrgetpar("cur1", &g_tstate_cur1)!=MDF_OK) ret=MDF_FAIL;
+  if(command_avrgetpar("cur2", &g_tstate_cur2)!=MDF_OK) ret=MDF_FAIL;
+  if(command_avrgetpar("cur3", &g_tstate_cur3)!=MDF_OK) ret=MDF_FAIL;
+  if(ret!=MDF_OK) g_tstate_ccss=0x7f;
+  // make compiler happy (unused simulation parameters) 
+  g_tcontrol_blinks=-1;
+  g_tcontrol_smaxcur=-1;
+  g_tcontrol_cmaxcur=-1;
+  g_tcontrol_phases=-1;
+  g_tcontrol_opbutton=-1;
+  return ret;
 }  
 
 
@@ -1086,7 +1094,7 @@ static void simulate_target_timercb(void *timer) {
     // copy local state (one extra digit for compatibility with actual AGCCS hardware)
     if(g_tstate_ccss!=10*ccss) {
         g_tstate_ccss=10*ccss;
-        heartbeat_trigger();
+        //heartbeat_trigger();
     }     
 }
 
@@ -1888,6 +1896,8 @@ static void root_read_task(void *arg)
 	    akmsg |= !strcmp(json_mtype->valuestring,"status");  
 	    akmsg |= !strcmp(json_mtype->valuestring,"avrgetpar");  
 	    akmsg |= !strcmp(json_mtype->valuestring,"avrsetpar");  
+	    akmsg |= !strcmp(json_mtype->valuestring,"avrimg");  
+	    akmsg |= !strcmp(json_mtype->valuestring,"avrota");  
 	    if(hbmsg || akmsg) {
 	   
 		// prepare payload: remove mtype from heartbeat message
@@ -2475,11 +2485,13 @@ static void node_request_time_task(void *arg)
 TaskHandle_t g_heartbeat_task = NULL;
 
 // wake up heartbeat
+/*
 static void heartbeat_trigger(void)
 {
     if(g_heartbeat_task==NULL) return;
     xTaskNotifyGive(g_heartbeat_task);
 }  
+*/
 
 // send heartbeat every 5secs (or programatic on trigger "heartbeat_trigger")
 static void heartbeat_task(void *qrg)
@@ -3234,7 +3246,7 @@ void app_main()
     // board devices (LEDs, TFT,  etc, except for the blink led)
     init_devices();
 
-    // figure whether we go to debug mode (1sec boot delay)
+    // figure whether we go to debug mode
 #ifdef DEBUG_GPIO    
     g_debug_target = ( gpio_get_level(DEBUG_GPIO) == DEBUG_ON );
 #endif    
