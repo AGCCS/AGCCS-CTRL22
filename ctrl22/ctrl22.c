@@ -3,7 +3,7 @@
 *************************************************************************
 *************************************************************************
 
-agccs ctrl22 -- 2021.27.03
+agccs ctrl22 -- 2021.30.03
 
 - target platform agccs board (set revision as runtime parameter)
 - compiles with avr-gcc, verified avr-libc 2.0. and gcc 7.3
@@ -47,8 +47,9 @@ THE SOFTWARE.
 *************************************************************************
 */
 
+// firmware revision 2021-03-30
 
-// firmware version
+// firmware version for OTA
 #define CTRL22_VERSION 13  // XY reads vX.Y, i.e., one digit for major and minor, resp.
 
 
@@ -69,7 +70,7 @@ THE SOFTWARE.
 #include <avr/pgmspace.h>
 
 
-// have version as parameter for easy read out
+// have version as parameter to facilitate CLI read out
 const int16_t g_version=CTRL22_VERSION;   
 
 /*
@@ -115,7 +116,7 @@ convenience/debugging macros
 
 
 // code section select switches
-#define MODE_DEVELOP                         // enable mode for code/hardware tests
+#define MODE_INSTALL                         // enable mode for code/hardware tests
 #define MODE_CONFIGURE                       // enable mode for calibration/configuration 
 
 
@@ -126,44 +127,45 @@ convenience/debugging macros
 //#define DEBUG_CLI
 #ifdef DEBUG_CLI
 #define DBW_CLI(c)  DEBUG_WRITE(c)
-#define DEBUG
 #else
 #define DBW_CLI(c)
 #endif
 
-// debug CCS charger state
+// debug CCS state
 #define DEBUG_CCS
 #ifdef DEBUG_CCS
 #define DBW_CCS(c)  DEBUG_WRITE(c)
-#define DEBUG
 #else
 #define DBW_CCS(c)
 #endif
 
 // debug analog reading
-#define DEBUG_ADC
+//#define DEBUG_ADC
 #ifdef DEBUG_ADC
 #define DBW_ADC(c)  DEBUG_WRITE(c)
-#define DEBUG
 #else
 #define DBW_ADC(c)
 #endif
 
 // debug rms measurement
-#define DEBUG_RMS
+//#define DEBUG_RMS
 #ifdef DEBUG_RMS
-#define DEBUG
+#define DBW_RMS(c)  DEBUG_WRITE(c)
+#else
+#define DBW_RMS(c)
 #endif
 
 // debug nvm access
 //#define DEBUG_NVM
 #ifdef DEBUG_NVM
-#define DEBUG
+#define DBW_NVM(c)  DEBUG_WRITE(c)
+#else
+#define DBW_NVM(c)
 #endif
 
 
 // debug lock
-#define DEBUG_LOCK
+//#define DEBUG_LOCK
 #ifdef DEBUG_LOCK
 #define DBW_LOCK(c)  DEBUG_WRITE(c)
 #define DEBUG
@@ -378,7 +380,7 @@ void serial_init(void) {
 }
 
 // linebuffer
-#define IOBUFFLEN  64              // buffer size
+#define IOBUFFLEN  80              // buffer size
 char g_writeln_buf[IOBUFFLEN+1];   // actual buffer (+1 for terminating 0, +2 for "\r\n")
 unsigned char g_writeln_pos=0;     // currrent position to write to
 volatile char g_writeln_st=0;      // state: 0<>writing to buffer; 1<>sending via uart
@@ -394,7 +396,12 @@ ISR(USART0_DRE_vect) {
     return;
   }  
   USART0_TXDATAL=data;                               // write byte to data register
-}  
+}
+
+// true when buffer is ready
+bool serial_write_ready(void) {
+  return g_writeln_st!=0;
+}    
     
 // write one byte to line buffer
 void serial_write(const unsigned char data){
@@ -581,16 +588,15 @@ load/save config
 int16_t g_nvmchk=0;
 
 // read from EEPROM (addresses 0 to 127, atmega4808 maps EERPROM at 0x1400)
-int16_t nvm_read(uint16_t addr) {
-  int16_t data =  *(int16_t *)(((addr<<1) & 0xFF) | 0x1400);
+int16_t nvm_read(uint16_t waddr) {
+  int16_t data =  *(int16_t *)(((waddr<<1) & 0xFF) | 0x1400);
   return data;
 }
 
 // write to EEPROM (interrupts must be disabled; atmega4808 maps EERPROM at 0x1400)
-void nvm_write(uint16_t addr, int16_t data) {
+void nvm_write(uint16_t waddr, int16_t data) {
   g_nvmchk+=data;
-  *(int16_t *)(((addr<<1) & 0xFF) | 0x1400)=data; 
-  //_PROTECTED_WRITE_SPM(NVMCTRL.CTRLA, NVMCTRL_CMD_PAGEERASEWRITE_gc);
+  *(int16_t *)(((waddr<<1) & 0xFF) | 0x1400)=data; 
   CPU_CCP = CCP_SPM_gc;          
   NVMCTRL.CTRLA=NVMCTRL_CMD_PAGEERASEWRITE_gc;
   while (NVMCTRL.STATUS & NVMCTRL_EEBUSY_bm);
@@ -891,8 +897,8 @@ int16_t sigrel(int16_t val) {
 }
 
 // check brown out (open lock is our last action)
-void brownout_cb(void) {
-  // no brown-out in early boards
+void bot_cb(void) {
+  // no brown-out detection in early boards
   if(p_boardrev<1.2) return;
   // read brown-out detector
   bool bot = !(PORTF.IN & PIN0_bm);
@@ -923,12 +929,16 @@ b) use 1.1V reference:
 
 void vref_init(void) {
 #ifdef VREF25
-  VREF.CTRLA |= VREF_ADC0REFSEL_2V5_gc;          // provide 2.5V
+  VREF.CTRLA |= VREF_ADC0REFSEL_2V5_gc;          // provide 2.5V to adc
+  VREF.CTRLA |= VREF_AC0REFSEL_2V5_gc;           // provide 2.5V to analog compare
 #endif
 #ifdef VREF11  
-  VREF.CTRLA |= VREF_ADC0REFSEL_1V1_gc;          // provide 1.5V 
+  VREF.CTRLA |= VREF_ADC0REFSEL_1V1_gc;          // provide 1.5V to adc
+  VREF.CTRLA |= VREF_AC0REFSEL_1V1_gc;           // provide 1.5V to analog compare
 #endif
   VREF.CTRLB |= VREF_ADC0REFEN_bm;               // permanently enable vref
+  AC0.CTRLA |= AC_ENABLE_bm;                     // enable analog compare
+  AC0.DACREF =255;                               // set dacref to 255/256*vref
 }
 
 
@@ -946,9 +956,10 @@ synchronous analog reading with ADC0
 
 // global variables for recent readings
 int16_t g_temp=0;        // degree Celsius
+int16_t g_vcc=0;         // mV
 int16_t g_ppilot=-1;     // max current of cable in 100mA (-1 for invalid reading)
 int16_t g_cpilot=-1;     // status in Volt 12,9,6 (-1 for invalid reading)
-int16_t g_cpilot_dt=-1;  // status in Volt 1 (-1 for invalid reading)
+int16_t g_cpilot_dt=-1;  // status in Volt -12 (-1 for invalid reading)
 int16_t g_pilots=0;      // enable periodic pilot reading      
 
 // initialise vref and pins
@@ -963,7 +974,7 @@ void adc_init(void) {
   PORTD.PIN1CTRL &= ~PORT_PULLUPEN_bm;          // make sure, there is no pullup (default anyway)
 }
 
-// read temperature  [not functional]
+// read temperature  
 bool adc_temp(void) {
   // dont run if ADC0 is busy
   if(g_adc0_bsy) return false;
@@ -1019,6 +1030,56 @@ bool adc_temp(void) {
   serial_write_str("/");
   serial_write_uint(SIGROW.TEMPSENSE1);
   serial_write_str(")");
+  serial_write_eol();
+  serial_writeln_async();
+#endif  
+  return true;
+}
+
+// read VCC
+bool adc_vcc(void) {
+  // dont run if ADC0 is busy
+  if(g_adc0_bsy) return false;
+  g_adc0_bsy=true;
+  // set up adc 
+  ADC0.CTRLA=0x0;                        // disable adc for re-config, 10bit resolution, all default
+  ADC0.CTRLB= ADC_SAMPNUM_ACC16_gc;      // take 16 samples 
+  ADC0.CTRLC=0x0;
+  ADC0.CTRLC |= ADC_PRESC_DIV16_gc;      // 10Mhz vs div16 >> 625KHz >> vs 13clocks per sample >> about 0.3ms conversion
+  ADC0.CTRLC |= ADC_REFSEL_VDDREF_gc;    // make VCC the reference
+  ADC0.CTRLC |= ADC_SAMPCAP_bm;          // reduced sampling capacity
+  ADC0.CTRLD=0x0;
+  ADC0.CTRLD |= ADC_INITDLY_DLY64_gc;    // delay to take first sample in ADC_CLK  >> 0.1ms 
+  ADC0.CTRLD |= ADC_ASDV_bm;             // variable delay between samples (0-15 ADC_CLK)
+  ADC0.SAMPCTRL=31;                      // time to charge capacitor 0.05ms
+  ADC0.MUXPOS = ADC_MUXPOS_DACREF_gc;    // set mux to measure internal bandgap (1.1V or 2.5V, see vref_init()
+  ADC0.INTCTRL = 0x00;                   // no interrupts
+  // run conversion
+  ADC0.CTRLA |= ADC_ENABLE_bm;
+  ADC0.COMMAND |= ADC_STCONV_bm;
+  while(!(ADC0.INTFLAGS & ADC_RESRDY_bm));
+  uint16_t vcc = ADC0.RES;
+  // convert by "RES = 1023*DACREF/VCC", i.e., VCC=1023*DACREF/RES" (also comp.for 16 acc. samples)
+#ifdef VREF11  
+  g_vcc= ( ((uint32_t) (1100.0*16*1023*255/256 +0.5)) + ((uint32_t) (vcc/2)) ) /vcc;
+#else
+#ifdef VREF25    
+  g_vcc= ( ((uint32_t) (2500.0*16*1023*255/256L+0.5)) + ((uint32_t) (vcc/2)) ) /vcc;
+#else
+  g_vcc=0
+#endif
+#endif    
+  // disable adc
+  ADC0.CTRLA &= ~ADC_ENABLE_bm;
+  ADC0.CTRLC |= ADC_REFSEL_VDDREF_gc;     // just to be sure ... ref aka 3.3V
+  // done
+  g_adc0_bsy=false;
+#ifdef DEBUG_ADC
+  serial_writeln_sync();
+  serial_write_str("% vcc ");
+  serial_write_int(g_vcc);
+  serial_write('@');
+  serial_write_int(vcc);
   serial_write_eol();
   serial_writeln_async();
 #endif  
@@ -1087,10 +1148,10 @@ bool adc_pilots(void) {
   // convert to CP value (changed R13 on board rev1.2)
   int16_t dtv;
   if(p_boardrev<12) {
-    if((dt > 25) && (dt < 95))   dtv=1;          // -12V +/- tolerance [taken from Thurnherr original source] 
+    if((dt > 25) && (dt < 95))   dtv=12;         // -12V +/- tolerance [taken from Thurnherr original source] 
     else dtv=-1;                                 // invalid reading
   } else {
-    if((dt > 204) && (dt < 259)) dtv=1;          // -12V +/- tolerance [-13V..-11V]
+    if((dt > 221) && (dt < 275)) dtv=12;         // -11.4V +/- tolerance [-12.4V ... -11.4V]
     else dtv=-1;                                 // invalid reading
   }
   // filter
@@ -1162,7 +1223,7 @@ bool adc_pilots(void) {
   return true;
 }
 
-// callback for periodic reading (10ms period)
+// callback for periodic reading of pilots (10ms period)
 void pilots_cb(void) {
   static const uint16_t period=10;
   static uint16_t duetime=0;
@@ -1175,20 +1236,7 @@ void pilots_cb(void) {
   }
 }
 
-// callback for periodic reading (5000ms period)
-void temp_cb(void) {
-  static const uint16_t period=5000;
-  static uint16_t duetime=0;
-  if(TRIGGER_SCHEDULE(duetime)){
-    if(!g_pilots) {
-      duetime+=period;
-      return;
-    }
-    if(adc_temp()) duetime +=period;
-  }  
-}
-
-// cli wrapper to enable periodic reading
+// cli wrapper to enable periodic reading of pilots
 int16_t pilots(int16_t val)  {
   if(val==g_pilots) return val;
   g_cpilot=-1;
@@ -1197,6 +1245,21 @@ int16_t pilots(int16_t val)  {
   g_pilots=val;
   return val;
 }
+
+// callback for periodic reading of temperature and VCC (10000ms period)
+void env_cb(void) {
+  static const uint16_t period=10000;
+  static uint16_t duetime=0;
+  static bool toggle=false;
+  if(TRIGGER_SCHEDULE(duetime)){
+    if(toggle) {
+      if(adc_temp()) {duetime +=period; toggle=false;}
+    } else {
+      if(adc_vcc()) {duetime +=period; toggle=true;}
+    }      
+  }  
+}
+
 
 /*
 *************************************************************************
@@ -1319,8 +1382,6 @@ ISR(ADC0_RESRDY_vect) {
 }
 
 
-
-
 // rms record processing
 // -- advances state from processing to idle
 // -- process in slices
@@ -1402,25 +1463,34 @@ void rms_process(void) {
     // report
 #ifdef DEBUG_RMS
     serial_writeln_sync();
-    serial_write_str("% L1: ");
-    serial_write_uint(g_cur1);
-    serial_write_str(" (");
-    serial_write_uint(g_sns1);
-    serial_write_str("mV@");
-    serial_write_uint(g_rms1);
-    serial_write_str("); L2: ");
-    serial_write_uint(g_cur2);
-    serial_write_str(" (");
-    serial_write_uint(g_sns2);
-    serial_write_str("mV@");
-    serial_write_uint(g_rms2);
-    serial_write_str("); L3: ");
-    serial_write_uint(g_cur3);
-    serial_write_str(" (");
-    serial_write_uint(g_sns3);
-    serial_write_str("mV@");
-    serial_write_uint(g_rms3);
-    serial_write_str(");");
+    serial_write_str("% RMS:");
+    if(g_cur1>=0) {    
+      serial_write_str(" L1: ");
+      serial_write_uint(g_cur1);
+      serial_write_str(" (");
+      serial_write_uint(g_sns1);
+      serial_write_str("mV@");
+      serial_write_uint(g_rms1);
+      serial_write_str(");");
+    }
+    if(g_cur2>=0) {    
+      serial_write_str(" L2: ");
+      serial_write_uint(g_cur2);
+      serial_write_str(" (");
+      serial_write_uint(g_sns2);
+      serial_write_str("mV@");
+      serial_write_uint(g_rms2);
+      serial_write_str(");");
+    }
+    if(g_cur3>=0) {    
+      serial_write_str(" L3: ");
+      serial_write_uint(g_cur3);
+      serial_write_str(" (");
+      serial_write_uint(g_sns3);
+      serial_write_str("mV@");
+      serial_write_uint(g_rms3);
+      serial_write_str(");");
+    }
     serial_write_eol();
     serial_writeln_async();
 #endif
@@ -1506,20 +1576,25 @@ int16_t rms_dump(int16_t val) {
   serial_writeln("% rms record dump");
   // stage 1: figure average
   int rmsZero = 512;
-  unsigned long int sum = 0;
+  unsigned long int sumF = 0;
+  unsigned long int sumP = 0;
   int pos=0;
   for(;pos<RMS_CNT;++pos) 
-    sum+=g_rms_buf[pos];
-  rmsZero=(sum + (RMS_CNT>>1)) /RMS_CNT;
+    sumP+=g_rms_buf[pos];
+  rmsZero=(sumP + (RMS_CNT>>1)) /RMS_CNT;
   // stage 2: run DT1+ SumOfSqares
   int rmsSpre = g_rms_buf[0]-rmsZero;
   long int rmsFpre = 0;
-  sum=0;
+  sumP=0;
+  sumF=0;
   pos=0;
   for(;pos<RMS_CNT;++pos) {
     // feed input
     int rmsS = g_rms_buf[pos]-rmsZero;
-    // DT1 type filter to cancel DC offset    
+    // plain sum of squares
+    unsigned long int rmsSQR = ((long int) rmsS) * ((long int) rmsS);
+    sumP += rmsSQR;
+    // DT1 type filter     
     // f(i+1) = (K-1)/K f(i)  +  (K-1) (s(i+1) - s(i))   
     long int rmsF=  rmsFpre +   ( ((long int) (rmsS - rmsSpre)) << RMS_K );
     rmsF=  rmsF - ( rmsF>>RMS_K );  
@@ -1528,8 +1603,8 @@ int16_t rms_dump(int16_t val) {
     if(rmsFpV1<0) rmsFpV1=-rmsFpV1;
     unsigned long int rmsFsqrpV = ((unsigned long int) rmsFpV1) * ((unsigned long int)  rmsFpV1) >> RMS_V2;
     // sum all up
-    sum += rmsFsqrpV;
-    // update recents
+    sumF += rmsFsqrpV;
+    // update filter state
     rmsSpre=rmsS;
     rmsFpre=rmsF;
     // report
@@ -1542,21 +1617,35 @@ int16_t rms_dump(int16_t val) {
     serial_write_lint(rmsF);
     serial_write_str("; Fsqr=");
     serial_write_ulint(rmsFsqrpV);
-    serial_write_str("; Sum=");
-    serial_write_ulint(sum);
+    serial_write_str("; SumF=");
+    serial_write_ulint(sumF);
+    serial_write_str("; SumP=");
+    serial_write_ulint(sumP);
     serial_write_str("]");
     serial_write_eol(); 
     serial_writeln_async();
   }
-  // take root
-  uint16_t rms=sqrt(sum/RMS_CNT)+0.5;
-  rms >>= -RMS_NORM;
-  // convert to mV (note: int rounding)
-  rms = ((uint32_t) rms * 3300 + 511)/1023;
+  // take root and normalise (plain squares)
+  uint16_t rmsP=sqrt((sumP+(RMS_CNT/4)/2)/(RMS_CNT/4))+0.5; // mean root 11bit (i.e. keep one extra bit)
+#ifdef VREF25    
+    rmsP = ((uint32_t) rmsP * 2500 + 2047/2)/2047;
+#else
+    rmsP = ((uint32_t) rmsP * 3300 + 2047/2)/2047;
+#endif
+  // take root and normalise (filtered squares)
+  uint16_t rmsF=sqrt(sumF/RMS_CNT)+0.5;
+  rmsF >>= -RMS_NORM;
+#ifdef VREF25    
+  rmsF = ((uint32_t) rmsF * 2500 + 1023/2)/1023;
+#else
+  rmsF = ((uint32_t) rmsF * 3300 + 1023/2)/1023;
+#endif  
   // summary
   serial_writeln_sync();
-  serial_write_str("% rms ");
-  serial_write_uint(rms);
+  serial_write_str("% rmsF: ");
+  serial_write_uint(rmsF);
+  serial_write_str("mV; rmsP: ");
+  serial_write_uint(rmsP);
   serial_write_str("mV [mean #");
   serial_write_uint(rmsZero);
   serial_write_str("; cnt #");
@@ -1750,6 +1839,7 @@ const partable_t partable[]={
   {"blinks",  &g_blinks,    &g_blinks,   NULL},            // g_blinks can be read/written from/to memory
   {"time",    &g_systime,   NULL,        &systime_set},    // g_systime has explicit setter
   {"temp",    &g_temp,      NULL,        NULL},            // g_temp can be read from memory
+  {"vcc",     &g_vcc,       NULL,        NULL},            // g_vcc can be read from memory
   {"error",   &g_error,     NULL,        NULL},            // g_error can be read from memory
   {"ccss",    &g_ccss_cli,  NULL,        NULL},            // g_ccs_st can be read from memory
   {"cmaxcur", &g_ppilot,    NULL,        NULL},            // get cable max current (same as PPilot)
@@ -1765,8 +1855,8 @@ const partable_t partable[]={
   {"lopenms", &p_lopenms,   &p_lopenms,  NULL},            // time to open lock
   {"lclosems",&p_lclosems,  &p_lclosems, NULL},            // time to close lock
 #endif  
-  // develop
-#ifdef MODE_DEVELOP  
+  // first installation
+#ifdef MODE_INSTALL  
   {"cpcur",   &g_cpcurrent, NULL,        &cpcurrent},      // set pwm via setter, get from memory
   {"rms",     &g_rms,       NULL,        &rms},            // g_rms enables/disables rms periodic updates
   {"pilots",  &g_pilots,    NULL,        &pilots},         // g_pilots enables/disables periodic pilot updates
@@ -1779,7 +1869,7 @@ const partable_t partable[]={
   {"rmsdmp",  NULL,         NULL,        &rms_dump},       // "rmsdmp!" dumps recent rms record for debugging
   {"sigrel",  NULL,         NULL,        &sigrel},         // "sigrel!"/"sigrel~" to operate pilot signal relay
   {"lock",    NULL,         NULL,        &lock},           // "lock!"/"lock~" to operate lock
-  {"ssr",     NULL,         NULL,        &ssr},            // "ssr(123) to operate all SSRs
+  {"ssr",     NULL,         NULL,        &ssr},            // "ssr=123" to activate all SSRs
   {"reset",   NULL,         NULL,        &reset},          // softreset "reset!"
 #endif  
   // end of table
@@ -1899,7 +1989,7 @@ void cmdline(char* ln) {
     serial_write_str("lock state: ");
     serial_write_uint(g_lock_st);
     serial_write_eol();
-    serial_write_str("charger state: ");
+    serial_write_str("ccs state: ");
     serial_write_uint(g_ccs_st);
     serial_write_eol();
     serial_writeln("]]]");
@@ -1933,7 +2023,7 @@ main loop
 */
 
 
-// ev charging state machine
+// ccs state machine
 void ccs_cb(void) {
   static uint16_t toutA;
   static uint16_t toutB;
@@ -2122,6 +2212,48 @@ void ccs_cb(void) {
 }  
 
 
+// report relevant status update
+void report_cb() {
+  static int16_t rccss=-1;
+  static int16_t rcur1=-1;
+  static int16_t rcur2=-1;
+  static int16_t rcur3=-1;
+  const char* parname=NULL;
+  int16_t parval;
+  // bail out if line is busy
+  if(serial_write_ready()) return;
+  // figure status change
+  if((parname==NULL) && (g_cur1!=rcur1)) {
+    parname="cur1";
+    rcur1=g_cur1;
+    parval=g_cur1;
+  } 
+  if((parname==NULL) && (g_cur2!=rcur2)) {
+    parname="cur2";
+    rcur2=g_cur2;
+    parval=g_cur2;
+  } 
+  if((parname==NULL) && (g_cur3!=rcur3)) {
+    parname="cur3";
+    rcur3=g_cur3;
+    parval=g_cur3;
+  } 
+  if((parname==NULL) && (g_ccs_st!=rccss)) {
+    parname="ccss";
+    parval=g_ccs_st;
+    rccss=g_ccs_st;
+  }
+  // do write
+  if(parname!=NULL) {      
+    serial_write('['); 
+    serial_write_str(parname);
+    serial_write('=');
+    serial_write_int(parval);
+    serial_write(']');
+    serial_write_eol();
+  }  
+}
+
 
 int main(){
 
@@ -2150,11 +2282,12 @@ int main(){
     monitor_cb();     // monitor cycle time
     led_blinks_cb();  // flash led
     lock_cb();        // operate lock via external state g_lock_state
-    brownout_cb();    // check for brown out
+    bot_cb();         // check for brown out
     button_cb();      // sense positive edge on button via g_button
     rms_cb();         // keep updating asynchronous current meassurement (max 5ms)
     pilots_cb();      // keep updating synchronous analog reading of pilots (max 1.5ms)
-    temp_cb();        // keep updating synchronous analog reading of temperature
+    env_cb();         // keep updating synchronous analog reading of temperature and VCC
+    report_cb();      // report status updates to serial line
 
     // error handler
     if(g_error!=0) {
@@ -2168,7 +2301,7 @@ int main(){
       lock(0);
       // signal
       g_blinks=BLINKS_ERR;
-      // lock error: if lock open we recover from lock error in 10sec
+      // lock error: if the lock is open we recover from in 10sec
       if((g_lock_st==open) && (g_error & ERR_LOCK) && (recerr==0x0000)) {
         recerr=ERR_LOCK;
 	recdue=g_systicks+10000;

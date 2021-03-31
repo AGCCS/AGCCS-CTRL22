@@ -64,6 +64,14 @@ very near future --- stay tuned.
 
 
 
+## Prototype
+
+The below photo shows our hardware (rev 1.2) assembled in an enclosure to include mains contactors, leakage current detector/protection and current transformers. It is supplied by a 3phases 32A CEE cable on the left, with power forwarded to the CCS 2 outlet on the right. 
+
+<img src="./images/hardware_1_2_enclosure.jpeg" alt="Rev 1.2" style="zoom:80%;" />
+
+
+
 ## How/Where/Why to Get Started
 
 Well, no turn-key solution ... but perhaps some interesting venues for the enthusiast.
@@ -75,7 +83,9 @@ Well, no turn-key solution ... but perhaps some interesting venues for the enthu
 
 ## Contributors
 
-This project is an initiative by Christoph Pflaum and Thomas Moor, both with FAU/Erlangen/Germany. We appreciate the following contributions by our students.
+This project is an initiative by Christoph Pflaum and Thomas Moor, both with FAU/Erlangen/Germany. We appreciate the following contributions by our students/staff.
+
+- Roland Kießling: electrics/electronics lab support, including the assembly of the prototype enclosure 
 
 - Pascal Thurnherr: [BA thesis](./doc/Bachelorarbeit_Pascal_Thurnherr.pdf) , _Aufbau und Test einer Ladeneinrichtung für Elektrofahrzeuge nach IEC62169_, FAU/Erlangen 2020; see also [this project](https://github.com/dreadnomad/FGCCS-Ctrl22).
 

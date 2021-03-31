@@ -1,6 +1,6 @@
 # Ctrl22 --- AVR Firmware
 
-Here we provide our firmware for the AVR uC ATmega4808 to control the charging process according to the CCS standard. For details of the circuitry, see [../circuit](../circuit/).  The code is organised in a cyclic fashion, i.e., there is one indefinite while-loop which runs a number of callback functions which actually operate the attached hardware modules (e.g. generate control pilot CP, read back CP, read proximity pilot PP, operate mains relays, measure current, etc.). The firmware is controlled via the TX0/RX0 serial line with a line-based human readable protocol. In our project, this control is exercised by an ESP32 SoC to allow for remote access. For development, we propose to set the ESP32 in target AVR development mode in order to forward the AVR's TX0/RX0 via telnet; see [../circuit](../circuit/) for details.
+Our firmware for the AVR uC ATmega4808 controls the charging process according to the CCS standard. For details of the circuitry, see [../circuit](../circuit/).  The code is organised in a cyclic fashion, i.e., there is one indefinite while-loop which runs a number of callback functions which actually operate the attached hardware modules (e.g. generate control pilot CP, read back CP, read proximity pilot PP, operate mains relays, measure current, etc.). The firmware is controlled via the TX0/RX0 serial line with a line-based human readable protocol. In our project, this control is exercised by an ESP32 SoC to allow for remote access. For development, we propose to set the ESP32 in target AVR development mode in order to forward the AVR's TX0/RX0 via telnet; see [../circuit](../circuit/) for details.
 
 
 
@@ -32,7 +32,7 @@ You can inspect the implemantation of this state machine in the callback functio
 
 - `rms_cb()` keeps updating the RMS measurement of the actual current; it triggers a 10kHz interupt to take samples and subsequently organosises RMS computation in short slices; eventually, `g_cur1`, `g_cur2` and `g_cur3` will be updated accordingly; the convenenience functions `rms(1)` and `rms(0)`  enable and disable RMS measurement, respectively.
 
-- `pilots_cb()` keeps updating synchronous analog reading of pilots to` g_cpilot` (conveniently scaled in [100mA]) and `g_ppilot` (scaled in [V] read back); agian, pilot reading can be enabled/disabled by the `pilots(1)`/`pilots(0)`;
+- `pilots_cb()` keeps updating synchronous analog reading of pilots to` g_cpilot` (scaled in [V]) and `g_ppilot` (conveniently scaled in [100mA] read back); again, pilot reading is enabled/disabled by  `pilots(1)`/`pilots(0)`;
 
   
 
@@ -66,9 +66,9 @@ Optional convenience commands are implemented on top of this strict scheme. The 
 For the sake of simplicity, the AVR is passive, i.e., if we want a regular update on some aspects of its state, we need to poll. Exceptions are
 
 - various debug switches in our current revision will generate informative lines of unsolicitated rumble that begin with the special character `%`
-- for future revisions, we may send heartbeat data (e.g. drawn current) by single lines that begin with the special character `[` and that end with `]/r/n`.
+- for future revisions, we may send status data (e.g. drawn current) by single lines that begin with the special character `[` and that end with `]/r/n`.
 
-Thus, our ESP32 firmware shall filter any lines that start with `[` or `%`.
+Thus, our ESP32 firmware shall filter any lines that start  `%` an optionally interpret lines that start with `[` .
 
 ## Compiling/Programming the AVR
 

@@ -1,3 +1,5 @@
+
+
 Circuit
 =======
 
@@ -13,8 +15,6 @@ The [schematics](agccs-ctrl22-schematics.pdf ) proposed here have been derived f
 When we started AGCCS, we thought of modding SmartEVSE units to our specific needs. However, it became soon clear that this is not vialabe, so we decided to design our own board.  
 
 The original adaption to address our requirements was developed in course of the BA thesis *Entwicklung, Aufbau und Test einer Ladeeinrichtung für Elektrofahrzeuge nach IEC62169* by Pascal Thurnherr at FAU/Erlangen and has been published in [this project](https://github.com/dreadnomad/FGCCS-Ctrl22). The present repository is a strip down to the essentials. You may want to inspect the original sources; in particular the [BA thesis](../doc/Bachelorarbeit_Pascal_Thurnherr.pdf) includes a convenient summary of the electrical specifications from the CCS standard IEC-62196, as far as relevant for the project at hand.
-
-
 
 # Theory of Operation in a Nutshell
 
@@ -54,13 +54,13 @@ Lock_B <---------------------[ contact ]-----+
 
 Here it is assumed that the lock closes when Lock_R is driven to 12V while Lock_W is driven to GND. 
 
-**Power Rails**. Our circuit generates the relevant power rails +12V, -12V and +3.3V in the usual manner using two cascaded switching regulators and a voltage inverter. The +12V rail derived by an integrated component directly from mains. We have opted for 800mA as a reasonable maximum rating. However, the lock motor (or solenoid) will on operation draw up to 3A. Thus, we buffer the 12V line via the Schottky diode D12 and the capacitor C12 [rated 15000uF]  with the current limiting resistor R3-R6 [typ. 25R]. The resistor limits the maximum current on the 12V rail to about 500mA while the low voltage across D12 assures a charge to almost 12V. Since the closing or opening of the lock only takes a view ms [we experienced approx. 20ms], the mechanism is effectively driven by the energy held up in the capacitor C12. As a side effect, this construct allows us to address brown-out situations: at power loss during charging we shall release the lock. Since power loss may be caused by issues with the charging process in conjunction with mandatory leakage current detection this scenario is more likely than it appears and it would make our costumers really unhappy. We therefor generate the brown-out signal  BOT when the 12V rail falls below approx. 10V, leaving the AVR time to release the lock via the remaining charge of capacitor C12. The minimum dimension of C2 will crucially depend on the actual lock.  **Not all locks are the same:** if you plan to use a lock, you should check on the values of C12 and R3-R6. Charge C12, disconnect power and test whether you can open/close the lock. If you plan on additional units living on the 12V rail, you may increase R3-R6, to reduce the current used when charging C12.
+**Power Rails**. Our circuit generates the relevant power rails +12V, -12V and +3.3V in the usual manner using two cascaded switching regulators and a voltage inverter. The +12V rail is obtained by an integrated component directly from mains. We have opted for 800mA as a reasonable maximum rating. However, the lock motor (or solenoid) will on operation draw up to 3A. Thus, we buffer the 12V line via the Schottky diode D12 and the capacitor C12 [rated 15000uF]  with the current limiting resistor R3-R6 [typ. 25R]. The resistor limits the maximum current on the 12V rail to about 500mA while the low voltage across D12 assures a charge to almost 12V. Since the closing or opening of the lock only takes a view ms [we experienced approx. 20ms], the mechanism is effectively driven by the energy held up in the capacitor C12. As a side effect, this construct allows us to address brown-out situations: at power loss during charging we shall release the lock. Since power loss may be caused by issues with the charging process in conjunction with mandatory leakage current detection this scenario is more likely than it appears and being locked on power failure would make our clients really unhappy. We therefor generate the brown-out signal  BOT when the 12V rail falls below approx. 10V, leaving the AVR time to release the lock via the remaining charge of capacitor C12. The minimum dimension of C12 will crucially depend on the actual lock.  **Not all locks are the same:** if you plan to use a lock, you should check on the values of C12 and R3-R6. Charge C12, disconnect power and test whether you can open/close the lock. If you plan on additional units living on the 12V rail, you may want to increase R3-R6 in order to reduce the current drawn while charging C12.
 
-**Digital IOs.** Our circuitry includes digital IOs for an operator button, an operator indicator (LED)  and to individually control each of the three phases L1, L2 and L3 via external contactors driven by the SSRs  U1, U2 and U3. In addition, we have included the signal relays U12 and U13 to virtually disconnect the EV from the charging station. Since certain EVs will "fall to sleep" when charging does non commence within a certain amount of time, the signal relay becomes relevant when charging by schedule or power allocation by an external agent; e.g. only start charging when solar power is available. 
+**Digital IOs.** Our circuitry includes digital IOs for an operator button, an operator indicator (LED)  and to individually control each of the three phases L1, L2 and L3 via external contactors, driven by the SSRs  U1, U2 and U3. In addition, we have included the signal relays U12 and U13 to virtually disconnect the EV from the charging station. Since certain EVs will "fall to sleep" when charging does non commence within a certain amount of time, the signal relay becomes relevant when charging by schedule or power allocation by an external agent; e.g. only start charging when solar power is available. 
 
 # Installing Firmware (first time only)
 
-To get bootstrapped, we need to install an initial version of firmware for both the AVR uC and the ESP32 SoC. For this purpose, our board is equipped with the custom 8-pin header J5. For you own convenience, we propose that you set up a programming adaptor following these  [schematics](agccs-j5adaptor-schematic.pdf ). 
+To get bootstrapped, we need to install an initial version of firmware for both the AVR uC and the ESP32 SoC. For this purpose, our board is equipped with the custom 8-pin header J5. For your own convenience, we propose that you set up a programming adaptor following these  [schematics](agccs-j5adaptor-schematic.pdf ). 
 
 |  Fnct.   | Pin  | Pin  |  Fnct.   |
 | :------: | :--: | :--: | :------: |
@@ -90,7 +90,7 @@ Short instructions:
   USB-Serisl-GND<>------------<>GND  (aka connector J5 pin 5)
   ```
   
-- get  from Github; the 2021-02 version installs via `pip` and requires python3
+- get   [`pyudpi`](https://github.com/mraardvark/pyupdi)from Github; the 2021-02 version installs via `pip` and requires python3
 
 - get some device specs and check the connection
 
@@ -127,7 +127,7 @@ Although you can flash any firmware via the routine described above, we need a b
 | 0:0x00        | WDTCFG   | default 0x00, no watchdog                                    |
 | 1:0x00        | BODCFG   | default 0x00, test for1.8V@1kHz, disabled (see BOD.CTRLA)    |
 | 2:0x02        | OSCLOCK  | default 0x02, use 20MHz oscillator (which we later divide by 2) |
-| **5:0xC9**    | SYSCFG0  | default 0xC0, no application CRC, **have RESET pin**, **keep EEPROM on flash erase** |
+| **5:0xC9**    | SYSCFG0  | default 0xE4, no application CRC, **have RESET pin**, **keep EEPROM on flash erase** |
 | 6:0x06        | SYSCFG1  | default 0x07, 64ms start-up-time on power on                 |
 | 7:0x00        | APPEND   | defaut 0x00, no explicit data section                        |
 | **8:0x02**    | BOOTEND  | default 0x00, **have 2x256bytes bootloader**                 |
@@ -186,9 +186,7 @@ After connecting with the access point, the debug server can be accessed via tel
 gtelnet 192.168.4.1
 ```
 
-The IP address, the SSID and the WPA2 password are configured within `demesh`; see [../demesh](../demesh/)
-To inspect available commands for the provided AVR firmware, type `? [CR]`. To exit the session, 
-type `Ctrl-Q` or `Ctrl-D`.
+The IP address, the SSID (default `DebugAVR`) and the WPA2 password are configured within `demesh`; see [../demesh](../demesh/). To inspect available commands for the provided AVR firmware, type `? [CR]`. To exit the session, type `Ctrl-Q` or `Ctrl-D`.
 
 To access the AVR bootloader, the alternative port 2323 is provided. On connections, it resets the AVR to enter Optiboot an can thus be programmed via `avrdude -carduino`. Example 
 
@@ -204,9 +202,9 @@ avrdude -patmega4808  -carduino -Pnet:192.168.4.1:2323 -U flash:w:{SOME_HEX_FILE
 
 # Hardware Revisions
 
-In this repository we provide the current stage of development Rev-1-x and latest stable version Rev-1-2 both as editable KiCad projects. For documentation purposes, earlier revisions are provided as PDFs for inspection. 
+In this repository we provide the current state of development Rev-1-x and the latest stable version Rev-1-2, both as editable KiCad projects. For documentation purposes, earlier revisions are provided as PDFs for inspection. 
 
-The initial revision Rev-1-0 passed our tests conducted with a first-installation firmware archived in [Pascal Thurnherrs repository](https://github.com/dreadnomad/FGCCS-Ctrl22). Rev-1-1 is an incremental upgrade by the same team, it should be fine too from an electronics perspective. We are currently ordering/assembling our intermediate finalist Rev-1-2, keeping our fingers crossed. Once Rev-1-2 has been positively evaluated with our production firmware [ctrl22](../ctrl22/), we'll tidy up the repository and remove obsolete earlier revisions.
+The initial revision Rev-1-0 passed our tests conducted with a first-installation firmware archived in [Pascal Thurnherrs repository](https://github.com/dreadnomad/FGCCS-Ctrl22). Rev-1-1 is an incremental upgrade by the same team, it should be fine too from an electronics perspective. We just have assembled the first prototypes of our intermediate finalist Rev-1-2. All functional units passed basic tests, e.g., we can drive the contractors and generate/read-back the CP signal using the current firmware [ctrl22](../ctrl22/).  Once we have actually charged some EV, we'll tidy up the repository and remove obsolete earlier revisions.
 
 
 
@@ -253,5 +251,17 @@ The initial revision Rev-1-0 passed our tests conducted with a first-installatio
 
 
 
-**Some notes on assembly/first-installation:** since PP is only connected to a resistor within the plug at the charging outlet, we almost certainly may short the relay U12 (and hence not populate it); we never actually used the RS485 option (and hence may not even populate U7); watch out, there are smart and less smart orders in which to solder the individual parts depending on their physical dimensions and locations; the tantalum capacitor C16 is polarised; regarding functional modules, plan for incremental tests, e.g., first install the 3.3V regulator and run/test from a 12V bench supply, then install the AVR minimalistically and program via UPDI (an indicator LED is useful here, may blink TX2 on the extension connector), then add the ESP32 and set it to target-AVR debug mode, from now on "no wires from the board to your computer", you can further populate/test individual functional modules safly isolated ... a.s.o. ... the 230V/12V converter comes definitely last; clean your glasses, sharpen your tweezers, have fun.  
+## Photos (Rev.1.2)
+
+Front (in terms of PCB design; in the enclosure, this becomes the backside)
+
+<img src="../images/hardware_1_2_front.jpeg" style="zoom:50%;"/>
+
+Back (in terms of PCB design; in the enclosure, this becomes the front; note that the 230V/12V converter has not yet been installed, so we can safely power with a bench supply via J3 for testing )
+
+<img src="../images/hardware_1_2_back.jpeg" style="zoom:50%;"/>
+
+
+
+**Some notes on assembly:** 0805s can be soldered by hand using a fine tipp and thin solder; same holds for the semiconductor except perhaps the AVR --- solder paste and hot air may be preferred here; since PP is only connected to a resistor within the plug at the charging outlet, we almost certainly may short the relay U12 (and hence not populate it); we never actually used the RS485 option (and hence may not even populate U7); watch out, there are smart and less smart orders in which to solder the individual parts depending on their physical dimensions and locations; most parts are to be soldered to the front side, but some go on the back side; that tantalum capacitor C16 is polarised; regarding functional modules, plan for incremental tests, e.g., first install the 3.3V regulator and run/test from a 12V bench supply, then install the AVR minimalistic and program via UPDI (an indicator LED is useful here, may blink TX2 on the extension connector), then add the ESP32 and set it to target-AVR debug mode, from now on "no wires from the board to your computer", you can further populate/test individual functional modules safely isolated ... a.s.o. ... the 230V/12V converter comes definitely last; clean your glasses, sharpen your tweezers, have fun.  
 

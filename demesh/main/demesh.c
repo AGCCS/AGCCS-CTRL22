@@ -49,7 +49,9 @@ repository.
 ===========================================================================
 */
 
-// firmware version string (relevant format for OTA: "<OneDigit>.<OneDigit>", nothing else tested)
+// firmware revision 2020-03-31 
+
+// firmware version string for OTA (hardcoded format "<OneDigit>.<OneDigit>")
 #define DEMESH_VERSION "6.5"
 
  
@@ -421,12 +423,23 @@ static void init_devices(void)
 #define AVR_PRESENT                       // we do have an AVR taget to care (undefine this if no AVR present)
 #define AVR_TXD_GPIO  GPIO_NUM_17         // target AVR serial: pins to transmit
 #define AVR_RXD_GPIO  GPIO_NUM_16         // target AVR serial: pins to receive
+#define AVR_BAUDRATE  115200              // target AVR serial: baudrate (always "8N1")
+#define AVR_RST_GPIO  GPIO_NUM_12         // target AVR: how to reset
+#define AVR_RST_ACTIVE  0                 // target AVR: dont need to be active high for "run"
+#define AVR_IMG_CNT     (47*1024)         // target AVR: size of firmware (e.g. ATMega4808  "48k - bootloader")
+#define AVR_OPT_CNT     128               // target AVR: byte count per page write (128 bytes are common practice)
+#define AVR_OPT_BADDR                     // target AVR: Optiboot_x uses byte addresses as opposed to word addresses
+#define AVR_OPT_TADDR   0x200             // target AVR: offset for application code 0.5kByte (botloader)
+
+
+
+/*
 #define AVR_BAUDRATE  57600               // target AVR serial: baudrate (format always is "8N1", old arduino nano takes 57600)
 #define AVR_RST_GPIO  GPIO_NUM_5          // target AVR: how to reset
 #define AVR_RST_ACTIVE  0                 // target AVR: dont need to be active high for "run"
 #define AVR_IMG_CNT     (31*1024)         // target AVR: size of firmware (e.g. arduino nano "32k - bootloader")
 #define AVR_OPT_CNT     128               // target AVR: byte count per page write (128 bytes are common practice)
-
+*/
 
 void init_devices(void)
 {
@@ -725,7 +738,7 @@ void avrclearln(void) {
 }        
 
 // UART helper: write line
-// this will append line termination aka "\r\n"
+// This function will append line termination aka "\r\n"
 int avrwriteln(char* msg) {
     size_t len=strlen(msg);
     if(uart_write_bytes(UART_NUM_1, msg, len)!=len) {
@@ -742,27 +755,41 @@ int avrwriteln(char* msg) {
 }
 
 // UART helper: read line
-// this will read until the next "\n"; before returning the result,
+// This function will read until the next "\n"; before returning the result,
 // the terminating "\n" is removed as well as an immediately preceeding
 // "\r"; a timeout must be specified in ms; the result needs to be
 // allocated by the caller and must be capable to hold MAX_LINE bytes.
+// Lines starting with '%' or '[' will be silently discarded.
+
+void no_callback_cb(TimerHandle_t timer) {};
+
 int avrreadln(char* str, int timeout) {
+    TimerHandle_t rtimer= xTimerCreate("ReadLnTimer",timeout/portTICK_PERIOD_MS,false,NULL,no_callback_cb);
+    xTimerStart(rtimer, 0);
     size_t pos=0;
     int cnt;
     while(1) {
         cnt=uart_read_bytes(UART_NUM_1, (unsigned char*) str+pos, 1, timeout/portTICK_PERIOD_MS);
         if(cnt==0) {
 	    str[0]=0;
-            MDF_LOGI("avrreadln: uart error: time out (#%d)",pos);	  
+            MDF_LOGI("avrreadln: uart error: time out A (#%d)",pos);	  
 	    return MDF_FAIL;
 	}
-        if(str[pos]=='\n') break;
+        if(str[pos]=='\n') {
+	  if((str[0]=='%') || (str[0]=='[')) pos=0;
+	  else break; 
+	}  
         ++pos;
         if(pos>=MAX_LINE) {
 	    str[0]=0;
 	    MDF_LOGI("avrreadln: uart error: buffer overflow");	  
             return MDF_FAIL;
 	}
+	if(!xTimerIsActive(rtimer)) {
+	    str[0]=0;
+            MDF_LOGI("avrreadln: uart error: time out B (#%d)",pos);	  
+	    return MDF_FAIL;
+	}    	    
     }
     str[pos]=0;
     if(pos>0) if(str[pos-1]=='\r') str[pos-1]=0;
@@ -855,9 +882,9 @@ int command_avrgetpar(char* par, int* val) {
     size_t len;
 
     // say hello and take mutex
-    MDF_LOGI("avrgetpar: %s?", par);
     if(xSemaphoreTake(g_avruart_mutex, 1000/portTICK_PERIOD_MS) != pdTRUE)
         return ret;
+    MDF_LOGI("avrgetpar: %s?", par);
     // assemble command string e.g. "power?"
     len=strlen(par);
     if(len+1>=MAX_LINE) return MDF_FAIL;
@@ -898,7 +925,7 @@ int command_avrgetstate(void) {
   if(command_avrgetpar("ccss", &g_tstate_ccss)!=MDF_OK) ret=MDF_FAIL;
   if(command_avrgetpar("cmaxcur", &g_tstate_cmaxcur)!=MDF_OK) ret=MDF_FAIL;
   if(command_avrgetpar("smaxcur", &g_tstate_smaxcur)!=MDF_OK) ret=MDF_FAIL;
-  if(command_avrgetpar("pahes", &g_tstate_phases)!=MDF_OK) ret=MDF_FAIL;
+  if(command_avrgetpar("phases", &g_tstate_phases)!=MDF_OK) ret=MDF_FAIL;
   if(command_avrgetpar("cur1", &g_tstate_cur1)!=MDF_OK) ret=MDF_FAIL;
   if(command_avrgetpar("cur2", &g_tstate_cur2)!=MDF_OK) ret=MDF_FAIL;
   if(command_avrgetpar("cur3", &g_tstate_cur3)!=MDF_OK) ret=MDF_FAIL;
@@ -1308,7 +1335,7 @@ int avrflash(void) {
     mdf_err_t ret          = MDF_FAIL;
     
     // say hello and take mutex
-    MDF_LOGI("avrsflash: do flash now");
+    MDF_LOGI("avsflash: do flash now");
     if(xSemaphoreTake(g_avruart_mutex, 1000/portTICK_PERIOD_MS) != pdTRUE)
         return ret;
     // reset AVR target
@@ -1925,9 +1952,9 @@ static void root_read_task(void *arg)
 		else
   	          asprintf(&rtopic, "/" CONFIG_MESH_ID "/" NOCMACSTR "/acknowledge" , NOCMAC2STR(src_addr));
 	        if(esp_mqtt_client_publish(g_mqtt_client, rtopic, rdata, rdsize, 0, 0)!=ESP_OK)
-	  	    MDF_LOGW("publishing hearbeat to mqtt broaker failed");
+	  	    MDF_LOGW("publishing heartbeat to mqtt broaker failed");
 		else      
-		    MDF_LOGW("publishing hearbeat to mqtt broaker succeeded");
+		    MDF_LOGW("publishing heartbeat to mqtt broaker succeeded");
 	    }	
 
 

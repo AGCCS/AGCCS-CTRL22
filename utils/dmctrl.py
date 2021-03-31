@@ -146,7 +146,6 @@ class AvrflashTCPHandler(socketserver.BaseRequestHandler):
         print("setting avrstate to receive firmware")
         cmd="{{\"dst\":\"{0:s}\",\"cmd\":\"avrota\",\"state\":\"recimg\"}}".format(NODE)
         jreply=self.rwnode(cmd,"avrota",3)
-        jreply=json.loads(reply)
         ok = jreply is not None
         if ok:
           ok = jreply['state'] == "recimg"
