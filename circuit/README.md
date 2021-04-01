@@ -78,7 +78,7 @@ The ATmega4808 used in our project is a modern incarnation of the ATmega series,
 - for Linux an appropriate toolchain should be supplied by your distribution (verified for Debian; should be the same for many popular Debian derivates);
 - for Mac OSX and Windows, the most pragmatic way to get a recent toolchain is to borrow it from an up-to-date Arduino installation (look for `_where_ever_Ardiono_is/Java/hardware/tools/avr/bin/` and set your `PATH` Variable accordingly. 
 
-Another speciality of the XMega series inherited by the ATmega4808 is that they are natively programmed via the so called UPDI one-pin interface. The official programmer Atmel ICE ($100+) works fine with Windows and Atmel AVR Studio (Version 7 or latest) and provides professional grade debugging facilities. However, at the time of writing, the Atmel ICE is not well supported by mainstream `avrdude` and may not be accessible via Linux/Mac OSX. Fortunately, the [`pyudpi project`](https://github.com/mraardvark/pyupdi) provides a low-cost alternative which only needs an of the shelf USB-to-serial converter and a single 4.7K resistor --- we used this approach with no problems at all on Mac OSX and Linux. **Again: you will need a 3.3V USB-serial converter - do not trust the labels, use your scope/meter - otherwise risk to fry your AVR**.
+Another speciality of the XMega series inherited by the ATmega4808 is that they are natively programmed via the so called UPDI one-pin interface. The official programmer Atmel ICE ($100+) works fine with Windows and Atmel AVR Studio (Version 7 or later) and provides professional grade debugging facilities. However, at the time of writing, the Atmel ICE is not well supported by mainstream `avrdude` and may not be accessible via Linux/Mac OSX. Fortunately, the [`pyudpi project`](https://github.com/mraardvark/pyupdi) provides a low-cost alternative which only needs an of the shelf USB-to-serial converter and a single 4.7K resistor --- we used this approach with no problems at all on Mac OSX and Linux. **Again: you will need a 3.3V USB-serial converter - do not trust the labels, use your scope/meter - otherwise risk to fry your AVR**.
 
 Short instructions:
 
@@ -87,7 +87,7 @@ Short instructions:
   USB-Serial-TX>---[4.7K]--->+<>AVR-UPDI (aka connector J5 pin 1)
                              |
   USB-Serial-RX>-------------+
-  USB-Serisl-GND<>------------<>GND  (aka connector J5 pin 5)
+  USB-Serisl-GND<>------------<>GND  (aka connector J5 pin 2)
   ```
   
 - get   [`pyudpi`](https://github.com/mraardvark/pyupdi)from Github; the 2021-02 version installs via `pip` and requires python3
@@ -145,11 +145,11 @@ Short instructions:
 - set up the ESP32-MDF SDK and compile the firmware `demesh`; see [../demesh](../demesh/) for a concise introductions; 
 - set up the wiring
   ```
-  USB-Serial-TX>------------->ESP-RX0  (aka connector J5 pin 2)
+  USB-Serial-TX>------------->ESP-RX0  (aka connector J5 pin 5)
   USB-Serial-RX<-------------<ESP-TX0  (aka connector J5 pin 3)
-  USB-Serisl-GND<>---+------<>GND      (aka connector J5 pin 5)
+  USB-Serisl-GND<>---+------<>GND      (aka connector J5 pin 2)
                      |
-                     +-[/]--<>ESP-IO0  (aka connector J5 pin 4)
+                     +-[/]--<>ESP-IO0  (aka connector J5 pin 7)
                      |
                      +-[/]--->ESP-EN   (aka connector J5 pin 8)
   ```
@@ -196,7 +196,7 @@ avrdude -patmega4808  -carduino -Pnet:192.168.4.1:2323 -U flash:w:{SOME_HEX_FILE
 
 
 
-**Note:** In contrast to the classic ATmega architecture, the ATmega4808 has the boot loader in low address range and, hence, the load address of the application firmware needs to be adjusted accordingly. Optiboot is located in the range 0x0000 to 0x01ff and expects firmware to load at 0x0200. This needs to be made explicit when compiling the firmware, e.g., with the linker directive `--section-start=.text=0x200`. The `makefile` provided with our firmware [../ctrl22](../ctrl22/) will take care about this detail.  
+**Note:** In contrast to the classic ATmega architecture, the ATmega4808 has the boot loader in low address range and, hence, the load address of the application firmware needs to be adjusted accordingly. Optiboot is located in the range 0x0000 to 0x01ff and expects the application to load at 0x0200. This needs to be made explicit when compiling the application firmware, e.g., with the linker directive `--section-start=.text=0x200`. The `makefile` provided with our firmware [../ctrl22](../ctrl22/) will take care about this detail.  
 
 
 
@@ -204,7 +204,7 @@ avrdude -patmega4808  -carduino -Pnet:192.168.4.1:2323 -U flash:w:{SOME_HEX_FILE
 
 In this repository we provide the current state of development Rev-1-x and the latest stable version Rev-1-2, both as editable KiCad projects. For documentation purposes, earlier revisions are provided as PDFs for inspection. 
 
-The initial revision Rev-1-0 passed our tests conducted with a first-installation firmware archived in [Pascal Thurnherrs repository](https://github.com/dreadnomad/FGCCS-Ctrl22). Rev-1-1 is an incremental upgrade by the same team, it should be fine too from an electronics perspective. We just have assembled the first prototypes of our intermediate finalist Rev-1-2. All functional units passed basic tests, e.g., we can drive the contractors and generate/read-back the CP signal using the current firmware [ctrl22](../ctrl22/).  Once we have actually charged some EV, we'll tidy up the repository and remove obsolete earlier revisions.
+The initial revision Rev-1-0 passed our tests conducted with a first-installation firmware archived in [Pascal Thurnherrs repository](https://github.com/dreadnomad/FGCCS-Ctrl22). Rev-1-1 is an incremental upgrade by the same team, it should be fine too from an electronics perspective. We just have assembled the first prototypes of our intermediate finalist Rev-1-2. All functional units passed basic tests, e.g., we can drive the contactors and generate/read-back the CP signal using the current firmware [ctrl22](../ctrl22/).  Once we have actually charged some EV, we'll tidy up the repository and remove obsolete earlier revisions.
 
 
 
