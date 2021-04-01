@@ -51,6 +51,7 @@ if grep -q "BOARD_NOPE=y" $CFG ; then BOARD=nope; fi
 if grep -q "BOARD_M5=y" $CFG ; then BOARD=m5stick; fi
 if grep -q "BOARD_GPIO2=y" $CFG ; then BOARD=gpio2; fi
 if grep -q "BOARD_FGCCS_1_0=y" $CFG ; then BOARD=fgccs10; fi
+if grep -q "BOARD_FGCCS_1_2=y" $CFG ; then BOARD=fgccs12; fi
 if [[ $BOARD == "" ]] ; then
     echo no/unknown board?
     exit;

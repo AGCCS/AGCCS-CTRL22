@@ -3,7 +3,7 @@
 *************************************************************************
 *************************************************************************
 
-agccs ctrl22 -- 2021.30.03
+agccs ctrl22 
 
 - target platform agccs board (set revision as runtime parameter)
 - compiles with avr-gcc, verified avr-libc 2.0. and gcc 7.3
@@ -47,7 +47,7 @@ THE SOFTWARE.
 *************************************************************************
 */
 
-// firmware revision 2021-03-30
+// firmware revision 2021-04-01
 
 // firmware version for OTA
 #define CTRL22_VERSION 13  // XY reads vX.Y, i.e., one digit for major and minor, resp.
@@ -182,7 +182,7 @@ uint16_t g_cycleskip;
 // mutex for shared resource (set/rel in main loop or call backs, not in ISRs)
 char g_adc0_bsy=false;
 
-// convenience: return true if duetime has expired (uint16 ticks, max 32767ms s schedule))
+// convenience: return true if duetime has expired (uint16 ticks, max 32767ms schedule))
 #define TRIGGER_SCHEDULE(duetime)  (   \
    ((g_systicks >= duetime) &&  (g_systicks-duetime < 0x8000)) ||  \
    ((g_systicks < duetime) &&  (duetime-g_systicks > 0x8000)) )
@@ -191,7 +191,7 @@ char g_adc0_bsy=false;
 typedef enum {OFF0=00,OFF1=01,A0=10,A1=11,B0=20,B1=21,C0=30,C1=31,C2=32,P0=41,P1=42,W0=50,W1=51,ERR0=0x70} ccs_state_t;
 ccs_state_t g_ccs_st=OFF0;
 
-// cli veraiant of ccs state (how do we properly/safly cast an enum to an int16_t?)
+// cli veriant of ccs state (how do we properly/safly cast an enum to an int16_t?)
 int16_t g_ccss_cli=0;
 
 // forward declaration of error code
@@ -286,8 +286,8 @@ inline void led_off() {
 }
 
 
-// number of flashs per 2sec period (range 1-20)
-int16_t g_blinks=1;
+// number of status flashses per 2sec period (range 1-20, plus patterns)
+int g_blinks=1;
 
 // extra flash patterns
 #define BLINKS_ON    21
@@ -296,15 +296,20 @@ int16_t g_blinks=1;
 #define BLINKS_RELAX 22
 #define BLINKS_ERR   20
 
+// overwrite status flashes by serial line 
+int16_t g_xblinks=0;
+
 // flash my led (callback in main loop)
 void led_blinks_cb(void) {
+  int blinks=g_blinks;
+  if(g_xblinks>0) blinks=g_xblinks;
   // const on
-  if(g_blinks==BLINKS_ON) {
+  if(blinks==BLINKS_ON) {
     led_on();
     return;
   }
   // const off
-  if(g_blinks==BLINKS_OFF) {
+  if(blinks==BLINKS_OFF) {
     led_off();
     return;
   }
@@ -312,9 +317,9 @@ void led_blinks_cb(void) {
   int16_t led_time=g_systime % 2000;
   int16_t led_cycle;
   // fast cycle, range 1-20, incl BLINKS_ERR
-  if(g_blinks<=20) {
+  if(blinks<=20) {
     led_cycle = led_time / 100 +1;
-    if(led_cycle > g_blinks) {
+    if(led_cycle > blinks) {
       led_off();
       return;
     }  
@@ -324,7 +329,7 @@ void led_blinks_cb(void) {
       led_off();
   }
   // slow cycle, range 1-4, for BLINK_RELAX
-  if(g_blinks==BLINKS_RELAX) {
+  if(blinks==BLINKS_RELAX) {
     led_cycle = led_time / 500 +1;
     if(led_cycle > 4) {
       led_off();
@@ -366,7 +371,7 @@ serial line on uart0
 *************************************************************************
 */
 
-// baudrate formula from atmel documentation
+// baudrate formula from Atmel documentation
 #define USART_BAUD_RATE(BAUD_RATE) (uint16_t) ( (F_CPU * 64.0) / (16.0 * BAUD_RATE) + 0.5 ) 
 
 // component: init serial line on usart0 qith pins PA0 (TX) and PA1 (RX)
@@ -376,12 +381,12 @@ void serial_init(void) {
   USART0.CTRLA |= USART_RXCIE_bm;                                        // enable RX interupt
   PORTA.DIRSET = PIN0_bm;                                                // set TX pin
   PORTA.DIRCLR = PIN1_bm;                                                // set RX pin
-  USART0.CTRLB |= (USART_TXEN_bm | USART_RXEN_bm);                       // endable uart
+  USART0.CTRLB |= (USART_TXEN_bm | USART_RXEN_bm);                       // endable UART
 }
 
 // linebuffer
 #define IOBUFFLEN  80              // buffer size
-char g_writeln_buf[IOBUFFLEN+1];   // actual buffer (+1 for terminating 0, +2 for "\r\n")
+char g_writeln_buf[IOBUFFLEN+3];   // actual buffer (+1 for terminating 0, +2 for "\r\n")
 unsigned char g_writeln_pos=0;     // currrent position to write to
 volatile char g_writeln_st=0;      // state: 0<>writing to buffer; 1<>sending via uart
 bool g_writeln_sync=false;         // true<>synchronous mode; false<>asynchronous mode
@@ -1836,7 +1841,7 @@ typedef struct {
 const partable_t partable[]={
   // normal operation
   {"ver",     &g_version,   NULL,        NULL},            // g_version can be read from memory
-  {"blinks",  &g_blinks,    &g_blinks,   NULL},            // g_blinks can be read/written from/to memory
+  {"blinks",  &g_xblinks,   &g_xblinks,  NULL},            // g_xblinks can be read/written from/to memory
   {"time",    &g_systime,   NULL,        &systime_set},    // g_systime has explicit setter
   {"temp",    &g_temp,      NULL,        NULL},            // g_temp can be read from memory
   {"vcc",     &g_vcc,       NULL,        NULL},            // g_vcc can be read from memory

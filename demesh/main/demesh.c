@@ -49,10 +49,10 @@ repository.
 ===========================================================================
 */
 
-// firmware revision 2020-03-31 
+// firmware revision 2021-04-01 
 
 // firmware version string for OTA (hardcoded format "<OneDigit>.<OneDigit>")
-#define DEMESH_VERSION "6.5"
+#define DEMESH_VERSION "0.8"
 
  
 // minimum includes
@@ -761,16 +761,18 @@ int avrwriteln(char* msg) {
 // allocated by the caller and must be capable to hold MAX_LINE bytes.
 // Lines starting with '%' or '[' will be silently discarded.
 
-void no_callback_cb(TimerHandle_t timer) {};
+static bool avrreadln_tout;
+void avrreadln_tcb(TimerHandle_t timer) {avrreadln_tout=true;};
 
 int avrreadln(char* str, int timeout) {
-    TimerHandle_t rtimer= xTimerCreate("ReadLnTimer",timeout/portTICK_PERIOD_MS,false,NULL,no_callback_cb);
-    xTimerStart(rtimer, 0);
+    avrreadln_tout=false;
+    TimerHandle_t rtimer= xTimerCreate("ReadLnTimer",timeout/portTICK_PERIOD_MS,false,NULL,avrreadln_tcb);
+    xTimerStart(rtimer,0);
     size_t pos=0;
     int cnt;
     while(1) {
         cnt=uart_read_bytes(UART_NUM_1, (unsigned char*) str+pos, 1, timeout/portTICK_PERIOD_MS);
-        if(cnt==0) {
+        if((cnt==0) || avrreadln_tout) {
 	    str[0]=0;
             MDF_LOGI("avrreadln: uart error: time out A (#%d)",pos);	  
 	    return MDF_FAIL;
@@ -785,11 +787,6 @@ int avrreadln(char* str, int timeout) {
 	    MDF_LOGI("avrreadln: uart error: buffer overflow");	  
             return MDF_FAIL;
 	}
-	if(!xTimerIsActive(rtimer)) {
-	    str[0]=0;
-            MDF_LOGI("avrreadln: uart error: time out B (#%d)",pos);	  
-	    return MDF_FAIL;
-	}    	    
     }
     str[pos]=0;
     if(pos>0) if(str[pos-1]=='\r') str[pos-1]=0;
