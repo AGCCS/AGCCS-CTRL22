@@ -1178,7 +1178,7 @@ bool adc_pilots(void) {
   if(pp>980) ppv = 130;                         // unconnected, max 13A
   else if((pp > 260) && (pp < 480)) ppv=200;    // 680R: max 20A
   else if((pp > 150) && (pp < 220)) ppv=320;    // 220R: Max Capacity 32A
-  else if((pp > 75) && (pp < 120))  ppv=633;    // 100R: Max Capacity 63A
+  else if((pp > 75) && (pp < 120))  ppv=630;    // 100R: Max Capacity 63A
   else ppv=-1;                                  // invalid reading
   // filter
   static int16_t ppnxt=0;
