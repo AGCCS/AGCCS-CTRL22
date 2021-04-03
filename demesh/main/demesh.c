@@ -49,10 +49,10 @@ repository.
 ===========================================================================
 */
 
-// firmware revision 2021-04-01 
+// firmware revision 2021-04-03 
 
 // firmware version string for OTA (hardcoded format "<OneDigit>.<OneDigit>")
-#define DEMESH_VERSION "0.8"
+#define DEMESH_VERSION "1.2"
 
  
 // minimum includes
@@ -849,27 +849,6 @@ FREE_MEM:
 } 
     
 
-// sync AVR systime
-// this is just like "command_avrsetpar("time",systime())"
-// except if we actually invoked that function we would
-// suffer inaccuracy due to task switching, mutexes etc.
-// return MDF_OK or MDF_FAIL
-int command_avrsettime(void) {
-    char *avrstr           =NULL;
-    mdf_err_t ret          = MDF_FAIL;
-
-    MDF_LOGI("avrsettime; entry at %d",systime());
-    if(xSemaphoreTake(g_avruart_mutex, 1000/portTICK_PERIOD_MS) != pdTRUE)
-       return ret;
-    avrclearln();
-    asprintf(&avrstr,"time=%d",systime() % 30000); // our avr target has a 30sec rollover  
-    ret= avrwriteln(avrstr);
-    MDF_LOGI("avrsettime: set to %d",systime());
-    MDF_FREE(avrstr);
-    xSemaphoreGive(g_avruart_mutex);
-    return ret;
-} 
-
 // get a target parameter
 // return MDF_OK or MDF_FAIL
 int command_avrgetpar(char* par, int* val) {
@@ -935,6 +914,23 @@ int command_avrgetstate(void) {
   g_tcontrol_opbutton=-1;
   return ret;
 }  
+
+
+// sync AVR systime (invoked as timer callback)
+// this is just like "command_avrsetpar("time",systime())" except if we actually
+// invoked that function we would suffer inaccuracy due to task switching, mutexes etc.
+static void command_avrsettime_cb(void *timer) {
+    char *avrstr           = NULL;
+    if(xSemaphoreTake(g_avruart_mutex, 1000/portTICK_PERIOD_MS) != pdTRUE)
+       return;
+    avrclearln();
+    asprintf(&avrstr,"time=%d",systime() % 30000); // our avr target has a 30sec rollover  
+    avrwriteln(avrstr);
+    MDF_FREE(avrstr);
+    xSemaphoreGive(g_avruart_mutex);
+} 
+
+
 
 
 #endif //end: AVR_PRESENT
@@ -1008,8 +1004,7 @@ int command_avrgetpar(const char* p, int* v)   {
 };
 
 // dummies for target uC serial comms: silently ignore set target uC time
-int command_avrsettime(void) {
-    return MDF_OK;
+void command_avrsettime_cb(void* timer) {
 };
 
 // dummies for target uC serial comms: silently ignore get target uC state
@@ -1023,7 +1018,7 @@ int command_avrgetstate(void) {
 // It assumes that fake hardware will set g_tcontrol_opbutton to mimic operator interaction
 // (e.g. M5Stick via button B). This task will directly write on relevant components of
 // the local copy of the target uC state, which are in turn forwarded via the periodical heartbeat.
-static void simulate_target_timercb(void *timer) {
+static void simulate_target_cb(void *timer) {
     // pseudo globals for simulation state
     static int ccss=0;
     static int level=0;
@@ -1457,7 +1452,7 @@ int command_avrota_flash(int avrimgcnt) {
     if(avrflash()!=MDF_OK) {
         return MDF_FAIL;
     }	
-    command_avrsettime();
+    command_avrsettime_cb(NULL);
     // back to reset
     g_avrstate=0;
     return MDF_OK;
@@ -2218,6 +2213,7 @@ static void node_read_task(void *arg)
 	// dispatch commands: report system info
 	} else {
         if (!strcmp(command, "system")) {
+	    if(command_avrgetpar("ver", &g_tstate_version)!=MDF_OK) g_tstate_version=0;
             esp_mesh_get_parent_bssid(&parent_bssid);
             rsize = asprintf(&rdata,
 	        "{\"src\":\"" MACSTR "\",\"mtype\":\"system\",\"time\":%d,\"version\":\"%s\",\"board\":\"%s\",\"avrver\":%d}\r\n",
@@ -2238,7 +2234,7 @@ static void node_read_task(void *arg)
 	        MDF_ERROR_GOTO(json_t3, FREE_MEM, "node read parse error (spourious parameter)");
 		if(esp_mesh_is_root()) {
 		    MDF_LOGD("root will not sync systime with parent");
-		    command_avrsettime();
+		    command_avrsettime_cb(NULL);
 		    goto FREE_MEM;
 		}    
  	        json_t1=cJSON_CreateNumber(systime());
@@ -2268,7 +2264,7 @@ static void node_read_task(void *arg)
                 MDF_ERROR_GOTO(!cJSON_IsNumber(json_t2), FREE_MEM, "node read parse error (t2 num)");
 	        TickType_t t3=systime();
 	        if(systime_adjust(json_t1->valueint,json_t2->valueint,t3))
- 	            command_avrsettime();
+ 	            command_avrsettime_cb(NULL);
 		// reply to root only if not self generated
 		if(!strcmp(command, "tsync")) {
                     rsize = asprintf(&rdata,
@@ -2470,7 +2466,7 @@ static void node_request_time_task(void *arg)
 
     while(mwifi_is_connected()) {
 
-        // resulary trigger round-trip calculus to sync systime();
+        // regulary trigger round-trip calculus to sync systime();
         // this is received and handeled in node_read_task; the extra prefix "s"
         // in the command name "stsync" will allow us to distinguish self-generated
         // time scyns from externally ones
@@ -2574,7 +2570,7 @@ static void heartbeat_task(void *qrg)
  **********************************************************************
  */
 
-static void print_system_info_timercb(void *timer)
+static void print_system_info_cb(void *timer)
 {
     uint8_t primary                 = 0;
     wifi_second_chan_t second       = 0;
@@ -3339,17 +3335,24 @@ void app_main()
 #ifndef AVR_PRESENT
     // start target uC simulation 
     TimerHandle_t stimer = xTimerCreate("simulate_target", 1000 / portTICK_PERIOD_MS,
-                                       true, NULL, simulate_target_timercb);
+                                       true, NULL, simulate_target_cb);
     xTimerStart(stimer, 0);
-#endif    
+#endif
 
-    // start periodic sysinfo (serial line debugging)
+
+#ifdef AVR_PRESENT
+    // update target uC time regulary (the AGCCS board does not have a crystal, and is about 1% of) 
+    TimerHandle_t ttimer = xTimerCreate("command_avrsettime", 10000 / portTICK_PERIOD_MS,
+                                       true, NULL, command_avrsettime_cb);
+    xTimerStart(ttimer, 0);
+#endif    
+    
+
+    // start periodic sysinfo on serial line
     if(!g_debug_target) {
         TimerHandle_t ptimer = xTimerCreate("print_system_info", 10000 / portTICK_PERIOD_MS,
-                                       true, NULL, print_system_info_timercb);
+                                       true, NULL, print_system_info_cb);
         xTimerStart(ptimer, 0);
     }	
-
-
 
 }

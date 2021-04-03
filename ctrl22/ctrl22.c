@@ -80,7 +80,7 @@ const int16_t g_version=CTRL22_VERSION;
 
 calibration and configuration (defaults can be saved/loaded to/from eeprom)
 
-- calibration parameters for AC current measurement [not yet implemented]
+- calibration parameters for AC current measurement
 - configuration data for max load
 - configuration data for enabled phases
 - configuration data for optional lock
@@ -90,12 +90,15 @@ calibration and configuration (defaults can be saved/loaded to/from eeprom)
 *************************************************************************
 */
 
-#define PARCNT 5          // number of parameters
+#define PARCNT 8          // number of parameters
 int16_t p_boardrev=12;    // board rev 1.2
 int16_t p_smaxcur=160;    // max current in [100mA]
 int16_t p_phases=123;     // enabled phases
-int16_t p_lclosems=100;   // ms to close lock (set to 0 for no lock)
-int16_t p_lopenms=100;    // ms to open lock  (set to 0 for no lock)
+int16_t p_lclsms=100;     // ms to close lock (set to 0 for no lock)
+int16_t p_lopnms=100;     // ms to open lock  (set to 0 for no lock)
+int16_t p_caldmp=0;       // set to 1 to turn on calibration output
+int16_t p_cala=19019;     // calibration parameter a
+int16_t p_calb=0;         // calibration parameter b
 
 
 
@@ -139,20 +142,12 @@ convenience/debugging macros
 #define DBW_CCS(c)
 #endif
 
-// debug analog reading
+// debug analog reading (pilots, temp, vcc)
 //#define DEBUG_ADC
 #ifdef DEBUG_ADC
 #define DBW_ADC(c)  DEBUG_WRITE(c)
 #else
 #define DBW_ADC(c)
-#endif
-
-// debug rms measurement
-//#define DEBUG_RMS
-#ifdef DEBUG_RMS
-#define DBW_RMS(c)  DEBUG_WRITE(c)
-#else
-#define DBW_RMS(c)
 #endif
 
 // debug nvm access
@@ -188,7 +183,7 @@ char g_adc0_bsy=false;
    ((g_systicks < duetime) &&  (duetime-g_systicks > 0x8000)) )
 
 // forward declaration of ccs charging state (see main loop)
-typedef enum {OFF0=00,OFF1=01,A0=10,A1=11,B0=20,B1=21,C0=30,C1=31,C2=32,P0=41,P1=42,W0=50,W1=51,ERR0=0x70} ccs_state_t;
+typedef enum {OFF0=00,OFF1=01,A0=10,A1=11,B0=20,B1=21,C0=30,C1=31,C2=32,C3=33,P0=41,P1=42,W0=50,W1=51,ERR0=0x70} ccs_state_t;
 ccs_state_t g_ccs_st=OFF0;
 
 // cli veriant of ccs state (how do we properly/safly cast an enum to an int16_t?)
@@ -286,8 +281,6 @@ inline void led_off() {
 }
 
 
-// number of status flashses per 2sec period (range 1-20, plus patterns)
-int g_blinks=1;
 
 // extra flash patterns
 #define BLINKS_ON    21
@@ -296,13 +289,20 @@ int g_blinks=1;
 #define BLINKS_RELAX 22
 #define BLINKS_ERR   20
 
-// overwrite status flashes by serial line 
-int16_t g_xblinks=0;
+// blink pattern overwrite by serial line
+int g_blinks=-1;
+
 
 // flash my led (callback in main loop)
 void led_blinks_cb(void) {
-  int blinks=g_blinks;
-  if(g_xblinks>0) blinks=g_xblinks;
+  // set blinks to indicate ccss state
+  int blinks=BLINKS_RELAX;
+  if(g_ccs_st<A0) blinks=BLINKS_HEART;
+  if((g_ccs_st>=C0) && (g_ccs_st<C0+10)) blinks=BLINKS_ON;
+  // overwrite by error
+  if(g_error!=0) blinks=BLINKS_ERR;
+  // overwrite by serial
+  if(g_blinks>0) blinks=g_blinks;
   // const on
   if(blinks==BLINKS_ON) {
     led_on();
@@ -394,7 +394,7 @@ bool g_writeln_sync=false;         // true<>synchronous mode; false<>asynchronou
 // interrupt service routine to send characters from 0-terminated buffer
 ISR(USART0_DRE_vect) {
   char data=g_writeln_buf[g_writeln_pos++];          // get data from buffer
-  if((data=='\0') || (g_writeln_pos>=IOBUFFLEN)) {   // sense end of string
+  if((data=='\0') || (g_writeln_pos>=IOBUFFLEN+3)) { // sense end of string
     USART0.CTRLA  &= ~USART_DREIE_bm;                // disable DRE interupt
     g_writeln_pos=0;
     g_writeln_st=0;
@@ -453,11 +453,40 @@ void serial_write_str(const char* str){
     g_writeln_buf[g_writeln_pos++]=*(str++);
 }
 
+// convenience: write 0-terminated string from progmem
+void serial_write_pgmstr(const char* pstr) {
+  if(g_writeln_st!=0) return;
+  char c;
+  while(((c=pgm_read_byte(pstr))!='\0') && (g_writeln_pos<IOBUFFLEN)) {
+    g_writeln_buf[g_writeln_pos++]=c;
+    pstr++;
+  }
+}
+
+// convenience: define string constant in progmem and write
+#define serial_write_pstr(cstr) serial_write_pgmstr(PSTR(cstr))
+
 // convenience: write 0-terminated string as line
-void serial_writeln(const char* str){
+void serial_write_ln(const char* str){
   serial_write_str(str);
   serial_write_eol();
 }
+
+// convenience: write 0-terminated string from progmen as line
+void serial_write_pgmln(const char* pstr){
+  serial_write_pgmstr(pstr);
+  serial_write_eol();
+}
+
+// convenience: define string in progmem and write a line
+#define serial_write_pln(cstr) serial_write_pgmln(PSTR(cstr))
+
+// convenience: forward to tab
+void serial_write_tab(int pos) {
+  if(g_writeln_st!=0) return;
+  while((g_writeln_pos<pos) && (g_writeln_pos<IOBUFFLEN))
+    g_writeln_buf[g_writeln_pos++]=' ';
+}  
 
 // convenience: write unsigned integer (16bit) 
 void serial_write_uint(uint16_t value) {
@@ -621,8 +650,11 @@ void conf_load(void){
   p_boardrev = nvm_read( 0);
   p_smaxcur  = nvm_read( 1);
   p_phases   = nvm_read( 2);
-  p_lopenms  = nvm_read( 3);
-  p_lclosems = nvm_read( 4);
+  p_lopnms   = nvm_read( 3);
+  p_lclsms   = nvm_read( 4);
+  p_caldmp   = nvm_read( 5);
+  p_cala     = nvm_read( 6);
+  p_calb     = nvm_read( 7);
 }
 
 // write parameters to eeprom (signature for cli, return 1 on success)
@@ -639,15 +671,18 @@ int16_t conf_save(int16_t val){
   nvm_write( 0,p_boardrev);
   nvm_write( 1,p_smaxcur);
   nvm_write( 2,p_phases);
-  nvm_write( 3,p_lopenms);
-  nvm_write( 4,p_lclosems);
+  nvm_write( 3,p_lopnms);
+  nvm_write( 4,p_lclsms);
+  nvm_write( 5,p_caldmp);
+  nvm_write( 6,p_cala);
+  nvm_write( 7,p_calb);
   nvm_write(PARCNT,g_nvmchk);
   CPU_SREG |= CPU_I_bm;
 #ifdef DEBUG_NVM
   //dump eeprom
   serial_writeln_sync();
   for(i=0; i<PARCNT; i++) {
-    serial_write_str("% nvm write ");
+    serial_write_pstr("% nvm write ");
     serial_write_int(nvm_read(i));
     serial_write_eol();
   }  
@@ -663,7 +698,7 @@ int16_t conf_save(int16_t val){
 
 /*
 *************************************************************************
-digital gpio
+digital io
 - all other digital gpios (SSRs, signal relay, lock, brownout)
 - state machine to operate lock via callback
 - elementary function to operate the gpios
@@ -733,7 +768,7 @@ lock_state_t g_lock_st=opening;
 // button sense callback
 void lock_cb(void) {
   // no lock present ~> simulate
-  if((p_lclosems==0) || (p_lopenms==0) ) {	
+  if((p_lclsms==0) || (p_lopnms==0) ) {	
     if(g_lock_st==opening)  g_lock_st=open;
     if(g_lock_st==closing)  g_lock_st=closed;
     return;
@@ -763,7 +798,7 @@ void lock_cb(void) {
 	lock_contact=lcnow;
 #ifdef DEBUG_LOCK
         serial_writeln_sync();
-        serial_write_str("% lock: contact=");
+        serial_write_pstr("% lock: contact=");
         serial_write_int(lock_contact);
         serial_write_eol();
         serial_writeln_async();
@@ -777,23 +812,23 @@ void lock_cb(void) {
   // sense commands
   if(recstate!=g_lock_st) {
     if(g_lock_st==closing) {
-      DBW_LOCK(serial_writeln("% lock: closing"));
+      DBW_LOCK(serial_write_pln("% lock: closing"));
       // schedule closing operation with retries
       retry=3;
       ondue=g_systicks;
-      offdue=g_systicks+p_lclosems;
-      chkdue=g_systicks+p_lclosems+500;
-      reper= p_lclosems+500+2000;
+      offdue=g_systicks+p_lclsms;
+      chkdue=g_systicks+p_lclsms+500;
+      reper= p_lclsms+500+2000;
       reper=1000*(reper/1000+1);
     }
     if(g_lock_st==opening) {
-      DBW_LOCK(serial_writeln("% lock: opening"));
+      DBW_LOCK(serial_write_pln("% lock: opening"));
       // schedule opening operation with retries
       retry=10;
       ondue=g_systicks;
-      offdue=g_systicks+p_lopenms;
-      chkdue=g_systicks+p_lopenms+500;
-      reper= p_lopenms+500+2000;
+      offdue=g_systicks+p_lopnms;
+      chkdue=g_systicks+p_lopnms+500;
+      reper= p_lopnms+500+2000;
       reper=1000*(reper/1000+1);
     }
     recstate=g_lock_st;
@@ -802,29 +837,29 @@ void lock_cb(void) {
   if(g_lock_st==closing) {
     // turn power on
     if(TRIGGER_SCHEDULE(ondue)) {
-      DBW_LOCK(serial_writeln("% lock: drive close"));
+      DBW_LOCK(serial_write_pln("% lock: drive close"));
       ondue+=reper;
       ldrive(ldclose);
     }  
     // turn power off
     if(TRIGGER_SCHEDULE(offdue)) {
-      DBW_LOCK(serial_writeln("% lock: drive off"));
+      DBW_LOCK(serial_write_pln("% lock: drive off"));
       offdue+=reper;
       ldrive(ldoff);
     }  
     // test lock
     if(TRIGGER_SCHEDULE(chkdue)) {
-      DBW_LOCK(serial_writeln("% lock: check contact"));
+      DBW_LOCK(serial_write_pln("% lock: check contact"));
       chkdue+=reper;
       if(lock_contact==1) {
 	g_lock_st=closed;
-	DBW_LOCK(serial_writeln("% lock: closed"));
+	DBW_LOCK(serial_write_pln("% lock: closed"));
       } else {
 	--retry;
 	if(retry==0) {
 	  g_lock_st=opening; // try to open the lock again
 	  g_error |= ERR_LOCK;
- 	  DBW_LOCK(serial_writeln("% lock: error (failed closing)"));
+ 	  DBW_LOCK(serial_write_pln("% lock: error (failed closing)"));
 	}  
       }
     }
@@ -833,29 +868,29 @@ void lock_cb(void) {
   if(g_lock_st==opening) {
     // turn power on
     if(TRIGGER_SCHEDULE(ondue)) {
-      DBW_LOCK(serial_writeln("% lock: drive open"));
+      DBW_LOCK(serial_write_pln("% lock: drive open"));
       ondue+=reper;
       ldrive(ldopen);
     }  
     // turn power off
     if(TRIGGER_SCHEDULE(offdue)) {
-      DBW_LOCK(serial_writeln("% lock: drive off"));
+      DBW_LOCK(serial_write_pln("% lock: drive off"));
       offdue+=reper;
       ldrive(ldoff);
     }  
     // test lock
     if(TRIGGER_SCHEDULE(chkdue)) {
-      DBW_LOCK(serial_writeln("% lock: check contact"));
+      DBW_LOCK(serial_write_pln("% lock: check contact"));
       chkdue+=reper;
       if(lock_contact==0) {
 	g_lock_st=open;
-	DBW_LOCK(serial_writeln("% lock: open"));
+	DBW_LOCK(serial_write_pln("% lock: open"));
       } else {
 	--retry;
 	if(retry==0) {
 	  g_lock_st=error;
 	  g_error |= ERR_LOCK;
- 	  DBW_LOCK(serial_writeln("% lock: error (failed opening)"));
+ 	  DBW_LOCK(serial_write_pln("% lock: error (failed opening)"));
 	} 
       }
     }
@@ -911,7 +946,7 @@ void bot_cb(void) {
   ldrive(ldopen);
   ssr(0);
   serial_writeln_sync();
-  serial_writeln("[bot]");
+  serial_write_pln("[bot]");
   while(1);
 }  
 
@@ -1026,15 +1061,15 @@ bool adc_temp(void) {
   g_adc0_bsy=false;
 #ifdef DEBUG_ADC
   serial_writeln_sync();
-  serial_write_str("% temp ");
+  serial_write_pstr("% temp ");
   serial_write_int(ctemp);
   serial_write('@');
   serial_write_int(temp);
-  serial_write_str(" (");
+  serial_write_pstr(" (");
   serial_write_int(SIGROW.TEMPSENSE0);
-  serial_write_str("/");
+  serial_write('/');
   serial_write_uint(SIGROW.TEMPSENSE1);
-  serial_write_str(")");
+  serial_write(')');
   serial_write_eol();
   serial_writeln_async();
 #endif  
@@ -1081,7 +1116,7 @@ bool adc_vcc(void) {
   g_adc0_bsy=false;
 #ifdef DEBUG_ADC
   serial_writeln_sync();
-  serial_write_str("% vcc ");
+  serial_write_pstr("% vcc ");
   serial_write_int(g_vcc);
   serial_write('@');
   serial_write_int(vcc);
@@ -1208,16 +1243,16 @@ bool adc_pilots(void) {
   if(cnt>100) {
     cnt=0;
     serial_writeln_sync();
-    serial_write_str("% pilot update ");
-    serial_write_str(" cp: ");
+    serial_write_pstr("% pilot update: ");
+    serial_write_pstr(" cp: ");
     serial_write_int(cpv);
     serial_write('@');
     serial_write_int(cp);
-    serial_write_str("; dp: ");
+    serial_write_pstr("; dp: ");
     serial_write_int(dtv);
     serial_write('@');
     serial_write_int(dt);
-    serial_write_str("; pp: ");
+    serial_write_pstr("; pp: ");
     serial_write_int(ppv);
     serial_write('@');
     serial_write_int(pp);
@@ -1433,15 +1468,18 @@ void rms_process(void) {
   }  
   // slice RMS_CNT: finilize result
   if(spos==RMS_CNT+1) {
-    // normalise mV/100mA
+    // normalise to mV (rms*Vref/4046)
 #ifdef VREF25    
-    sns = ((uint32_t) rms * 2500 + (1023*2)/2)/(1023*2);
-    cur = ((uint32_t) rms * 25 * 95 + (1023*2)/2)/(1023*2); //prelim calibration 1mV * 0.95 <> 100mA
+    sns = ((uint32_t) rms * 80078L + (1L<<15)) >> 16; // avoid division: 2500/4046 * 2^16=80078
 #else
-    sns = ((uint32_t) rms * 3300 + (1023*2)/2)/(1023*2);
-    cur = ((uint32_t) rms * 33 * 95 + (1023*2)/2)/(1023*2); //prelim calibration 1mV * 0.95 <> 100mA
-#endif    
-    // store to global param
+    sns = ((uint32_t) rms * 3300 + (1023*2)/2)/(1023*2); //  by the books ;-)
+#endif
+    // first calibration: 1mV * 0.95 <> 100mA ==> cal_A= (0.95*Vref/2046)*2^14=19019
+    cur = ((uint32_t) rms * p_cala + (1L<<13)) >> 14;
+    cur+= p_calb;
+    // anihilate low-level noise and negative cal_B
+    if(cur<10) cur=0;
+    // store to global parameter
     switch(g_rms_phase) {  
     case 1:
       g_rms1=rms;
@@ -1466,39 +1504,39 @@ void rms_process(void) {
     g_adc0_bsy=false;
     spos=-1;
     // report
-#ifdef DEBUG_RMS
-    serial_writeln_sync();
-    serial_write_str("% RMS:");
-    if(g_cur1>=0) {    
-      serial_write_str(" L1: ");
-      serial_write_uint(g_cur1);
-      serial_write_str(" (");
-      serial_write_uint(g_sns1);
-      serial_write_str("mV@");
-      serial_write_uint(g_rms1);
-      serial_write_str(");");
-    }
-    if(g_cur2>=0) {    
-      serial_write_str(" L2: ");
-      serial_write_uint(g_cur2);
-      serial_write_str(" (");
-      serial_write_uint(g_sns2);
-      serial_write_str("mV@");
-      serial_write_uint(g_rms2);
-      serial_write_str(");");
-    }
-    if(g_cur3>=0) {    
-      serial_write_str(" L3: ");
-      serial_write_uint(g_cur3);
-      serial_write_str(" (");
-      serial_write_uint(g_sns3);
-      serial_write_str("mV@");
-      serial_write_uint(g_rms3);
-      serial_write_str(");");
-    }
-    serial_write_eol();
-    serial_writeln_async();
-#endif
+    if(p_caldmp) {
+      serial_writeln_sync();
+      serial_write_pstr("% rms:");
+      if(g_cur1>=0) {    
+        serial_write_pstr(" L1: ");
+        serial_write_uint(g_cur1);
+        serial_write_pstr(" (");
+        serial_write_uint(g_sns1);
+        serial_write_pstr("mV@");
+        serial_write_uint(g_rms1);
+        serial_write_pstr(");");
+      }
+      if(g_cur2>=0) {    
+        serial_write_pstr(" L2: ");
+        serial_write_uint(g_cur2);
+        serial_write_pstr(" (");
+        serial_write_uint(g_sns2);
+        serial_write_pstr("mV@");
+        serial_write_uint(g_rms2);
+        serial_write_pstr(");");
+      }
+      if(g_cur3>=0) {    
+        serial_write_pstr(" L3: ");
+        serial_write_uint(g_cur3);
+        serial_write_pstr(" (");
+        serial_write_uint(g_sns3);
+        serial_write_pstr("mV@");
+        serial_write_uint(g_rms3);
+        serial_write_pstr(");");
+      }
+      serial_write_eol();
+      serial_writeln_async();
+    }   
   }
 }
 
@@ -1573,12 +1611,12 @@ int16_t rms_dump(int16_t val) {
   // check buffer
   if((g_rms_pos!=RMS_CNT) || (g_rms_st!=idle)) {
     serial_writeln_sync();
-    serial_writeln("% rms record incomplete");
+    serial_write_pln("% rms record incomplete");
     serial_writeln_async();
     return 0;
   }
   // report buffer
-  serial_writeln("% rms record dump");
+  serial_write_pln("% rms record dump");
   // stage 1: figure average
   int rmsZero = 512;
   unsigned long int sumF = 0;
@@ -1614,19 +1652,19 @@ int16_t rms_dump(int16_t val) {
     rmsFpre=rmsF;
     // report
     serial_writeln_sync();
-    serial_write_str("% rms");
+    serial_write_pstr("% rms");
     serial_write_int(g_rms_phase);
-    serial_write_str(" ");
+    serial_write_pstr(" ");
     serial_write_int(rmsS);
-    serial_write_str(" [F=");
+    serial_write_pstr(" [F=");
     serial_write_lint(rmsF);
-    serial_write_str("; Fsqr=");
+    serial_write_pstr("; Fsqr=");
     serial_write_ulint(rmsFsqrpV);
-    serial_write_str("; SumF=");
+    serial_write_pstr("; SumF=");
     serial_write_ulint(sumF);
-    serial_write_str("; SumP=");
+    serial_write_pstr("; SumP=");
     serial_write_ulint(sumP);
-    serial_write_str("]");
+    serial_write_pstr("]");
     serial_write_eol(); 
     serial_writeln_async();
   }
@@ -1647,17 +1685,17 @@ int16_t rms_dump(int16_t val) {
 #endif  
   // summary
   serial_writeln_sync();
-  serial_write_str("% rmsF: ");
+  serial_write_pstr("% rmsF: ");
   serial_write_uint(rmsF);
-  serial_write_str("mV; rmsP: ");
+  serial_write_pstr("mV; rmsP: ");
   serial_write_uint(rmsP);
-  serial_write_str("mV [mean #");
+  serial_write_pstr("mV [mean #");
   serial_write_uint(rmsZero);
-  serial_write_str("; cnt #");
+  serial_write_pstr("; cnt #");
   serial_write_int(RMS_CNT);
-  serial_write_str("; sample time ");
+  serial_write_pstr("; sample time ");
   serial_write_int(g_rms_stop-g_rms_start);
-  serial_write_str("ms]");
+  serial_write_pstr("ms]");
   serial_write_eol(); 
   serial_writeln_async();
   return 1;
@@ -1756,7 +1794,7 @@ ISR(TCB0_INT_vect) {
   // slow 1ms tasks come here
   ++g_systicks_isr;
   ++g_systime_isr;
-  if(g_systime_isr==30000) g_systime_isr=0;
+  if(g_systime_isr>=30000) g_systime_isr=0;
   TCB0.INTFLAGS |= TCB_CAPT_bm;          // clear interupt flag
 }  
 
@@ -1794,7 +1832,7 @@ void monitor_cb() {
 
 // report cycle time
 void serial_write_monitor(void) {
-  serial_write_str("cycle time min/max ");
+  serial_write_pstr("cycle time min/max ");
   serial_write_uint(g_cyclemin);
   serial_write('/');
   serial_write_uint(g_cyclemax);
@@ -1812,7 +1850,7 @@ void serial_write_monitor(void) {
 
 command line parser
 - format is "<PAR>?\r\n" for get and "<PAR>=<VAL>\r\n" for set
-- both, get and set reply with <PAR>=<VAL>\r\n", or "fail"
+- both, get and set reply with <PAR>=<VAL>\r\n", or "parse-error"
 - syntactic sugar "<PAR>!" to set the parameter to 1 (e.g. trigger some action)
 - syntactic sugar "<PAR>~" to set the parameter to 0 
 - the parser converts the string argument to functions/addresses to call/read/write
@@ -1823,6 +1861,42 @@ command line parser
 *************************************************************************
 */
 
+// help text
+const char h_version[]  PROGMEM = "read out firmware version";
+const char h_blinks[]   PROGMEM = "overwrite status indicator";
+const char h_time[]     PROGMEM = "read/set systime in [ms]";
+const char h_temp[]     PROGMEM = "read AVR die temperatur [C]";
+const char h_vcc[]      PROGMEM = "read AVR VCC [mV]";
+const char h_ccss[]     PROGMEM = "read CCS state, see typedef \"ccs_state_t\"";
+const char h_cmaxcur[]  PROGMEM = "read PP, i.e., max. cable capacity [100mA]";
+const char h_amaxcur[]  PROGMEM = "read max. current signaled to EV via CP [100mA]";
+const char h_cur1[]     PROGMEM = "read current drawn on L1 [10mA]";
+const char h_cur2[]     PROGMEM = "--- dito for L2";
+const char h_cur3[]     PROGMEM = "--- dito for L3";
+const char h_error[]    PROGMEM = "read error flags, see declaration \"g_error\"";
+const char h_save[]     PROGMEM = "use \"save!\" to save configuration to EEPROM";
+const char h_smaxcur[]  PROGMEM = "read/write max. current available from source [100mA]";
+const char h_phases[]   PROGMEM = "read/write available phases [decimal encoding]"; 
+const char h_sigrel[]   PROGMEM = "use \"sigrel!\"/\"sigrel~\" to en/disable the signal relay";
+const char h_pilots[]   PROGMEM = "use \"pilots!\"/\"piloys~\" to en/disable periodic pilot reading";
+const char h_cpilot[]   PROGMEM = "read CP [V]";
+const char h_cpdtest[]  PROGMEM = "read CP on  nagativ halfwave [-V]";
+const char h_ppilot[]   PROGMEM = "read PP (same as cmaxcur)[100mA]";
+const char h_cpcur[]    PROGMEM = "read/write max. current indicated to the EV via PWM on CP";
+const char h_rms[]      PROGMEM = "use \"rms!\"/\"rms~\" to en/disable periodic current reading";
+const char h_rms1[]     PROGMEM = "get rms reading of CT1 [mV], use \"rms1!\" to trigger update"; 
+const char h_rms2[]     PROGMEM = "--- dito for CT2";
+const char h_rms3[]     PROGMEM = "--- dito for CT3";
+const char h_rmsdmp[]   PROGMEM = "dump most recent rms record";
+const char h_caldmp[]   PROGMEM = "use \"caldmp!\" for periodic dumps of RMS counts (req. \"rms!\")";
+const char h_cala[]     PROGMEM = "read/write calibration parameter cA";
+const char h_calb[]     PROGMEM = "read/write calibration parameter cB";
+const char h_lock[]     PROGMEM = "use \"lock!\"/\"lock~\" to operate the lock";
+const char h_lopnms[]   PROGMEM = "read/write pulse length to open lock [ms]";
+const char h_lclsms[]   PROGMEM = "read/write pulse length to close lock [ms]";
+const char h_ssr[]      PROGMEM = "operate contactors (dec. encoded), use \"ssr~\" for \"all off\"";
+const char h_reset[]    PROGMEM = "use \"reset!\" for a soft reset";
+
 // set/get function types
 typedef int16_t (*parsetfnct_t)(int16_t);
 typedef int16_t (*pargetfnct_t)(void);
@@ -1830,55 +1904,59 @@ typedef int16_t (*pargetfnct_t)(void);
 
 // name to token relation
 typedef struct {
-    char* parstr;              // parameter name    
+    const char* parstr;        // parameter name    
     const int16_t* pargetaddr; // address in memory for reading 
     int16_t* parsetaddr;       // address in memory for writing
     parsetfnct_t parsetfnct;   // function for writing
+    const char* parhlp;        // help text
 } partable_t;
 
 
 // name to token table (NULL-terminated --- should be in PROGMEM)
 const partable_t partable[]={
   // normal operation
-  {"ver",     &g_version,   NULL,        NULL},            // g_version can be read from memory
-  {"blinks",  &g_xblinks,   &g_xblinks,  NULL},            // g_xblinks can be read/written from/to memory
-  {"time",    &g_systime,   NULL,        &systime_set},    // g_systime has explicit setter
-  {"temp",    &g_temp,      NULL,        NULL},            // g_temp can be read from memory
-  {"vcc",     &g_vcc,       NULL,        NULL},            // g_vcc can be read from memory
-  {"error",   &g_error,     NULL,        NULL},            // g_error can be read from memory
-  {"ccss",    &g_ccss_cli,  NULL,        NULL},            // g_ccs_st can be read from memory
-  {"cmaxcur", &g_ppilot,    NULL,        NULL},            // get cable max current (same as PPilot)
-  {"amaxcur", &g_cpcurrent, NULL,        NULL},            // get actual max current as set on PWM
-  {"cur1",    &g_cur1,      NULL,        NULL},            // read rms measurement phase L1
-  {"cur2",    &g_cur2,      NULL,        NULL},            // read rms measurement phase L2
-  {"cur3",    &g_cur3,      NULL,        NULL},            // read rms measurement phase L3
+  {"ver",     &g_version,   NULL,        NULL,        h_version}, // g_version can be read from memory
+  {"blinks",  &g_blinks,    &g_blinks,   NULL,        h_blinks},  // g_blinks can be read/written from/to memory
+  {"time",    &g_systime,   NULL,        &systime_set,h_time},    // g_systime has explicit setter
+  {"temp",    &g_temp,      NULL,        NULL,        h_temp},    // g_temp can be read from memory
+  {"vcc",     &g_vcc,       NULL,        NULL,        h_vcc},     // g_vcc can be read from memory
+  {"ccss",    &g_ccss_cli,  NULL,        NULL,        h_ccss},    // g_ccs_st can be read from memory
+  {"cmaxcur", &g_ppilot,    NULL,        NULL,        h_cmaxcur}, // get cable max current (same as PPilot)
+  {"amaxcur", &g_cpcurrent, NULL,        NULL,        h_amaxcur}, // get actual max current as set on PWM
+  {"cur1",    &g_cur1,      NULL,        NULL,        h_cur1},    // read current phase L1
+  {"cur2",    &g_cur2,      NULL,        NULL,        h_cur2},    // read current phase L2
+  {"cur3",    &g_cur3,      NULL,        NULL,        h_cur3},    // read current phase L3
+  {"error",   &g_error,     NULL,        NULL,        h_error},   // g_error can be read from memory
   // configure
 #ifdef MODE_CONFIGURE  
-  {"save",    NULL,         NULL,        &conf_save},      // save parameters to eeprom
-  {"smaxcur", &p_smaxcur,   &p_smaxcur,  NULL},            // max mains current
-  {"phases",  &p_phases,    &p_phases,   NULL},            // enabled phases (decimal encoding)  
-  {"lopenms", &p_lopenms,   &p_lopenms,  NULL},            // time to open lock
-  {"lclosems",&p_lclosems,  &p_lclosems, NULL},            // time to close lock
+  {"save",    NULL,         NULL,        &conf_save,  h_save},    // save parameters to eeprom
+  {"smaxcur", &p_smaxcur,   &p_smaxcur,  NULL,        h_smaxcur}, // max mains current
+  {"phases",  &p_phases,    &p_phases,   NULL,        h_phases},  // enabled phases (decimal encoding)  
 #endif  
   // first installation
 #ifdef MODE_INSTALL  
-  {"cpcur",   &g_cpcurrent, NULL,        &cpcurrent},      // set pwm via setter, get from memory
-  {"rms",     &g_rms,       NULL,        &rms},            // g_rms enables/disables rms periodic updates
-  {"pilots",  &g_pilots,    NULL,        &pilots},         // g_pilots enables/disables periodic pilot updates
-  {"cpilot",  &g_cpilot,    NULL,        NULL},            // cp pilot read-back
-  {"cpdtest", &g_cpilot_dt, NULL,        NULL},            // cp pilot read-back on low slope, aka "diodtest"
-  {"ppilot",  &g_ppilot,    NULL,        NULL},            // pp pilot read-back (in 100mA)
-  {"rms1",    &g_rms1,      NULL,        &rms1_start},     // "rms1!" to trigger a single rms measurement on phase L1
-  {"rms2",    &g_rms2,      NULL,        &rms2_start},     // "rms2!" to trigger a single rms measurement on phase L2
-  {"rms3",    &g_rms3,      NULL,        &rms3_start},     // "rms3!" to trigger a single rms measurement on phase L3
-  {"rmsdmp",  NULL,         NULL,        &rms_dump},       // "rmsdmp!" dumps recent rms record for debugging
-  {"sigrel",  NULL,         NULL,        &sigrel},         // "sigrel!"/"sigrel~" to operate pilot signal relay
-  {"lock",    NULL,         NULL,        &lock},           // "lock!"/"lock~" to operate lock
-  {"ssr",     NULL,         NULL,        &ssr},            // "ssr=123" to activate all SSRs
-  {"reset",   NULL,         NULL,        &reset},          // softreset "reset!"
+  {"sigrel",  NULL,         NULL,        &sigrel,     h_sigrel},  // operate signal rellay
+  {"pilots",  &g_pilots,    NULL,        &pilots,     h_pilots},  // en/disable periodic pilot reading
+  {"cpilot",  &g_cpilot,    NULL,        NULL,        h_cpilot},  // ctrl pilot read-back [V]
+  {"cpdtest", &g_cpilot_dt, NULL,        NULL,        h_cpdtest}, // ctrl pilot read-back on low slope, aka "diodtest"
+  {"ppilot",  &g_ppilot,    NULL,        NULL,        h_ppilot},  // prox pilot read-back [100mA]
+  {"cpcur",   &g_cpcurrent, NULL,        &cpcurrent,  h_cpcur},   // set PWM via setter, get from memory [100mA]
+  {"rms",     &g_rms,       NULL,        &rms,        h_rms},     // en/disable periodic RMS updates
+  {"rms1",    &g_rms1,      NULL,        &rms1_start, h_rms1},    // "rms1!" to trigger a single measurement on phase L1
+  {"rms2",    &g_rms2,      NULL,        &rms2_start, h_rms2},    // -- dito L3
+  {"rms3",    &g_rms3,      NULL,        &rms3_start, h_rms3},    // -- dito L3
+  {"rmsdmp",  NULL,         NULL,        &rms_dump,   h_rmsdmp},  // "rmsdmp!" dumps recent RMS record 
+  {"caldmp",  NULL,         &p_caldmp,   NULL,        h_caldmp},  // "caldmp!" enables periodic output for rms calibration
+  {"cala",    &p_cala,      &p_cala,     NULL,        h_cala},    // calibration parameter cA
+  {"calb",    &p_calb,      &p_calb,     NULL,        h_calb},    // calibration parameter cB  
+  {"lock",    NULL,         NULL,        &lock,       h_lock},    // operate lock
+  {"lopnms",  &p_lopnms,    &p_lopnms,   NULL,        h_lopnms},  // time to open lock
+  {"lclsms",  &p_lclsms,    &p_lclsms,   NULL,        h_lclsms},  // time to close lock
+  {"ssr",     NULL,         NULL,        &ssr,        h_ssr},     // "ssr=123" to activate all SSRs
+  {"reset",   NULL,         NULL,        &reset,      h_reset},   // softreset "reset!"
 #endif  
   // end of table
-  {NULL, NULL, NULL, NULL},            
+  {NULL, NULL, NULL, NULL,        NULL},            
 };
 
 
@@ -1892,6 +1970,20 @@ void serial_write_parlist(void) {
       serial_write('=');
       serial_write_int(*ptab->pargetaddr);
     }
+    serial_write_tab(12);
+    if(ptab->pargetaddr && (ptab->parsetaddr || ptab->parsetfnct)) {
+      serial_write_pstr("[R/W]");
+    }  
+    if(!ptab->pargetaddr && (ptab->parsetaddr || ptab->parsetfnct)) {
+      serial_write_pstr("[-/W]");
+    }  
+    if(ptab->pargetaddr && !(ptab->parsetaddr || ptab->parsetfnct)) {
+      serial_write_pstr("[R/-]");
+    }  
+    if(ptab->parhlp) {
+      serial_write_pstr(" % ");
+      serial_write_pgmstr(ptab->parhlp);
+    }
     serial_write_eol();
     ++ptab;
   }
@@ -1900,7 +1992,7 @@ void serial_write_parlist(void) {
 
 // parse command line, take appropriate action, return true on success
 bool parse(char* line){
-  DBW_CLI(serial_writeln("% parse A"));
+  DBW_CLI(serial_write_pln("% parse A"));
   // find first occurrence of '?', '=', '!' or '~',
   char* pos=line;
   while(*pos!=0) {
@@ -1911,7 +2003,7 @@ bool parse(char* line){
     ++pos;
   }
   if(*pos==0) return false;
-  DBW_CLI(serial_writeln("% parse B"));
+  DBW_CLI(serial_write_pln("% parse B"));
   // save seperator, terminate parname, proceed pos to value/0
   char sep=*pos;
   *(pos++)=0;
@@ -1922,7 +2014,7 @@ bool parse(char* line){
     ++ptab;
   }
   if(ptab->parstr==NULL) return false;
-  DBW_CLI(serial_writeln("% parse C"));
+  DBW_CLI(serial_write_pln("% parse C"));
   // synthatic sugare "!" for "=1"
   if(sep=='!') {
     *(pos)='1';
@@ -1938,8 +2030,8 @@ bool parse(char* line){
   // if its a set, figure the value pos is pointing to
   int16_t val=0;
   if(sep=='=') {
-    DBW_CLI(serial_write_str("% parse N:"));
-    DBW_CLI(serial_writeln(pos));
+    DBW_CLI(serial_write_pstr("% parse N:"));
+    DBW_CLI(serial_write_ln(pos));
     if(*pos=='\0') return false;
     int sign =1;
     if(*pos=='-') {
@@ -1954,13 +2046,13 @@ bool parse(char* line){
     }
     val=val*sign;
   }
-  DBW_CLI(serial_writeln("% parse D"));
+  DBW_CLI(serial_write_pln("% parse D"));
   // if its a get ..
   if(sep=='?') {
     if(ptab->pargetaddr) val=*ptab->pargetaddr;
     else return false;
   }
-  DBW_CLI(serial_writeln("% parse E"));
+  DBW_CLI(serial_write_pln("% parse E"));
   // if its a set ..
   if(sep=='=') {
     if(ptab->parsetfnct) val=(*ptab->parsetfnct)(val);
@@ -1969,7 +2061,7 @@ bool parse(char* line){
       else
 	return false;
   }
-  DBW_CLI(serial_writeln("% parse F"));
+  DBW_CLI(serial_write_pln("% parse F"));
   // reply
   serial_write_str(line);
   serial_write('=');
@@ -1984,20 +2076,29 @@ void cmdline(char* ln) {
   // special command: list all status
   if(*ln=='?') {
     serial_writeln_sync();
-    serial_writeln("[[[");
+    serial_write_pln("[[[");
+    serial_write_pln("=======");
+    serial_write_pstr("AGCCS-CTRL22 AVR Firmware Version ");
+    serial_write_uint(g_version/10);
+    serial_write('.');
+    serial_write_uint(g_version%10);
+    serial_write_eol();
+    serial_write_pln("Copyright Thomas Moor (c) 2020, 2021"); 
+    serial_write_pln("=======");
     serial_write_parlist();
-    serial_writeln("===");
+    serial_write_pln("=======");
     serial_write_monitor();
-    serial_write_str("systime: ");
+    serial_write_pstr("systime: ");
     serial_write_uint(g_systime);
     serial_write_eol();
-    serial_write_str("lock state: ");
+    serial_write_pstr("lock state: ");
     serial_write_uint(g_lock_st);
     serial_write_eol();
-    serial_write_str("ccs state: ");
+    serial_write_pstr("ccs state: ");
     serial_write_uint(g_ccs_st);
     serial_write_eol();
-    serial_writeln("]]]");
+    serial_write_pln("=======");
+    serial_write_pln("]]]");
     serial_writeln_async();
     g_cycleskip=true;
     return;
@@ -2007,7 +2108,7 @@ void cmdline(char* ln) {
   serial_writeln_sync();   // make sure that we can reply
 #endif
   bool ok=parse(ln);
-  if(!ok) serial_writeln("fail");
+  if(!ok) serial_write_pln("parse error");
   // complete any ongoing transmission (only when there is debug output)
 #ifdef DEGUGGING
   serial_writeln_async();  // make sure that reply is transmitted
@@ -2032,29 +2133,30 @@ main loop
 void ccs_cb(void) {
   static uint16_t toutA;
   static uint16_t toutB;
+  static uint16_t toutC;
   static uint16_t toutW;
   static uint16_t toutP;
-  static uint16_t maxcur;
-  static uint16_t phases;
+  static int16_t maxcur;
+  static int16_t phases;
+  static int16_t  snscur;
   
-  // state OFF0: all off: wait for confirmed open lock
+  // state OFF0: enter all off: wait for confirmed open lock
   if(g_ccs_st==OFF0) {
     ssr(0);
     rms(0);
     cpcurrent(0);
     pilots(0);
     sigrel(0);
-    g_blinks=BLINKS_HEART;
     lock(0);
     if(g_lock_st==open) {
-      DBW_CCS(serial_writeln("% ccs state: OFF0 -> OFF1"));
+      DBW_CCS(serial_write_pln("% ccs state: OFF0 -> OFF1"));
       g_ccs_st=OFF1;
     }  
   }  
   // state OFF1: wait for button press --> state A
   if(g_ccs_st==OFF1) {
     if(g_button) {
-      DBW_CCS(serial_writeln("% OFF1 -> A0"));
+      DBW_CCS(serial_write_pln("% OFF1 -> A0"));
       g_ccs_st=A0;
     }
     g_button=false;
@@ -2066,20 +2168,23 @@ void ccs_cb(void) {
     pilots(1);
     cpcurrent(0);
     sigrel(1);
-    g_blinks=BLINKS_RELAX;
-    toutA=g_systicks+10000;
-    DBW_CCS(serial_writeln("% A0 -> A1"));
+    toutA=g_systicks+30000;
+    DBW_CCS(serial_write_pln("% A0 -> A1"));
     g_ccs_st=A1;
   }  
-  // state A1 (idle): validate EV present, i.e., CP to falls to 9V and appropriate pp -> state B (or timeout)
+  // state A1 (idle): validate EV present, i.e., CP to fall to 9V and appropriate PP -> state B (or timeout)
   if(g_ccs_st==A1) {
     if((g_cpilot==9) && (g_ppilot>0)) {
-      DBW_CCS(serial_writeln("% A1 -> B0"));
+      DBW_CCS(serial_write_pln("% A1 -> B0"));
       g_ccs_st=B0;
     }
     if(TRIGGER_SCHEDULE(toutA)) {
-      DBW_CCS(serial_writeln("% A1 -> ERROR"));
-      g_ccs_st=ERR0;
+      DBW_CCS(serial_write_pln("% A1 -> OFF0 (timeout)"));
+      g_ccs_st=OFF0;
+    }
+    if(g_button) {
+      DBW_CCS(serial_write_pln("% A1 -> OFF0 (button)"));
+      g_ccs_st=OFF0;
     }
   }  
   // state B0 (EV present): lock
@@ -2089,17 +2194,16 @@ void ccs_cb(void) {
     pilots(1);
     sigrel(1);
     lock(1);
-    g_blinks=BLINKS_RELAX;
     maxcur=p_smaxcur;
     phases=p_phases;
     if(maxcur>g_ppilot) maxcur=g_ppilot;
     if(g_lock_st==closed) {
       if((maxcur>=60) && (phases!=0)) {
 	toutB=g_systicks+10000;
-        DBW_CCS(serial_writeln("% B0 -> B1"));    
+        DBW_CCS(serial_write_pln("% B0 -> B1"));    
         g_ccs_st=B1;
       } else {
-        DBW_CCS(serial_writeln("% B0 -> W0"));    
+        DBW_CCS(serial_write_pln("% B0 -> W0"));    
         g_ccs_st=W0;
       }
     }
@@ -2108,21 +2212,25 @@ void ccs_cb(void) {
   if(g_ccs_st==B1) {
     cpcurrent(maxcur);
     if(g_cpilot==6) {
-      DBW_CCS(serial_writeln("% B1 -> C0/1"));
+      DBW_CCS(serial_write_pln("% B1 -> C0/1"));
       g_ccs_st=C0;
     }
+    if(g_button) {
+      DBW_CCS(serial_write_pln("% B1 -> OFF0 (button)"));
+      g_ccs_st=OFF0;
+    }
     if(TRIGGER_SCHEDULE(toutB)) {
-      DBW_CCS(serial_writeln("% B1 -> ERR0"));
-      g_ccs_st=ERR0;
+      DBW_CCS(serial_write_pln("% B1 -> W0"));
+      g_ccs_st=W0;
     }
   }
   // state C0 (EV about to charge): sanity checks
   if(g_ccs_st==C0) {
     if( (maxcur<60) || (phases==0) || (g_lock_st!=closed) ) {
-      DBW_CCS(serial_writeln("% C0 -> ERR"));
+      DBW_CCS(serial_write_pln("% C0 -> ERR"));
       g_ccs_st=ERR0;
     } else {
-      DBW_CCS(serial_writeln("% C0 -> C1"));
+      DBW_CCS(serial_write_pln("% C0 -> C1"));
       g_ccs_st=C1;
     }
   }
@@ -2133,27 +2241,38 @@ void ccs_cb(void) {
     ssr(phases);
     rms(1);
     pilots(1);
-    g_blinks=BLINKS_ON;
-    DBW_CCS(serial_writeln("% C1 -> C2"));
+    DBW_CCS(serial_write_pln("% C1 -> C2"));
     g_ccs_st=C2;
+    toutC=g_systicks+30000;
+    snscur=-1;
   }  
-  // state C2 (EV charging): sense vehicle can't charge no more, i.e., CP raises to 9V --> state B (or button press --> state OFF)
+  // state C2 (EV charging, first 30secs): sense whether current/phases are accepted
   if(g_ccs_st==C2) {
-    if(g_cpilot==9) {
-      DBW_CCS(serial_writeln("% C2 -> B0"));
-      g_ccs_st=B0;
-    }
-    if((g_cpilot!=9) && (g_cpilot!=6)) {
-      DBW_CCS(serial_writeln("% C2 -> OFF0 (pilot)"));
+    if(g_cur1>snscur) snscur=g_cur1;
+    if(g_cur2>snscur) snscur=g_cur2;
+    if(g_cur3>snscur) snscur=g_cur3;
+    if((g_cpilot==9) && (snscur<50)) {
+      DBW_CCS(serial_write_pln("% C2 -> P0 (power not accepted)"));
+      g_ccs_st=P0;
+    }      
+    if(TRIGGER_SCHEDULE(toutC)) {
+      DBW_CCS(serial_write_pln("% C2 -> C2/3"));
+      g_ccs_st=C3;
+    }  
+  }
+  // state C2/3 (EV charging): sense vehicle can't charge no more, i.e., CP raises to 9V --> state OFF (or button press)
+  if((g_ccs_st==C3) || (g_ccs_st==C3)) {
+    if(g_cpilot!=6) {
+      DBW_CCS(serial_write_pln("% C2 -> OFF0 (pilot)"));
       g_ccs_st=OFF0;
     }
     if(g_button) {
-      DBW_CCS(serial_writeln("% C2 -> OFF0 (button)"));
+      DBW_CCS(serial_write_pln("% C2 -> OFF0 (button)"));
       g_ccs_st=OFF0;
     }
     // update configuration
     if((p_phases!=phases) || (p_smaxcur<60) || (g_ppilot<60)) {
-      DBW_CCS(serial_writeln("% C2 -> P0"));
+      DBW_CCS(serial_write_pln("% C2 -> P0"));
       g_ccs_st=P0;
     } else { 
       maxcur=p_smaxcur;
@@ -2167,17 +2286,18 @@ void ccs_cb(void) {
   if(g_ccs_st==P0) {
     cpcurrent(0);
     toutP=g_systicks+10000;
-    DBW_CCS(serial_writeln("% P0 -> P1"));
+    DBW_CCS(serial_write_pln("% P0 -> P1"));
     g_ccs_st=P1;
   }
   // state P1 (EV charging): pause charging
   if(g_ccs_st==P1) {
+    if(g_button) {
+      DBW_CCS(serial_write_pln("% W0 -> OFF"));
+      g_ccs_st=OFF0;
+    }  
     if(TRIGGER_SCHEDULE(toutP)) {
-      ssr(0);  
-      sigrel(0);
-      rms(0);
       toutW=g_systicks+10000;
-      DBW_CCS(serial_writeln("% P1 -> W0"));
+      DBW_CCS(serial_write_pln("% P1 -> W0"));
       g_ccs_st=W0;
     }
   }    
@@ -2185,26 +2305,28 @@ void ccs_cb(void) {
   if(g_ccs_st==W0) {
     ssr(0);  
     sigrel(0);
-    g_blinks=BLINKS_RELAX;
+    rms(0);
     if(g_button) {
-      DBW_CCS(serial_writeln("% W0 -> OFF0"));
+      DBW_CCS(serial_write_pln("% W0 -> OFF"));
       g_ccs_st=OFF0;
     }  
     if(TRIGGER_SCHEDULE(toutW)) {
-      DBW_CCS(serial_writeln("% W0 -> W1"));
+      DBW_CCS(serial_write_pln("% W0 -> W1"));
       g_ccs_st=W1;
     }
   }    
   // state W1 (EV idle): wait for power allocation
   if(g_ccs_st==W1) {    
     if(g_button) {
-      DBW_CCS(serial_writeln("% W1 -> OFF0"));
+      DBW_CCS(serial_write_pln("% W1 -> OFF"));
       g_ccs_st=OFF0;
     }  
     maxcur=p_smaxcur;
     if(maxcur>g_ppilot) maxcur=g_ppilot;
-    if((maxcur>=60) && (p_phases!=0)) {
-      DBW_CCS(serial_writeln("% W1 -> A0"));
+    // the third clause either trivially true, when we got here due to phases reconfiguration,
+    // of, if we got here for power not accepted, and hence are waiting for phases reconfiguration
+    if((maxcur>=60) && (p_phases!=0) && (p_phases!=phases)) {
+      DBW_CCS(serial_write_pln("% W1 -> A0"));
       g_ccs_st=A0;
     }
   }
@@ -2227,28 +2349,35 @@ void report_cb() {
   int16_t parval;
   // bail out if line is busy
   if(serial_write_ready()) return;
-  // figure status change
-  if((parname==NULL) && (g_cur1!=rcur1)) {
-    parname="cur1";
-    rcur1=g_cur1;
-    parval=g_cur1;
-  } 
-  if((parname==NULL) && (g_cur2!=rcur2)) {
-    parname="cur2";
-    rcur2=g_cur2;
-    parval=g_cur2;
-  } 
-  if((parname==NULL) && (g_cur3!=rcur3)) {
-    parname="cur3";
-    rcur3=g_cur3;
-    parval=g_cur3;
-  } 
+  // figure change of CCS state
   if((parname==NULL) && (g_ccs_st!=rccss)) {
     parname="ccss";
     parval=g_ccs_st;
     rccss=g_ccs_st;
   }
-  // do write
+  // figure change of current reading (allow for 0.5A tolerance)
+  if((parname==NULL) && (g_cur1!=rcur1)) {
+    if((g_cur1>rcur1+5) || (g_cur1<rcur1-5) || (g_cur1<0) || (rcur1<0)) {  
+      parname="cur1";
+      rcur1=g_cur1;
+      parval=g_cur1;
+    }  
+  } 
+  if((parname==NULL) && (g_cur2!=rcur2)) {
+    if((g_cur2>rcur2+5) || (g_cur2<rcur2-5) || (g_cur2<0) || (rcur2<0)) {  
+      parname="cur2";
+      rcur2=g_cur2;
+      parval=g_cur2;
+    }
+  } 
+  if((parname==NULL) && (g_cur3!=rcur3)) {
+    if((g_cur3>rcur3+5) || (g_cur3<rcur3-5) || (g_cur3<0) || (rcur3<0)) {  
+      parname="cur3";
+      rcur3=g_cur3;
+      parval=g_cur3;
+    }
+  } 
+  // write status update to the serial line
   if(parname!=NULL) {      
     serial_write('['); 
     serial_write_str(parname);
@@ -2260,9 +2389,10 @@ void report_cb() {
 }
 
 
+// its a boy
 int main(){
 
-  // initialize all hardware
+  // initialize our hardware
   clock_init();
   serial_init();
   ledbutton_init();
@@ -2278,6 +2408,9 @@ int main(){
 
   // read configuratiom
   conf_load();
+
+  // say hello
+  serial_write_pln("% AGCCS-CTRL22 --- enter \"?\\n\\r\" for more details");
   
   // run forever (target for less than 10ms cycle time)
   while(1){
@@ -2304,8 +2437,6 @@ int main(){
       rms(0);
       pilots(0);
       lock(0);
-      // signal
-      g_blinks=BLINKS_ERR;
       // lock error: if the lock is open we recover from in 10sec
       if((g_lock_st==open) && (g_error & ERR_LOCK) && (recerr==0x0000)) {
         recerr=ERR_LOCK;
