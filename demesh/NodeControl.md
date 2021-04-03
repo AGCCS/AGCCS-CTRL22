@@ -1,6 +1,6 @@
 # Node Control Protocol
 
-Individual Nodes receive messages from the host via the root node and the mesh network. All such messages and the respective acknowledgements are JSON encoded ASCII strings, i.e., records of key-value pairs in a human readable format. Any request sent must include an entry `"cmd":"^CMD^"`, where ^CMD^ specifies the request. The task `node_read_task()` indefinitely waits for messages, dispatches the requests accordingly and issues acknowledgement. The latter must include a `"src":"^ADDR^"`entry and an `"mtype":"^TYPE^"`entry to indicate the reporting node and the format of any further key-value pairs in the reply, respectively. Most commonly, ^TYPE^ is set to ^CMD^ as this is sufficient for the host to adequately interpret the message. 
+Individual Nodes receive messages from the host via the root node and the mesh network. All such messages and the respective acknowledgements are JSON encoded ASCII strings, i.e., records of key-value pairs in a human readable format. Any request sent must include an entry `"cmd":"^CMD^"`, where ^CMD^ specifies the request. The task `node_read_task()` indefinitely waits for messages, dispatches the requests accordingly and issues an acknowledgement. The latter must include a `"src":"^ADDR^"`entry and an `"mtype":"^TYPE^"` entry to indicate the reporting node and the format of any further key-value pairs in the reply, respectively. Most commonly, ^TYPE^ is set to ^CMD^ as this is sufficient for the host to adequately interpret the message. 
 
 **Example.** When node d8:a0:1d:55:a7:10 receives  the message  `{"cmd":"status"}`, the node replies with a record like `{"src":"d8:a0:1d:55:a7:10", "mtype":"status", "parent":"d8:a0:1d:55:37:cd", "rssi":-40, "layer":2,"nodes":3, "plat":57}`.  By identifying `"mtype":"status"`, the host knows how to read the further key-value pairs in the reply. In this example, node d8:a0:1d:55:a7:10 reports on the status of its connection status to the mesh network. 
 
@@ -35,8 +35,8 @@ The system report request command is specified by `"cmd:"system"` and has no fur
 | "time":^TIME^           | system time ^TIME^ in ms; all nodes have manage a synchronised system time with a role-ove at 3600000, i.e., one hour |
 | "version":"^MAJ^.^MIN^" | version of the firmware as string with ^MAJ^ and ^MIN^ one decimal digit each |
 | "board":"^BOARD^"       | hardware platform identigyer, e.g. `"board":"m5stick"` for the M5StickC or `"board"="agccs12"` for our charging station with a Rev-1-2 board |
-| "avrver":^VER^          | version of the firmware of the attached AVR as an integer; our firmware `ctrl22.c` reports a two digit number with the first digit the major versiom and the secont the minor version; version 0 is recerved to indicate "no AVR attached" |
-| "plat"=^LATENCY^        | the estimated latency in ms to snd a message to the root     |
+| "avrver":^VER^          | version of the firmware of the attached AVR as an integer; our firmware `ctrl22.c` reports a two digit number with the first digit the major version and the second digit the minor version; version 0 is reserved to indicate "no AVR attached" |
+| "plat"=^LATENCY^        | the estimated latency in ms to send a message to the parent node |
 
 To obtain an overview over all nodes and their respective firmware versions, the host may send `{"dst":"*","cmd":"system"}` via TCP to the root node. 
 
@@ -44,15 +44,15 @@ To obtain an overview over all nodes and their respective firmware versions, the
 
 ### Time Synchronisation Request
 
-A time synchronisation request is specified by `"cmd:"tsync"` and has no further parameters. It triggers a synchronisation of the system time as seen by the respective node with its parent. The acknowledgement reports the the time stamps taken.
+A time synchronisation request is specified by `"cmd:"tsync"` and has no further parameters. It triggers a synchronisation of the system time as seen by the respective node with its parent. The acknowledgement reports the time stamps taken.
 
 | Key           | Comment                                                      |
 | ------------- | ------------------------------------------------------------ |
 | "tsync1":^T1^ | system time ^T1^ of the respective node when it sent the "ping" to its parent |
-| "tsync2":^T2^ | system time ^T2^ of the parent  when it received the "ping"  |
+| "tsync2":^T2^ | system time ^T2^ of the parent when it received the "ping"   |
 | "tsync3":^T3^ | system time ^T3^ of the respective node when it received the acknowledgement from the parent |
 
-
+The respective node concludes that the parent received the first message at *(T3-T1)/2* of its local system time. Hence, the node adjusts its system time by *+ T2 - (T3-T1)/2*. Each node itself issues a synchronisation request on a regular schedule to keep its system time up-to-date.
 
 ### Talking to the Attached AVR
 
@@ -67,7 +67,7 @@ The relevant state of the attached AVR is encoded in a set of parameters to asse
 
 To have all charging stations flash their LED button twice at the beginning of every two-seconds period, the host may send `{"dst":"*", "cmd":"avrsetpar", "avrpar":"blinks", "avrval":2}` via TCP to the root node. 
 
-**Note**. For sake o simplicity, `demesh.c` restricts the type of parameter values to  32bit signed integers, so there are no floats or strings;  the AVR firmware for our charging station further restricts this to a maximum of 16bit.
+**Note**. For sake of simplicity, `demesh.c` restricts the type of parameter values to  32bit signed integers, so there are no floats or strings;  the AVR firmware for our charging station further restricts this to a maximum of 16bit.
 
 
 
@@ -80,7 +80,7 @@ A firmware ugrade request is specified by `"cmd:"upgrade"` and refers to the ESP
 | "board":"^BOARD^"       | hardware platform as configured via `make menuconfig` when specifying the board and as in indicated by system report request; e.g. `"board":"m5stick"` for the M5StickC or `"board"="agccs12"` for our charging station with a Rev-1-2 board |
 | "version":"^MAJ^.^MIN^" | version to upgrade to in the same format as in a system report request reply |
 
-The upgrade  process is organised by the root note and this is the only node to accept a `"cmd":"upgrade"`.  From the board and version data, the root node infers the firmware filename by convention, e.g., `demesh_m5stick_3_5` for a firmware operable on M5StickC hardware in version v3.5; the prefix `demesh` can be configured via `make menuconfig`, the remaining conventions are hardcoded in `demesh.c`. In particular, there must be one digit for the major version and one digit for the minor version. The root node then connects to an HTTP server to download the firmware file. The IP address defaults to the server to which the root node connects via TCP, the port defaults to 8071; again both configurable via  `make menuconfig`. Once the root has obtained the firmware, is offers it to all other nodes via "ESP-MDF magic". Indivual nodes aill accept the upgrade provided that board matches and the version is different to one it is currently running on.
+The upgrade  process is organised by the root note and this is the only node to accept a `"cmd":"upgrade"`.  From the board and version data, the root node infers the firmware filename by convention, e.g., `demesh_m5stick_3_5` for a firmware operable on M5StickC hardware in version v3.5; the prefix `demesh` can be configured via `make menuconfig`, the remaining conventions are hardcoded in `demesh.c`. In particular, there must be one digit for the major version and one digit for the minor version. The root node then connects to an HTTP server to download the firmware file. The IP address defaults to the server to which the root node connects via TCP, the port defaults to 8071; again both configurable via  `make menuconfig`. Once the root has obtained the firmware, is offers it to all other nodes via "ESP-MDF magic". Individual nodes all accept the upgrade provided that the board matches and the version is different to one it is currently running on.
 
 On host side, the overall process has been implemented in the utility [dmctrl.py](../utils/) for inspection.
 
@@ -92,7 +92,7 @@ First, the host issues a `"cmd":"avrota"`with the additional key  `"state":"reci
 
 Second, the host issues a number of `"cmd":"avrimg"` requests to transfer the firmware chunc by chunc. This command takes three more keys `avraddr`, `avrdata` and `avrcrc` , specifying the target address (counting from zero, regardless of any bootloader offset), the Base64 encoded slice of the firmware (typical 128 bytes) and a CRC double. The ESP32 buffers the image in a dedocated partition in flash memory. Reading back from flash, the CRC is checked and on success the acknowledgement to `"cmd":"avrimg"` will include a `"avrcrc":"ok"`entry.
 
-Third, the host issues a `"cmd":"avrota"` with the additional key `"state":"flash"` to ask the ESP32 to forward the image to the attached AVR via the serial line using the Optiboot protocol and to finally have Optiboot to flash the new firmware. On success, the ESP acknowledges with the key-value pair `"state":"running"` , errors are indicated by  `"state":"halted"`.
+Third, the host issues a `"cmd":"avrota"` with the additional key `"state":"flash"` to ask the ESP32 to upload the image to the attached AVR via the serial line using the Optiboot protocol and to effectively have Optiboot to flash the new firmware. On success, the ESP acknowledges with the key-value pair `"state":"running"` , errors are indicated by  `"state":"halted"`.
 
 On host side, the overall process has been implemented in the utility [dmctrl.py](../utils/) for further inspection.
 

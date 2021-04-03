@@ -1,7 +1,7 @@
 AGCCS-CTRL22
 ============
 
-We propose a design for a network of EV charging stations compliant to the CCS standard. The Repository is organised as follows:
+We propose a design for a network of EV charging stations compliant to the CCS standard. The repository is organised as follows:
 
 - [./circuit](./circuit/): hardware platform, incl. schematics and a HowTo on firmware installation
 - [./ctrl22](./ctrl22/): AVR firmware to control the charging process
@@ -101,9 +101,9 @@ The Wikipedia articles on the [SAE 1772](https://de.wikipedia.org/wiki/SAE_J1772
 
 
 
-## Copyright
+## Copyright/License
 
-All software compents in this project are _Copyright by the Authors_ and have been developed independently and from scratch. We provide them as  _Open Source_ under terms of the MIT License and/or the Apache License, as indicated in the respective code headers.  In particular, you are invited to re-cycle whatever you find useful in whatever project you are after. In the case you feel that you gained a relevant benefit, we would appreciate an acknowledgement, e.g., by linking to our GitHub repository. Regarding the hardware circuitry, our work in relevant aspects is a derivative of [SmartEVSE](https://www.smartevse.nl/) distributed as _Open Source_ via [GitHub](https://github.com/SmartEVSE) with no specific license stated, and we pass on our contribution to the circuitry likewise. 
+All software compents in this project are _"Copyright by the Authors"_ and have been developed independently and from scratch. We provide them as  _"Open Source"_ under terms of the MIT License and/or the Apache License, as indicated in the respective code headers.  In particular, you are invited to re-cycle whatever you find useful in whatever project you are after. In the case you feel that you gained a relevant benefit, we would appreciate an acknowledgement, e.g., by linking to our GitHub repository. Regarding the hardware circuitry, our work in relevant aspects is a derivative of [SmartEVSE](https://www.smartevse.nl/) distributed as _"Open Source"_ via [GitHub](https://github.com/SmartEVSE) with no specific license stated, and we pass on our contribution to the circuitry likewise. 
 
 
 

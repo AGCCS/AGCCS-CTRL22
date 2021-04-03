@@ -14,11 +14,11 @@ For our specific setup, we want to address the following network architecture
 
 <img src="../images/meshtop.png" alt="Mesh Topology" style="zoom:75%;" />
 
-Each node consist of an ESP32 SoC with an attached ACR uC, also referred to as the target uC. The red arrows indicate communication via the MWifi. Each node is addressed by a unique part ID of the ESP32 which otherwise acts as a MAC address. Via this address each node can send a message to any other node, the MWifi will take care about routing. One node allthough is special, namely the root node given in grey colour. On the one hand it acts like all other nodes in that it can send messages via MWifi. But it also operates in station mode as part of an ordinary TCP/IP Wifi. It our application it utilises this secondary role to built up a TCP/IP connection to a predefined server port on the host and (a) takes commands from the host to be forwarded to specific nodes and (b) forwards messages from any node to the host. With this infrastructure the ESP32 firmware `demesh.c` implements the following basic functionality
+Each node consist of an ESP32 SoC with an attached ACR uC, also referred to as the target uC. The red arrows indicate communication via the MWifi. Each node is addressed by a unique part ID of the ESP32 which otherwise acts as the MAC address. Via this address each node can send a message to any other node, the MWifi will take care about routing. One node allthough is special, namely the root node given in grey colour. On the one hand it acts like all other nodes in that it can send messages via MWifi. But it also operates in station mode as part of an ordinary TCP/IP Wifi. In our application it utilises this secondary role to built up a TCP/IP connection to a predefined server port on the host and (a) takes commands from the host to be forwarded to specific nodes and (b) forwards messages from any node to the host. With this infrastructure the ESP32 firmware `demesh.c` implements the following basic functionality
 
 - each ESP32 gathers on a regulat basis relevant aspects of the state of the respcetive target uC and composes a _heartbeat_ _message_ to be forwarded to the root node;
 - the root note forwards heartbeat messages to the host;
-- the host gathers the overall status of the network and, on a regular basis, issues appropriate commands to each individual node (e.g. power allocation for an attached EV charging station); in turn, the node forwards the commnd to the target uC.
+- the host gathers the overall status of the network and, on a regular basis, issues appropriate commands to each individual node (e.g. power allocation for an attached EV charging station); in turn, the node forwards the command to the target uC.
 
 Effectively we tunnel the serial line of the target uC to the host. To be of practical use we also provide some convenience features
 
@@ -36,13 +36,13 @@ Effectively we tunnel the serial line of the target uC to the host. To be of pra
 
 ## Implementation Overview
 
-The ESP32 is quite a powerfull SoC, providing two cores and 380kB RAM. The ESP-MDF SDK is built on to of the FreeRTOS operating system and we thus have taks, timers and socket IO. Indeed, programming the ESP32 feels much more like programming a POSIX compliment "System" than just a "Chip". We give run through of the main building blcoks of the provided firmware with a focus in message forwarding
+The ESP32 is quite a powerfull SoC, providing two cores and 380kB RAM. The ESP-MDF SDK is built on top of the FreeRTOS operating system and we thus have taks, timers and socket IO. Indeed, programming the ESP32 feels much more like programming a POSIX compliment "System" than just a "Chip". We give a run through of the main building blocks of the provided firmware with a focus in message forwarding
 
-**Upstream Link -- Receiving Messages from the Host.** The only node that can directly receive messages from the host is the root node. It connetcs via a TCP socket to the designated host, which is configurabe at compile time via `make menuconfig`.  The root node runs the task `upstream_read_task()` to read from this socket and expects commands aka requests. These are JSON encoded records of key-value pairs and must include a `"dst"="^ADDR^"` entry. The message is then forwarded by the mesh network the the node with the specified mesh address ^ADDR^. We implement two special purpose addresses, namely `"dst="*"` for a broadcast to all nodes in the mesh and `"dst="root"` for the root node in its role as an ordinary node.
+**Upstream Link -- Receiving Messages from the Host.** The only node that can directly receive messages from the host is the root node. It connetcs via a TCP socket to the designated host, which is configurabe at compile time via `make menuconfig`.  The root node runs the task `upstream_read_task()` to read from this socket and expects *commands* aka *requests*. These are JSON encoded records of key-value pairs and must include a `"dst"="^ADDR^"` entry. The message is then forwarded by the mesh network the the node with the specified mesh address ^ADDR^. We implement two special purpose addresses, namely `"dst="*"` for a broadcast to all nodes in the mesh and `"dst="root"` for the root node in its role as an ordinary node.
 
-**Upstream Link -- Sending Messages to the Host.** The only node that can directly send mesages to the host is again the root node. It does so via the same TCP socket on which it receives messages from the host, see above. On the root node runs the task  `root_read_task()` to receive messages from any other node and to do so in its specific role as root. The root node will foreward any message received in this role to the host via the TCP socket. Thus, any node can talk to the host by sending a mesh-network explicitly to the root node. This is completely transparent, the root will not take any further actions.   
+**Upstream Link -- Sending Messages to the Host.** The only node that can directly send mesages to the host is again the root node. It does so via the same TCP socket on which it receives messages from the host, see above. On the root node runs the task  `root_read_task()` to receive messages from any other node and to do so in its specific role as root. The root node will foreward any message received in this role to the host via the TCP socket. Thus, any node can talk to the host by sending a mesh-network message explicitly to the root node. This is completely transparent, the root will not take any further actions.   
 
-**Mesh-Network Messages.** Every node runs the task `node_read_task()` to receive messages. This includes the root note, however, in its secondary role as an ordinary node. Typically the messages originate from the host and have been propageted through the mesh. Such messages are referred to as _commands_ or _reuquests_  and are meant to control the individual nodes. Technically, commands are JSON encoded key-value pairs. The key `"cmd"` specifies the action to be taken and this impicitly refines the effective data type of the remeinder of the message; i.e., which further keys must be present and how they affect the action to be taken. In turn, the node replys to any command with a JSON encoded message, i.e., it send an acknowledgement to the root note to be forwarded to the host. Any acknowledgement must contain the reserved keys  `src` and `mtype` to specify the sending node and the type of the message. Although the mesh network does not provide TCP-like sockets, the host utilises the  `src` and `mtype` entiries to untangle any incomming message. Relevant commands are documented on more detail in [NodeControl.md](./NodeControl.md).
+**Mesh-Network Messages.** Every node runs the task `node_read_task()` to receive messages. This includes the root note, however, in its secondary role as an ordinary node. Typically the messages originate from the host and have been propageted through the mesh. Such messages are referred to as _commands_ or _reuquests_  and are meant to control the individual nodes. Technically, commands are JSON encoded key-value pairs. The key `"cmd"` specifies the action to be taken and this impicitly refines the effective data type of the remainder of the message; i.e., which further keys must be present and how they affect the action to be taken. In turn, the node replys to any command with a JSON encoded message, i.e., it sends an acknowledgement to the root note to be forwarded to the host. Any acknowledgement must contain the reserved keys  `src` and `mtype` to specify the sending node and the type of the message. Although the mesh network does not provide TCP-like sockets, the host utilises the  `src` and `mtype` entiries to untangle any incomming message. Relevant commands are documented on more detail in [NodeControl.md](./NodeControl.md).
 
 To actually send a command to a node, the host needs to listen on the designated TCP port and on connection write an appropriately encoded JSON message to the respective socket. This can be tested with general purpose tools like `netcat` aka `nc`; e.g., run `nc -l 8070` on the host to listen on the default port 8070 and on connection type `{"dst":"*","cmd"="status"}` to broadcast a status request -- and await the reply. For convenience, we provide the Python script [dmcrl.py](../utilities/)  which facilitates this process; e.g., run `./dmctrl.py status` to broadcast the same status request. 
 
@@ -50,7 +50,7 @@ To actually send a command to a node, the host needs to listen on the designated
 
 ## Node Control via MQTT
 
-In addition to the elementary connection via a plaIn TCP socket, the root subscribes to a designated MQTT broker to receive commands and it published the acknowledgements to the same broker. The address of the broker defaults to the access-point IP at port 1884; this is configured at compile time via `make menuconfig`, see also below. In our specific set-up, we start the MQTT broker mosquitto on the RasPi as follows: 
+In addition to the elementary connection via a plaIn TCP socket, the root subscribes to a designated MQTT broker to receive commands and it published the acknowledgements to the same broker. The address of the broker defaults to the access-point IP at port 1884; this is configured at compile time via `make menuconfig`, see also below. In our specific set-up, we start the MQTT broker *mosquitto* on the RasPi as follows: 
 
 ```
 pi@lrt101:~/ $ mosquitto -v -p 1884
@@ -62,13 +62,13 @@ pi@lrt101:~/ $ mosquitto -v -p 1884
 [...]
 ```
 
-Here, we first observe the root node to subscribe to `/DEMESH/+/control`. The root node will forward any control message the mesh network in the same way it does with messages received via the plain TCP socket. We will also observe  periodic heartbeat publications at   `/DEMESH/+/heartbeat`  from all nodes. Once this is functional on the broker side, we may run it in daemon mode, e.g.
+Here, we first observe the root node to subscribe to `/DEMESH/+/control`. The root node will forward any control message to the mesh network in the same way it does with messages received via the plain TCP socket. We will also observe  periodic heartbeat publications at   `/DEMESH/+/heartbeat`  from all nodes. Once this is functional on the broker side, we may run it in daemon mode, e.g.
 
 ```
 pi@lrt101:~/ $ mosquitto -d -p 1884
 ```
 
-Any message published to `/DEMESH/^ADDR^/control` will be forwarded as a node message to the node specified by `^ADDR^`. The address format for this purpose is "MAC address without the colons" with `ffffffffffff` for broadcast over the entire mesh network. In response to any command the node will publish to `/DEMESH/^ADDR^/acknowledge`. The protocol (i.e. accepted messages and the format of the expected reply) is documented in [NodeControl.md](./NodeControl.md).
+Any message published to `/DEMESH/^ADDR^/control` will be forwarded as a node message to the node specified by `^ADDR^`. The address format for this purpose is "MAC address without the colons", e.g., `d8a01d54e4a4` for node  _d8:a0:1d:54:e4:a4_.  As with the TCP uplink, two special addresses are implemented:  use address `*` to initiate a broadcast over the entire mesh network, or `root` to send a control message to the root node. In response to any command the node will publish to `/DEMESH/^ADDR^/acknowledge`. The protocol (i.e. accepted messages and the format of the expected reply) is documented in [NodeControl.md](./NodeControl.md).
 
 
 
@@ -89,7 +89,7 @@ on any machine in the local network. Here, `lrt101` is the DNS name of the host 
 **Example.** To broadcast a status request, run
 
 ```
-$ mosquitto_pub -h lrt101 -p 1884 -t /DEMESH/ffffffffffff/control -m '{"cmd":"status"}'
+$ mosquitto_pub -h lrt101 -p 1884 -t /DEMESH/*/control -m '{"cmd":"status"}'
 ```
 
 If you are still subscribed to `/DEMESH/+/acknowledge`, you will be forwarded the replies, e.g.
@@ -108,7 +108,7 @@ $ mosquitto_pub -h lrt101 -p 1884 -t /DEMESH/d8a01d55a56c/control -m '{"cmd":"av
 $ mosquitto_pub -h lrt101 -p 1884 -t /DEMESH/d8a01d55a56c/control -m '{"cmd":"avrsetpar","avrpar":"opbutton","avrval":1}'
 ```
 
-The first target-AVR parameter `smaxcur` limits the mains supply current, the second `phases` enables all three phases. The third triggers the charging cycle by mimicking the operator button of the charging station; see [ctrl22.c](../ctrl22/) for detailed information of relevant target-AVR parameters.
+The first target-AVR parameter `smaxcur` limits the mains supply current, the second `phases` enables all three phases. The third triggers the charging cycle by mimicking the operator button of the charging station; see [ctrl22.c](../ctrl22/) for detailed information on relevant target-AVR parameters.
 
 ## Compiling and Installing ESP32 Firmware
 
@@ -122,7 +122,7 @@ cd esp
 git clone --recursive https://github.com/espressif/esp-mdf.git
 ```
 
-However, when we last did so, we next needed to visit the included ESP-**I**DF directory and follow the ESP-IDF instructions to install the toochain (compilers, python add-ons, etc.) as described in [EDP-**I**DF Getting started](https://docs.espressif.com/projects/esp-idf/en/latest/esp32/get-started/index.html#get-started-set-up-tools):
+However, when we last did so, we next needed to visit the included ESP-IDF directory and follow the ESP-IDF instructions to install the toolchain (compilers, python add-ons, etc.) as described in [EDP-IDF Getting started](https://docs.espressif.com/projects/esp-idf/en/latest/esp32/get-started/index.html#get-started-set-up-tools):
 
 ```
 cd esp-mdf
@@ -131,7 +131,7 @@ cd esp-idf
 cd ..
 ```
 
-Now turn back and continue again to follow the  [ESP-**M**DF Getting Started](https://docs.espressif.com/projects/esp-mdf/en/latest/get-started/index.html#get-esp-mdf). There you are advised to take a copy of the "getting_started/hello_world" and run through the configure/build/install/monitor steps. Since `demesh` uses the very same development cycle, this is probably a good idea.
+Now turn back and continue again to follow the  [ESP-MDF Getting Started](https://docs.espressif.com/projects/esp-mdf/en/latest/get-started/index.html#get-esp-mdf). There you are advised to take a copy of the "getting_started/hello_world" and run through the configure/build/install/monitor steps. Since `demesh` uses the very same development cycle, this is probably a good idea.
 
 To actually install and monitor even the simple example, you'll need an ESP32 dev-board ($5 onwards). For setting up an MWifi it is advisable to have some direct visual feed-back, so you do not need to monitor every node over a dedicated serial line. Still budget but quite fancy is the M5Stick (10$) which has a built in mini TFT screen among other fancy features. For the fun of it, get at least five of them, preferably ten.
 
@@ -148,19 +148,19 @@ make monitor
 Next to the common ESP32 configuration options, `make menuconfig` shows one page specifically for `demesh.c`:
 
 - choose the board: `Nope` is the fallback for no attached IOs; `Gpio2` is a basic dev-board with an LED on IO2; `M5StickC` is for the M5Stick and includes support for the two pushbuttons and the TFT screen;`FGCCS 1.0` is the first revision of our EV charging controller; it is easy to add more boards as long as you are aware of how to access the specfic extra hardware and for which pupose you actually want to use it; check the `demesh.c` sources;
--  `Router SSID` and `Router password` specify the accesspoint the mesh shall connect to; you do not necessariliy need an dedicated RasPi; it's fine if the mesh connects to your home WLAN. **WARNING**: the mesh cannot reliably connect to the 192.168.4.* address space since it apparently uses this netmask internally;
+-  `Router SSID` and `Router password` specify the accesspoint the mesh shall connect to; you do not necessariliy need an dedicated RasPi; it's fine if the mesh connects to your home WLAN. **WARNING**: the mesh cannot reliably connect to the 192.168.4.* address space since it apparently uses this netmask internally (it was a nightmare to figure this one out);
 - `Mesh ID` and `Mesh Password` are the login secrets for a node to join the mesh; 
 
 - `Upstream Server IP/Port` is the server the root note will try to connect to; if you are using a RasPi as an access point this will be most likely it; otherwise use the IP address of any development machine in your WLAN; the port defaults to 8070;  
 - `Firmware Server IP/Port` is the server to distribute ESP32 firmware updates via HTTP; in most cases, you'll use the same as the upstream server; the port defaults to 8071;
-- `MQTT broker address` is where you are planning to run the MQTT broker; most likely the same as the upstreamserver; the addres is specified as URL, e.g. `mqtt://192.168.5.1:1883"`
+- `MQTT broker address` is where you are planning to run the MQTT broker; most likely the same as the upstream server; the address is specified as URL, e.g. `mqtt://192.168.5.1:1883"`
 - The remainig options are only relevant for the target uC debugging mode; leave unchanged unless you plan to activate that mode.
 
 There are only a view options regarding the ESP32 module itself that need our attention:
 
 - in `menuconfig->Components->ESP32-specific->` choose  `No Core Dump`;  this is because we abuse this memory space to buffer firmware images for the target uC;
 
-- the provided partitiontable `partition.cvs` has on extra entry `avrflash, data, 0xfe,      ,         64K`, and this is will become the firmware buffer for AVR target MCU; you need to run `make erase_flash` once to activate the non-standard partition table; 
+- the provided partitiontable `partition.cvs` has on extra entry `avrflash, data, 0xfe, , 64K`, and this is will become the firmware buffer for AVR target MCU; you need to run `make erase_flash` once to activate the non-standard partition table; 
 - in the `menuconfig->Serial Flasher Config -> Port` choose the USB TTY device by which you connect your ESP32; if you have many ESP32s you my want to set this configuration parameter to a symbolic link such that you can programm multiple ESPs withour recompiling; we use the link `usb-link` and provide the shell skript `lnport.sh` to set the link;
 - for the M5Stick, set `menuconfig->Serial Flasher Config -> Baud Rate` to  `1500000` ... otherwise
   it will just not work.
