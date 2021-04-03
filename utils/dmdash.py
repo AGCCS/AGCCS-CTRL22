@@ -11,11 +11,14 @@ import logging
 
 # DASH/PLOTLY based web frontend to test MQTT access/control to a DEMESH
 
-# DISCLAIMER: this is for development purposes only. There are a number
-# of reasons, for which dash/plotly does not really fit our usecase here.
+# DISCLAIMER 1: this is for development purposes only. There are a number
+# of reasons, for which dash/plotly does not really our usecase here.
 # Formost, we want to control (in contrast to inspect) the target nodes and
 # this effectively amounts to a global state ... which by concept dash/plotly
 # does not support.
+
+# DISCLAIMER 2: this file is obsolete and will be removed in due course.
+
 
 
 # Run with redirected output --- we have some logging issues

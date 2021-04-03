@@ -10,9 +10,9 @@ We propose a design for a network of EV charging stations compliant to the CCS s
 - [./utils](./utils/): scripts to facilitate first-installation and debugging
 - [./doc](./doc/): Thesis and other documents regarding this project
 
-**DISCLAIMER 1** We do not provide a turn-key solution and do not plan to do so in near future. Rather we invite the enthusiast to actively contribute or to passively make use of our collection of resources and to share their experience. The current project status is **"work in progress"**.
+**DISCLAIMER 1.** We do not provide a turn-key solution and do not plan to do so in near future. Rather we invite the enthusiast to actively contribute or to passively make use of our collection of resources and to share their experience. The current project status is **"work in progress"**.
 
-**DISCLAIMER 2** All material provided in this repository comes *'as is'* with no explicit or implied warranty. In particular, the installation of equipment that directly connects to mains power should only by considered be individuals with adequate skills and with particular care.
+**DISCLAIMER 2.** All material provided in this repository comes *'as is'* with no explicit or implied warranty. In particular, the installation of equipment that directly connects to mains power should only by considered by individuals with adequate skills and with particular care.
 
 
 
@@ -20,7 +20,7 @@ We propose a design for a network of EV charging stations compliant to the CCS s
 
 The Combined Charging System (CCS) provides a specification for low-cost home-charging of electric vehicles with up to 22kW. It is based on a simplistic protocol by which the vehicle and the charging station negotiate available power. Of-the-shelf wall-boxes forward the common 3x230V supply at an adjustable current limit to the vehicle via the CCS standard.
 
-The aim of this project is to scale the simplicity of the low-cost single-user wallbox approach to larger parking lots in order to address appartment buildings or shopping venues. These configurations are characterised by a limited and possibly varying amount of available power. Hence, a fixed allocation per parking slot would be inefficient. Instead, we seek for an environment by which individual charging spots communicate and negotiate the power distribution dynamically. Conveivable schemes include first-come-first-serve, fairness-based energy distribution, or ready-to-go-by-schedule. Optionally, an external agent may limit the ussage of non-renewable enery in favour of e.g. available solar power at the given time to the day. 
+The aim of this project is to scale the simplicity of the low-cost single-user wallbox approach to larger parking lots in order to address appartment buildings or shopping venues. These configurations are characterised by a limited and possibly varying amount of available power. Hence, a fixed allocation per parking slot would be inefficient. Instead, we seek for an environment by which individual charging spots communicate and negotiate the power distribution dynamically. Conveivable schemes include first-comes-first-serve, fairness-based-energy-distribution, or ready-to-go-by-schedule. Optionally, an external agent may limit the ussage of non-renewable enery in favour of e.g. available solar power at the given time to the day. 
 
 
 
@@ -32,7 +32,7 @@ Our implementation consists of three main components
 
 - a **hardware platform** to implement a relevant subset of the CCS standard
 -  **node firmware** to control the charging process and to establish a communication network
-- a centralised host with server software  for dynamic power allocation and **monitoring** 
+- a centralised host for dynamic power allocation and **monitoring** 
 
 All three components are open source and can be hence adapted to best fit a variety of application scenarios.
 
@@ -42,11 +42,11 @@ All three components are open source and can be hence adapted to best fit a vari
 
 [Our hardware platform](./circuit/) consists of 
 
-+ relevant analog circuitry to implement the specified electric characteristics
++ relevant analog circuitry to implement the specified electronic characteristics
 + an AVR series uC to control the charging process, and
 + an ESP32 SoC to provide means of wireless communication. 
 
-Regarding the analog circuitry, our implementation is derived from the [SmatEVSE project](https://github.com/SmartEVSE). Regarding the uC, we opted for AVR allow for conveniently programming within the Arduino IDE in a long term perspective --- at this stage the firmware we provide comes 'bare bone' for performance reasons. Regarding the ESP32 SoC, we are fascinated by the powerful SDKs available from Espressif. For our hardware platform, we provide schematics and a PCB Layout, both in editable KiCad format. More detailed documentation is provided in [./circuit/README.md](./circuit/). 
+Regarding the analog circuitry, our implementation is derived from the [SmatEVSE project](https://github.com/SmartEVSE). Regarding the uC, we opted for an AVR ATmega to allow for conveniently programming within the Arduino IDE in a long term perspective --- although at this stage the firmware we provide comes 'bare bone' for performance reasons. Regarding the ESP32 SoC, we are fascinated by the powerful SDKs available from Espressif. For our hardware platform, we provide schematics and a PCB Layout, both in editable KiCad format. More detailed documentation is provided in [./circuit/README.md](./circuit/). 
 
 
 
@@ -66,7 +66,7 @@ very near future --- stay tuned.
 
 ## Prototype
 
-The below photo shows our hardware (rev 1.2) assembled in an enclosure to include mains contactors, leakage current detector/protection and current transformers. It is supplied by a 3phases 32A CEE cable on the left, with power forwarded to the CCS 2 outlet on the right. 
+The below photo shows our hardware (rev 1.2) assembled in an enclosure to include mains contactors, leakage current detector/protection and current transformers. It is supplied by a three-phases 32A CEE cable on the left, with power forwarded to the CCS 2 outlet on the right. 
 
 <img src="./images/hardware_1_2_enclosure.jpeg" alt="Rev 1.2" style="zoom:80%;" />
 
@@ -85,7 +85,7 @@ Well, no turn-key solution ... but perhaps some interesting venues for the enthu
 
 This project is an initiative by Christoph Pflaum and Thomas Moor, both with FAU/Erlangen/Germany. We appreciate the following contributions by our students/staff.
 
-- Roland Kießling: electrics/electronics lab support, including the assembly of the prototype enclosure 
+- Roland Kießling: electrics/electronics lab support, including the assembly of the prototype enclosure. 
 
 - Pascal Thurnherr: [BA thesis](./doc/Bachelorarbeit_Pascal_Thurnherr.pdf) , _Aufbau und Test einer Ladeneinrichtung für Elektrofahrzeuge nach IEC62169_, FAU/Erlangen 2020; see also [this project](https://github.com/dreadnomad/FGCCS-Ctrl22).
 
@@ -97,7 +97,7 @@ This project is an initiative by Christoph Pflaum and Thomas Moor, both with FAU
 
 ## Acknowledgements
 
-The Wikipedia articles on the [SAE 1772](https://de.wikipedia.org/wiki/SAE_J1772nd), the [IEC 62196](https://de.wikipedia.org/wiki/IEC_62196)  and the [IEC 62196 Type 2](https://de.wikipedia.org/wiki/IEC_62196_Typ_2) standards provide an excellent entry point to learn about EV charging technology and we would like thank the respective authors for their effort. Regarding the electrical engineeering aspects of this project, we hereby acknowlegde that the projects [SmartEVSE](https://www.smartevse.nl/) and [OpenEVSE](https://www.openevse.com/) make their hardware solution available for us to inspect and re-use. Starting from scratch would have been so much more tedious. On a more general scale, we appreciate the fact that nowerdays relevent software tools are made freely available, such as  the [KiCad EDA](https://kicad.org) , the [Espressif SDKs](https://github.com/espressif), and the [GCC](https://gcc.gnu.org/)-based XTENSA and AVR toolchains, naming the ones most crucial for our project.
+The Wikipedia articles on the [SAE 1772](https://de.wikipedia.org/wiki/SAE_J1772nd), the [IEC 62196](https://de.wikipedia.org/wiki/IEC_62196)  and the [IEC 62196 Type 2](https://de.wikipedia.org/wiki/IEC_62196_Typ_2) standards provide an excellent entry point to learn about EV charging technology and we would like thank the respective authors for their effort. Regarding the electrical engineeering aspects of this project, we hereby acknowlegde that the projects [SmartEVSE](https://www.smartevse.nl/) and [OpenEVSE](https://www.openevse.com/) make their hardware solution available for us to inspect and re-use. Starting from scratch would have been so much more tedious. On a more general scale, we appreciate the fact that nowerdays relevent software tools are made freely available, such as  the [KiCad EDA](https://kicad.org) , the [Espressif SDKs](https://github.com/espressif), and the [GCC](https://gcc.gnu.org/)-based XTENSA and AVR toolchains, naming only the ones most crucial for our project.
 
 
 
