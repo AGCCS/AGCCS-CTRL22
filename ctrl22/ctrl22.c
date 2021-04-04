@@ -47,10 +47,10 @@ THE SOFTWARE.
 *************************************************************************
 */
 
-// firmware revision 2021-04-01
+// firmware revision 2021-04-04
 
 // firmware version for OTA
-#define CTRL22_VERSION 13  // XY reads vX.Y, i.e., one digit for major and minor, resp.
+#define CTRL22_VERSION 17  // XY reads vX.Y, i.e., one digit for major and minor, resp.
 
 
 // 10 MHz clock on fgccs board 
@@ -90,15 +90,16 @@ calibration and configuration (defaults can be saved/loaded to/from eeprom)
 *************************************************************************
 */
 
-#define PARCNT 8          // number of parameters
+#define PARCNT 9          // number of parameters
 int16_t p_boardrev=12;    // board rev 1.2
 int16_t p_smaxcur=160;    // max current in [100mA]
-int16_t p_phases=123;     // enabled phases
+int16_t p_sphases=123;    // enabled phases
 int16_t p_lclsms=100;     // ms to close lock (set to 0 for no lock)
 int16_t p_lopnms=100;     // ms to open lock  (set to 0 for no lock)
 int16_t p_caldmp=0;       // set to 1 to turn on calibration output
 int16_t p_cala=19019;     // calibration parameter a
 int16_t p_calb=0;         // calibration parameter b
+int16_t p_ccsdmp=0;       // set to 1 to turn on ccs state progress
 
 
 
@@ -132,14 +133,6 @@ convenience/debugging macros
 #define DBW_CLI(c)  DEBUG_WRITE(c)
 #else
 #define DBW_CLI(c)
-#endif
-
-// debug CCS state
-#define DEBUG_CCS
-#ifdef DEBUG_CCS
-#define DBW_CCS(c)  DEBUG_WRITE(c)
-#else
-#define DBW_CCS(c)
 #endif
 
 // debug analog reading (pilots, temp, vcc)
@@ -183,7 +176,15 @@ char g_adc0_bsy=false;
    ((g_systicks < duetime) &&  (duetime-g_systicks > 0x8000)) )
 
 // forward declaration of ccs charging state (see main loop)
-typedef enum {OFF0=00,OFF1=01,A0=10,A1=11,B0=20,B1=21,C0=30,C1=31,C2=32,C3=33,P0=41,P1=42,W0=50,W1=51,ERR0=0x70} ccs_state_t;
+typedef enum {
+  OFF0=0,OFF1=1,OFF9=9,          // OFF (nominal: wait for operator)
+  A0=10,A1=11,                   // A   (nominal: wait for EV detect)
+  B0=20,B1=21,                   // B   (nominal: wait for EV ready to charge)
+  C0=30,C1=31,C2=32,C3=33,       // C   (nominal: do charge)
+  P0=40,P1=41,                   // P   (initiate pause)
+  W0=50,W6=56,W7=57,W8=58,W9=59, // W   (wait for change of power allocation, resume with A)
+  ERR0=90
+} ccs_state_t;
 ccs_state_t g_ccs_st=OFF0;
 
 // cli veriant of ccs state (how do we properly/safly cast an enum to an int16_t?)
@@ -291,18 +292,21 @@ inline void led_off() {
 
 // blink pattern overwrite by serial line
 int g_blinks=-1;
+int g_xblinks=-1;
 
 
 // flash my led (callback in main loop)
 void led_blinks_cb(void) {
   // set blinks to indicate ccss state
   int blinks=BLINKS_RELAX;
-  if(g_ccs_st<A0) blinks=BLINKS_HEART;
-  if((g_ccs_st>=C0) && (g_ccs_st<C0+10)) blinks=BLINKS_ON;
+  if(g_ccs_st<OFF9) blinks=BLINKS_HEART;
+  if((g_ccs_st>=C0) && (g_ccs_st<P0)) blinks=BLINKS_ON;
   // overwrite by error
   if(g_error!=0) blinks=BLINKS_ERR;
-  // overwrite by serial
+  // overwrite by serial, normal priority 
   if(g_blinks>0) blinks=g_blinks;
+  // overwrite by serial, high priority 
+  if(g_xblinks>0) blinks=g_xblinks;
   // const on
   if(blinks==BLINKS_ON) {
     led_on();
@@ -342,23 +346,27 @@ void led_blinks_cb(void) {
   }  
 }
 
-// button pressed (positive edge detection, incl debounce, user must reset)
+// button pressed (incl debounce, user must reset)
 bool g_button=false;
 
 // button sense callback
 void button_cb(void) {
-  g_button=false;
-  static bool recent=false;
+  static bool dbtn=false;
+  static bool filter=false;
   static char cnt=0;
-  bool now = PORTD.IN & PIN4_bm;
-  if(now==recent) cnt=0;
-  else cnt++;
-  if(cnt<50) return;
-  recent=now;
-  cnt=0;
-  if(now) g_button=true;
-  return;
-}  
+  bool btn = PORTD.IN & PIN4_bm;
+  if(btn==filter) {
+    ++cnt;
+  } else {
+    filter=btn;
+    cnt=0;
+  }
+  if(cnt==50) {
+    if(btn && (!dbtn)) g_button=true;
+    dbtn=btn;
+    cnt=0;
+  }
+}
   
 
 
@@ -405,7 +413,7 @@ ISR(USART0_DRE_vect) {
 
 // true when buffer is ready
 bool serial_write_ready(void) {
-  return g_writeln_st!=0;
+  return g_writeln_st==0;
 }    
     
 // write one byte to line buffer
@@ -649,12 +657,13 @@ void conf_load(void){
   // load 
   p_boardrev = nvm_read( 0);
   p_smaxcur  = nvm_read( 1);
-  p_phases   = nvm_read( 2);
+  p_sphases  = nvm_read( 2);
   p_lopnms   = nvm_read( 3);
   p_lclsms   = nvm_read( 4);
   p_caldmp   = nvm_read( 5);
   p_cala     = nvm_read( 6);
   p_calb     = nvm_read( 7);
+  p_ccsdmp   = nvm_read( 8);
 }
 
 // write parameters to eeprom (signature for cli, return 1 on success)
@@ -670,12 +679,13 @@ int16_t conf_save(int16_t val){
   g_nvmchk=0;
   nvm_write( 0,p_boardrev);
   nvm_write( 1,p_smaxcur);
-  nvm_write( 2,p_phases);
+  nvm_write( 2,p_sphases);
   nvm_write( 3,p_lopnms);
   nvm_write( 4,p_lclsms);
   nvm_write( 5,p_caldmp);
   nvm_write( 6,p_cala);
   nvm_write( 7,p_calb);
+  nvm_write( 8,p_ccsdmp);
   nvm_write(PARCNT,g_nvmchk);
   CPU_SREG |= CPU_I_bm;
 #ifdef DEBUG_NVM
@@ -782,31 +792,32 @@ void lock_cb(void) {
   static unsigned char retry;
   // update lock reading while drive is off
   static char lock_contact=-1; // -1 <> invalid; 0 <> open; 1 <> closed;
-  static bool lcrec=-1;
-  static char lccnt=0;
+  static bool filter=-1;
+  static char cnt=0;
   if(g_ldrive==ldoff) {
-    char lcnow = ((PORTD.IN & PIN2_bm) == 0 ? 0 : 1); // (black wire)
-    if(lcnow==lcrec) {
-      lccnt++;
+    char lc = ((PORTD.IN & PIN2_bm) == 0 ? 0 : 1); // (black wire)
+    if(lc==filter) {
+      cnt++;
     } else{
-      lccnt=0;
+      filter=lc;
+      cnt=0;
     }
-    lcrec=lcnow;
-    if(lccnt>=10) {
-      lccnt=0;
-      if(lock_contact!=lcnow) {
-	lock_contact=lcnow;
+    if(cnt>=10) {
+      cnt=0;
 #ifdef DEBUG_LOCK
+      if(lock_contact!=lc) {
         serial_writeln_sync();
         serial_write_pstr("% lock: contact=");
-        serial_write_int(lock_contact);
+        serial_write_int(lc);
         serial_write_eol();
         serial_writeln_async();
+      }	
 #endif
-      }
+      lock_contact=lc;
     }
   } else {
-    lcrec=-1;
+    filter=-1;
+    cnt=0;
     lock_contact=-1;
   }  
   // sense commands
@@ -904,22 +915,31 @@ int16_t lock(int16_t val) {
   return val;
 }  
 
+// record currently enabled phases
+int16_t g_ssrphases=0;
+int16_t g_ssrphases_bin=0;
+
 // operate SSRs with decimal encoded parameter, e.g "123" all on
 int16_t ssr(int16_t val) {
+  // record state
   // turn all off
   if(val==0) {
     PORTA.OUTCLR = (PIN6_bm | PIN5_bm | PIN4_bm);
+    g_ssrphases=0;
+    g_ssrphases_bin=0;
     return val;
   };
   // turn enabled on i.e. decode parameter
+  g_ssrphases=val;
+  g_ssrphases_bin=0;
   int dphases=val;
   unsigned char setporta=0x00;
   while(dphases>0) {
     int lsd=dphases % 10;
     switch(lsd) {
-    case 1: setporta |= PIN6_bm; break;
-    case 2: setporta |= PIN5_bm; break;
-    case 3: setporta |= PIN4_bm; break;
+    case 1: {setporta |= PIN6_bm; g_ssrphases_bin|=1; } break;
+    case 2: {setporta |= PIN5_bm; g_ssrphases_bin|=2; } break;
+    case 3: {setporta |= PIN4_bm; g_ssrphases_bin|=3; } break;
     default: break;
     }
     dphases = dphases /10;
@@ -997,10 +1017,17 @@ synchronous analog reading with ADC0
 // global variables for recent readings
 int16_t g_temp=0;        // degree Celsius
 int16_t g_vcc=0;         // mV
-int16_t g_ppilot=-1;     // max current of cable in 100mA (-1 for invalid reading)
 int16_t g_cpilot=-1;     // status in Volt 12,9,6 (-1 for invalid reading)
-int16_t g_cpilot_dt=-1;  // status in Volt -12 (-1 for invalid reading)
-int16_t g_pilots=0;      // enable periodic pilot reading      
+int16_t g_cpnslp=-1;     // status in Volt -12 (-1 for invalid reading)
+int16_t g_ppilot=-1;     // max current of cable in 100mA (-1 for invalid reading)
+int16_t g_pilots=0;      // enable periodic pilot reading
+
+
+// global variables to filter readings
+int16_t g_filter_p=-2;
+int16_t g_filter_c=-2;
+int16_t g_filter_d=-2;
+
 
 // initialise vref and pins
 void adc_init(void) {
@@ -1126,6 +1153,21 @@ bool adc_vcc(void) {
   return true;
 }
 
+// callback for periodic reading of temperature and VCC (10000ms period)
+void env_cb(void) {
+  static const uint16_t period=10000;
+  static uint16_t duetime=0;
+  static bool toggle=false;
+  if(TRIGGER_SCHEDULE(duetime)){
+    if(toggle) {
+      if(adc_temp()) {duetime +=period; toggle=false;}
+    } else {
+      if(adc_vcc()) {duetime +=period; toggle=true;}
+    }      
+  }  
+}
+
+
 // read pilots (takes about 1.5ms since we wait for PWM cycle)
 bool adc_pilots(void) {
   // dont run if ADC0 is busy
@@ -1168,19 +1210,22 @@ bool adc_pilots(void) {
     else cpv=-1;                                   // invalid reading
   }  
   // filter
-  static int16_t cpnxt=0;
-  static char cpcnt=0;
-  if(cpv!=g_cpilot) {
-    if(cpv!=cpnxt) {
-      cpnxt=cpv;
-      cpcnt=0;
-    } else {
-      ++cpcnt;
-      if(cpcnt==5)
-	g_cpilot=cpv;
-    }
+  static char ccnt;
+  if(g_filter_c==-2) {
+    ccnt=0;
+    g_filter_c=-1;
+  }  
+  if(cpv==g_filter_c) {
+    ccnt++;
+  } else {
+    g_filter_c=cpv;
+    ccnt=0;
+  }  
+  if(ccnt==5) {    
+    g_cpilot=cpv;
   }
-  while(TCA0.SINGLE.CNT < 4750);          // wait for middle of dualslope PWM to be low for diod test
+  // run conversion contact pilot CP
+  while(TCA0.SINGLE.CNT < 4750);          // wait for middle of dualslope PWM for the negative halfwave
   ADC0.COMMAND = ADC_STCONV_bm;
   while (!(ADC0.INTFLAGS & ADC_RESRDY_bm));
   int16_t dt=ADC0.RES;
@@ -1195,17 +1240,19 @@ bool adc_pilots(void) {
     else dtv=-1;                                 // invalid reading
   }
   // filter
-  static int16_t dtnxt=0;
-  static char dtcnt=0;
-  if(dtv!=g_cpilot_dt) {
-    if(dtv!=dtnxt) {
-      dtnxt=dtv;
-      dtcnt=0;
-    } else {
-      ++dtcnt;
-      if(dtcnt==5)
-	g_cpilot_dt=dtv;
-    }
+  static char dcnt;
+  if(g_filter_d==-2) {
+    dcnt=0;
+    g_filter_d=-1;
+  }  
+  if(dtv==g_filter_d) {
+    dcnt++;
+  } else {
+    g_filter_d=dtv;
+    dcnt=0;
+  }  
+  if(dcnt==5) {    
+    g_cpnslp=dtv;
   }
   // run conversion proximity pilot PP
   ADC0.MUXPOS = ADC_MUXPOS_AIN0_gc;      // select PP on PD0
@@ -1219,19 +1266,21 @@ bool adc_pilots(void) {
   else if((pp > 260) && (pp < 480)) ppv=200;    // 680R: max 20A
   else if((pp > 150) && (pp < 220)) ppv=320;    // 220R: Max Capacity 32A
   else if((pp > 75) && (pp < 120))  ppv=630;    // 100R: Max Capacity 63A
-  else ppv=-1;                                  // invalid reading
+  else ppv=-1;                                  // invalid reading 
   // filter
-  static int16_t ppnxt=0;
-  static char ppcnt=0;
-  if(ppv!=g_ppilot) {
-    if(ppv!=ppnxt) {
-      ppnxt=ppv;
-      ppcnt=0;
-    } else {
-      ++ppcnt;
-      if(ppcnt==5)
-	g_ppilot=ppv;
-    }
+  static char pcnt;
+  if(g_filter_p==-2) {
+    pcnt=0;
+    g_filter_p=-1;
+  }  
+  if(ppv==g_filter_p) {
+    pcnt++;
+  } else {
+    g_filter_p=ppv;
+    pcnt=0;
+  }  
+  if(pcnt==5) {    
+    g_ppilot=ppv;
   }
   // disable adc
   ADC0.CTRLA &= ~ADC_ENABLE_bm;
@@ -1263,41 +1312,31 @@ bool adc_pilots(void) {
   return true;
 }
 
-// callback for periodic reading of pilots (10ms period)
+// callback for periodic reading of pilots (16ms period)
 void pilots_cb(void) {
-  static const uint16_t period=10;
+  static const uint16_t period=16;
   static uint16_t duetime=0;
-  if(TRIGGER_SCHEDULE(duetime)) {
-     if(!g_pilots) {
-      duetime+=period;
-      return;
-    }
-    if(adc_pilots()) duetime +=period;
+  // while inactive postpone
+  if(!g_pilots) {
+    if(TRIGGER_SCHEDULE(duetime)) duetime+=period;
+    return;
   }
+  // figure schedule
+  if(TRIGGER_SCHEDULE(duetime)) 
+    if(adc_pilots()) duetime +=period;
 }
 
 // cli wrapper to enable periodic reading of pilots
 int16_t pilots(int16_t val)  {
   if(val==g_pilots) return val;
   g_cpilot=-1;
-  g_cpilot_dt=-1;
+  g_cpnslp=-1;
   g_ppilot=-1;
+  g_filter_c=-2;
+  g_filter_d=-2;
+  g_filter_p=-2;
   g_pilots=val;
   return val;
-}
-
-// callback for periodic reading of temperature and VCC (10000ms period)
-void env_cb(void) {
-  static const uint16_t period=10000;
-  static uint16_t duetime=0;
-  static bool toggle=false;
-  if(TRIGGER_SCHEDULE(duetime)){
-    if(toggle) {
-      if(adc_temp()) {duetime +=period; toggle=false;}
-    } else {
-      if(adc_vcc()) {duetime +=period; toggle=true;}
-    }      
-  }  
 }
 
 
@@ -1407,7 +1446,7 @@ bool rms_start(char phase) {
   // done
   return true;
 }
-  
+
 
 // interrupt service routine to collect samples
 // -- advances state from sampling to processing
@@ -1541,27 +1580,27 @@ void rms_process(void) {
 }
 
 
-// periodic update call-back
+// periodic update call-back, 1024ms
 void rms_cb(void) {
-  static const unsigned int period=1000; 
+  static const unsigned int period=1024; 
   static unsigned int duetime=5;
   static int nphase=1;
-  // anything to process?
+  // abort stale reading, reschedule
+  if(!g_rms) {
+    g_rms_st=idle;
+    if(TRIGGER_SCHEDULE(duetime)) duetime+=period;
+    return;
+  }      
+  // process recored if any
   rms_process();
   // figure schedule
   if(TRIGGER_SCHEDULE(duetime)){
-    // disabled >> try later 
-    if(!g_rms) {
-      duetime+=period;
-      return;
+    if(rms_start(nphase)) {
+      ++nphase;
+      if(nphase>3) nphase=1;
+      duetime+= period;
     }
-    // trigger measurement
-    if(!rms_start(nphase)) return;
-    // schedule next phase
-    ++nphase;
-    if(nphase>3) nphase=1;
-    duetime+= period;
-  } 
+  }  
 }
 
 
@@ -1704,7 +1743,7 @@ int16_t rms_dump(int16_t val) {
 /*
 *************************************************************************
 PWM output for CP driven by TCA on PA2
-- 1KHz dual slope PWM
+- 1kHz dual slope PWM
 *************************************************************************
 */
 
@@ -1863,24 +1902,26 @@ command line parser
 
 // help text
 const char h_version[]  PROGMEM = "read out firmware version";
-const char h_blinks[]   PROGMEM = "overwrite status indicator";
+const char h_blinks[]   PROGMEM = "overwrite status indicator (remote host)";
+const char h_xblinks[]  PROGMEM = "overwrite status indicator (ESP32)";
 const char h_time[]     PROGMEM = "read/set systime in [ms]";
 const char h_temp[]     PROGMEM = "read AVR die temperatur [C]";
 const char h_vcc[]      PROGMEM = "read AVR VCC [mV]";
 const char h_ccss[]     PROGMEM = "read CCS state, see typedef \"ccs_state_t\"";
 const char h_cmaxcur[]  PROGMEM = "read PP, i.e., max. cable capacity [100mA]";
 const char h_amaxcur[]  PROGMEM = "read max. current signaled to EV via CP [100mA]";
+const char h_aphases[]  PROGMEM = "read enabled phased as set by SSRs [decimal encoding])";
 const char h_cur1[]     PROGMEM = "read current drawn on L1 [10mA]";
 const char h_cur2[]     PROGMEM = "--- dito for L2";
 const char h_cur3[]     PROGMEM = "--- dito for L3";
 const char h_error[]    PROGMEM = "read error flags, see declaration \"g_error\"";
 const char h_save[]     PROGMEM = "use \"save!\" to save configuration to EEPROM";
-const char h_smaxcur[]  PROGMEM = "read/write max. current available from source [100mA]";
-const char h_phases[]   PROGMEM = "read/write available phases [decimal encoding]"; 
+const char h_smaxcur[]  PROGMEM = "read/write max. current available from supply [100mA]";
+const char h_sphases[]  PROGMEM = "read/write available phases from supply [decimal encoding]"; 
 const char h_sigrel[]   PROGMEM = "use \"sigrel!\"/\"sigrel~\" to en/disable the signal relay";
 const char h_pilots[]   PROGMEM = "use \"pilots!\"/\"piloys~\" to en/disable periodic pilot reading";
 const char h_cpilot[]   PROGMEM = "read CP [V]";
-const char h_cpdtest[]  PROGMEM = "read CP on  nagativ halfwave [-V]";
+const char h_cpnslp[]   PROGMEM = "read CP on  nagativ halfwave [-V]";
 const char h_ppilot[]   PROGMEM = "read PP (same as cmaxcur)[100mA]";
 const char h_cpcur[]    PROGMEM = "read/write max. current indicated to the EV via PWM on CP";
 const char h_rms[]      PROGMEM = "use \"rms!\"/\"rms~\" to en/disable periodic current reading";
@@ -1895,6 +1936,7 @@ const char h_lock[]     PROGMEM = "use \"lock!\"/\"lock~\" to operate the lock";
 const char h_lopnms[]   PROGMEM = "read/write pulse length to open lock [ms]";
 const char h_lclsms[]   PROGMEM = "read/write pulse length to close lock [ms]";
 const char h_ssr[]      PROGMEM = "operate contactors (dec. encoded), use \"ssr~\" for \"all off\"";
+const char h_ccsdmp[]   PROGMEM = "use \"ccsdmp!\" to track CCS state progress";
 const char h_reset[]    PROGMEM = "use \"reset!\" for a soft reset";
 
 // set/get function types
@@ -1917,12 +1959,14 @@ const partable_t partable[]={
   // normal operation
   {"ver",     &g_version,   NULL,        NULL,        h_version}, // g_version can be read from memory
   {"blinks",  &g_blinks,    &g_blinks,   NULL,        h_blinks},  // g_blinks can be read/written from/to memory
+  {"xblinks", &g_xblinks,   &g_xblinks,  NULL,        h_xblinks}, // g_xblinks can be read/written from/to memory
   {"time",    &g_systime,   NULL,        &systime_set,h_time},    // g_systime has explicit setter
   {"temp",    &g_temp,      NULL,        NULL,        h_temp},    // g_temp can be read from memory
   {"vcc",     &g_vcc,       NULL,        NULL,        h_vcc},     // g_vcc can be read from memory
   {"ccss",    &g_ccss_cli,  NULL,        NULL,        h_ccss},    // g_ccs_st can be read from memory
   {"cmaxcur", &g_ppilot,    NULL,        NULL,        h_cmaxcur}, // get cable max current (same as PPilot)
   {"amaxcur", &g_cpcurrent, NULL,        NULL,        h_amaxcur}, // get actual max current as set on PWM
+  {"aphases", &g_ssrphases, NULL,        NULL,        h_aphases}, // get actually enabled phase as set vua SSRs
   {"cur1",    &g_cur1,      NULL,        NULL,        h_cur1},    // read current phase L1
   {"cur2",    &g_cur2,      NULL,        NULL,        h_cur2},    // read current phase L2
   {"cur3",    &g_cur3,      NULL,        NULL,        h_cur3},    // read current phase L3
@@ -1930,15 +1974,15 @@ const partable_t partable[]={
   // configure
 #ifdef MODE_CONFIGURE  
   {"save",    NULL,         NULL,        &conf_save,  h_save},    // save parameters to eeprom
-  {"smaxcur", &p_smaxcur,   &p_smaxcur,  NULL,        h_smaxcur}, // max mains current
-  {"phases",  &p_phases,    &p_phases,   NULL,        h_phases},  // enabled phases (decimal encoding)  
+  {"smaxcur", &p_smaxcur,   &p_smaxcur,  NULL,        h_smaxcur}, // max supply mains current 
+  {"sphases", &p_sphases,   &p_sphases,  NULL,        h_sphases}, // enabled mains supply phases (decimal encoding)  
 #endif  
   // first installation
 #ifdef MODE_INSTALL  
   {"sigrel",  NULL,         NULL,        &sigrel,     h_sigrel},  // operate signal rellay
   {"pilots",  &g_pilots,    NULL,        &pilots,     h_pilots},  // en/disable periodic pilot reading
   {"cpilot",  &g_cpilot,    NULL,        NULL,        h_cpilot},  // ctrl pilot read-back [V]
-  {"cpdtest", &g_cpilot_dt, NULL,        NULL,        h_cpdtest}, // ctrl pilot read-back on low slope, aka "diodtest"
+  {"cpnslp",  &g_cpnslp,    NULL,        NULL,        h_cpnslp},  // ctrl pilot read-back on low slope, aka "diodtest"
   {"ppilot",  &g_ppilot,    NULL,        NULL,        h_ppilot},  // prox pilot read-back [100mA]
   {"cpcur",   &g_cpcurrent, NULL,        &cpcurrent,  h_cpcur},   // set PWM via setter, get from memory [100mA]
   {"rms",     &g_rms,       NULL,        &rms,        h_rms},     // en/disable periodic RMS updates
@@ -1953,6 +1997,7 @@ const partable_t partable[]={
   {"lopnms",  &p_lopnms,    &p_lopnms,   NULL,        h_lopnms},  // time to open lock
   {"lclsms",  &p_lclsms,    &p_lclsms,   NULL,        h_lclsms},  // time to close lock
   {"ssr",     NULL,         NULL,        &ssr,        h_ssr},     // "ssr=123" to activate all SSRs
+  {"ccsdmp",  NULL,         &p_ccsdmp,   NULL,        h_ccsdmp},  // "ccsdmp!" enables tracking of the CCS state
   {"reset",   NULL,         NULL,        &reset,      h_reset},   // softreset "reset!"
 #endif  
   // end of table
@@ -2128,6 +2173,18 @@ main loop
 *************************************************************************
 */
 
+// track CCS state
+void write_ccss(const char* pstr) {
+  if(!p_ccsdmp) return;
+  serial_writeln_sync();
+  serial_write_pgmstr(pstr);
+  serial_write_eol();
+  serial_writeln_async();
+}
+
+// convenience: use progmem
+#define WRITE_CCSS(cstr) write_ccss(PSTR(cstr))
+
 
 // ccs state machine
 void ccs_cb(void) {
@@ -2136,9 +2193,12 @@ void ccs_cb(void) {
   static uint16_t toutC;
   static uint16_t toutW;
   static uint16_t toutP;
-  static int16_t maxcur;
-  static int16_t phases;
-  static int16_t  snscur;
+  static int16_t  amaxcur;
+  static int16_t  aphases;
+  static int16_t  tphases;
+  static int16_t  cur1;
+  static int16_t  cur2;
+  static int16_t  cur3;
   
   // state OFF0: enter all off: wait for confirmed open lock
   if(g_ccs_st==OFF0) {
@@ -2148,18 +2208,33 @@ void ccs_cb(void) {
     pilots(0);
     sigrel(0);
     lock(0);
+    g_button=false;
+    aphases=0;
+    tphases=0;
+    amaxcur=0;
     if(g_lock_st==open) {
-      DBW_CCS(serial_write_pln("% ccs state: OFF0 -> OFF1"));
+      WRITE_CCSS("% ccs state: OFF0 -> OFF1");
       g_ccs_st=OFF1;
     }  
   }  
-  // state OFF1: wait for button press --> state A
+  // state OFF1: wait for operator --> state A
   if(g_ccs_st==OFF1) {
     if(g_button) {
-      DBW_CCS(serial_write_pln("% OFF1 -> A0"));
+      WRITE_CCSS("% OFF1 -> A0");
       g_ccs_st=A0;
     }
-    g_button=false;
+  }  
+  // state OFF9: wait for operator --> state Off0
+  if(g_ccs_st==OFF9) {
+    ssr(0);
+    rms(0);
+    cpcurrent(0);
+    pilots(0);
+    sigrel(0);
+    if(g_button) {
+      WRITE_CCSS("% OFF9 -> OFF0");
+      g_ccs_st=OFF0;
+    }
   }  
   // state A0 (idle): enable CP at 100% for const +12V
   if(g_ccs_st==A0) {
@@ -2168,22 +2243,25 @@ void ccs_cb(void) {
     pilots(1);
     cpcurrent(0);
     sigrel(1);
+    g_button=false;
+    aphases=0;
+    amaxcur=0;
     toutA=g_systicks+30000;
-    DBW_CCS(serial_write_pln("% A0 -> A1"));
+    WRITE_CCSS("% A0 -> A1");
     g_ccs_st=A1;
   }  
   // state A1 (idle): validate EV present, i.e., CP to fall to 9V and appropriate PP -> state B (or timeout)
   if(g_ccs_st==A1) {
     if((g_cpilot==9) && (g_ppilot>0)) {
-      DBW_CCS(serial_write_pln("% A1 -> B0"));
+      WRITE_CCSS("% A1 -> B0");
       g_ccs_st=B0;
     }
     if(TRIGGER_SCHEDULE(toutA)) {
-      DBW_CCS(serial_write_pln("% A1 -> OFF0 (timeout)"));
-      g_ccs_st=OFF0;
+      WRITE_CCSS("% A1 -> OFF9 (timeout)");
+      g_ccs_st=OFF9;
     }
     if(g_button) {
-      DBW_CCS(serial_write_pln("% A1 -> OFF0 (button)"));
+      WRITE_CCSS("% A1 -> OFF0 (button)");
       g_ccs_st=OFF0;
     }
   }  
@@ -2194,110 +2272,137 @@ void ccs_cb(void) {
     pilots(1);
     sigrel(1);
     lock(1);
-    maxcur=p_smaxcur;
-    phases=p_phases;
-    if(maxcur>g_ppilot) maxcur=g_ppilot;
+    g_button=false;
+    aphases=0;
+    amaxcur=0;
     if(g_lock_st==closed) {
-      if((maxcur>=60) && (phases!=0)) {
+      if((p_smaxcur>=60) && (g_ppilot>=60) && (p_sphases!=0)) {
 	toutB=g_systicks+10000;
-        DBW_CCS(serial_write_pln("% B0 -> B1"));    
+        WRITE_CCSS("% B0 -> B1");    
         g_ccs_st=B1;
       } else {
-        DBW_CCS(serial_write_pln("% B0 -> W0"));    
+        WRITE_CCSS("% B0 -> W0 (invalid power)");    
         g_ccs_st=W0;
       }
     }
   }
   // state B1 (EV present and locked): wait for vehicle ready to charge, i.e., CP falls to 6V --> state C (or timeout --> state OFF)
   if(g_ccs_st==B1) {
-    cpcurrent(maxcur);
+    amaxcur=p_smaxcur;
+    if(amaxcur>g_ppilot) amaxcur=g_ppilot;
+    cpcurrent(amaxcur);
     if(g_cpilot==6) {
-      DBW_CCS(serial_write_pln("% B1 -> C0/1"));
+      WRITE_CCSS("% B1 -> C0/1");
       g_ccs_st=C0;
     }
     if(g_button) {
-      DBW_CCS(serial_write_pln("% B1 -> OFF0 (button)"));
+      WRITE_CCSS("% B1 -> OFF0 (button)");
       g_ccs_st=OFF0;
     }
     if(TRIGGER_SCHEDULE(toutB)) {
-      DBW_CCS(serial_write_pln("% B1 -> W0"));
+      WRITE_CCSS("% B1 -> W0 (unhappy with CP-PWM)");
       g_ccs_st=W0;
     }
   }
   // state C0 (EV about to charge): sanity checks
   if(g_ccs_st==C0) {
-    if( (maxcur<60) || (phases==0) || (g_lock_st!=closed) ) {
-      DBW_CCS(serial_write_pln("% C0 -> ERR"));
+    g_button=false;
+    if( (amaxcur<60) || (p_sphases==0) || (g_lock_st!=closed) ) {
+      WRITE_CCSS("% C0 -> ERR");
       g_ccs_st=ERR0;
     } else {
-      DBW_CCS(serial_write_pln("% C0 -> C1"));
+      WRITE_CCSS("% C0 -> C1");
       g_ccs_st=C1;
     }
   }
   // state C1 (EV charging)
   if(g_ccs_st==C1) {
-    cpcurrent(maxcur);
+    aphases=p_sphases;
+    cpcurrent(amaxcur);
     sigrel(1);
-    ssr(phases);
+    ssr(aphases);
     rms(1);
     pilots(1);
-    DBW_CCS(serial_write_pln("% C1 -> C2"));
+    WRITE_CCSS("% C1 -> C2");
     g_ccs_st=C2;
     toutC=g_systicks+30000;
-    snscur=-1;
+    tphases|=g_ssrphases_bin;;
+    cur1=-1;
+    cur2=-1;
+    cur3=-1;
   }  
   // state C2 (EV charging, first 30secs): sense whether current/phases are accepted
   if(g_ccs_st==C2) {
-    if(g_cur1>snscur) snscur=g_cur1;
-    if(g_cur2>snscur) snscur=g_cur2;
-    if(g_cur3>snscur) snscur=g_cur3;
-    if((g_cpilot==9) && (snscur<50)) {
-      DBW_CCS(serial_write_pln("% C2 -> P0 (power not accepted)"));
+    if(g_cur1>cur1) cur1=g_cur1;
+    if(g_cur2>cur2) cur2=g_cur2;
+    if(g_cur3>cur3) cur3=g_cur3;
+    if((g_cpilot==9) && (cur1+cur2+cur3<45) && (g_ssrphases_bin!=0x07)) {
+      WRITE_CCSS("% C2 -> P0 (phases rejected)");
       g_ccs_st=P0;
-    }      
-    if(TRIGGER_SCHEDULE(toutC)) {
-      DBW_CCS(serial_write_pln("% C2 -> C2/3"));
-      g_ccs_st=C3;
-    }  
-  }
-  // state C2/3 (EV charging): sense vehicle can't charge no more, i.e., CP raises to 9V --> state OFF (or button press)
-  if((g_ccs_st==C3) || (g_ccs_st==C3)) {
+    }
     if(g_cpilot!=6) {
-      DBW_CCS(serial_write_pln("% C2 -> OFF0 (pilot)"));
-      g_ccs_st=OFF0;
+      WRITE_CCSS("% C2 -> OFF9 (cpilot)");
+      g_ccs_st=OFF9;
     }
     if(g_button) {
-      DBW_CCS(serial_write_pln("% C2 -> OFF0 (button)"));
+      WRITE_CCSS("% C2 -> OFF0 (button)");
+      g_ccs_st=OFF0;
+    }    
+    if(TRIGGER_SCHEDULE(toutC)) {
+      if((cur1+cur2+cur3<45) && (g_ssrphases_bin!=0x07)) {
+        WRITE_CCSS("% C2 -> P0 (phases rejected)");
+        g_ccs_st=P0;
+      } else {
+        WRITE_CCSS("% C2 -> C3");
+        g_ccs_st=C3;
+      }	
+    }  
+  }
+  // state C3 (EV charging): sense vehicle can't charge no more, i.e., CP raises to 9V --> state OFF (or button press)
+  if(g_ccs_st==C3) {
+    if(g_cpilot!=6) {
+      WRITE_CCSS("% C3 -> OFF9 (cpilot)");
+      g_ccs_st=OFF9;
+    }
+    if(g_button) {
+      WRITE_CCSS("% C3 -> OFF0 (button)");
       g_ccs_st=OFF0;
     }
-    // update configuration
-    if((p_phases!=phases) || (p_smaxcur<60) || (g_ppilot<60)) {
-      DBW_CCS(serial_write_pln("% C2 -> P0"));
+    // update configuration: low power
+    if((p_sphases==0) || (p_smaxcur<60) || (g_ppilot<60)) {
+      amaxcur=0;
+      aphases=0;
+      WRITE_CCSS("% C3 -> P0 (invalid power)");
       g_ccs_st=P0;
     } else { 
-      maxcur=p_smaxcur;
-      phases=p_phases;
-      if(maxcur>g_ppilot) maxcur=g_ppilot;
-      cpcurrent(maxcur);
-      ssr(phases);
-    }
+    if(p_sphases!=aphases) {
+      amaxcur=0;
+      WRITE_CCSS("% C3 -> P0 (phase change)");
+      g_ccs_st=P0;
+    } else { 
+      amaxcur=p_smaxcur;
+      if(amaxcur>g_ppilot) amaxcur=g_ppilot;
+      cpcurrent(amaxcur);
+      ssr(aphases);
+    }}
   }
   // state P0 (EV charging): set timer to pause charging in 10sec
   if(g_ccs_st==P0) {
     cpcurrent(0);
+    g_button=false;
     toutP=g_systicks+10000;
-    DBW_CCS(serial_write_pln("% P0 -> P1"));
+    WRITE_CCSS("% P0 -> P1");
     g_ccs_st=P1;
   }
   // state P1 (EV charging): pause charging
   if(g_ccs_st==P1) {
     if(g_button) {
-      DBW_CCS(serial_write_pln("% W0 -> OFF"));
+      WRITE_CCSS("% W0 -> OFF");
       g_ccs_st=OFF0;
     }  
-    if(TRIGGER_SCHEDULE(toutP)) {
+    if((TRIGGER_SCHEDULE(toutP)) || (g_cpilot!=6)) {
       toutW=g_systicks+10000;
-      DBW_CCS(serial_write_pln("% P1 -> W0"));
+      WRITE_CCSS("% P1 -> W0");
       g_ccs_st=W0;
     }
   }    
@@ -2306,27 +2411,55 @@ void ccs_cb(void) {
     ssr(0);  
     sigrel(0);
     rms(0);
+    g_button=false;
     if(g_button) {
-      DBW_CCS(serial_write_pln("% W0 -> OFF"));
+      WRITE_CCSS("% W0 -> OFF");
       g_ccs_st=OFF0;
     }  
     if(TRIGGER_SCHEDULE(toutW)) {
-      DBW_CCS(serial_write_pln("% W0 -> W1"));
-      g_ccs_st=W1;
+      WRITE_CCSS("% W0 -> W6/7/8/9");
+      // came here for invalid power (from C3 or B0)
+      if((amaxcur==0) && (aphases==0)) g_ccs_st=W6;
+      // came here for unhappy with CP PWM (from B1)
+      if((amaxcur!=0) && (aphases==0)) g_ccs_st=W7;
+      // came here for phase change detect (from C3)
+      if((amaxcur==0) && (aphases!=0)) g_ccs_st=W8;
+      // came here for phases not accepted (C2)
+      if((amaxcur!=0) && (aphases!=0)) g_ccs_st=W9;
     }
-  }    
-  // state W1 (EV idle): wait for power allocation
-  if(g_ccs_st==W1) {    
+  }
+  // state W6/7/8/9: abort via operator buttion
+  if((g_ccs_st>=W6) && (g_ccs_st<=W9)) {
     if(g_button) {
-      DBW_CCS(serial_write_pln("% W1 -> OFF"));
+      WRITE_CCSS("% W6/7/8/9 -> OFF");
       g_ccs_st=OFF0;
-    }  
-    maxcur=p_smaxcur;
-    if(maxcur>g_ppilot) maxcur=g_ppilot;
-    // the third clause either trivially true, when we got here due to phases reconfiguration,
-    // of, if we got here for power not accepted, and hence are waiting for phases reconfiguration
-    if((maxcur>=60) && (p_phases!=0) && (p_phases!=phases)) {
-      DBW_CCS(serial_write_pln("% W1 -> A0"));
+    }
+  }  
+  // state W6 (EV idle): wait for valid power allocation
+  if(g_ccs_st==W6) {    
+    if((p_smaxcur>=60) && (g_ppilot>=60) && (p_sphases!=0)) {
+      WRITE_CCSS("% W6 -> A0");
+      g_ccs_st=A0;
+    }
+  }
+  // state W7 (EV idle): wait for higher CP PWM 
+  if(g_ccs_st==W7) {
+    if((amaxcur<100) && (p_smaxcur>=100) && (g_ppilot>=100) && (p_sphases!=0)) {
+      WRITE_CCSS("% W7 -> A0");
+      g_ccs_st=A0;
+    }
+  }
+  // state W8 (EV idle): implement phase change (same as W6)
+  if(g_ccs_st==W8) {    
+    if((p_smaxcur>=60) && (g_ppilot>=60) && (p_sphases!=0)) {
+      WRITE_CCSS("% W9 -> A0");
+      g_ccs_st=A0;
+    }
+  }
+  // state W9 (EV idle): wait for phase reconfiguratiom unless all phases are exhausted
+  if(g_ccs_st==W9) {
+    if((p_smaxcur>=60) && (g_ppilot>=60) && (p_sphases!=0) && (p_sphases!=aphases) && (tphases==0x07)) {
+      WRITE_CCSS("% W9 -> A0");
       g_ccs_st=A0;
     }
   }
@@ -2334,7 +2467,7 @@ void ccs_cb(void) {
   if(g_ccs_st==ERR0) {
     g_error|=ERR_CCS;
   }  
-  // update cli vartaint of state
+  // update cli variant of state
   g_ccss_cli=g_ccs_st;
 }  
 
@@ -2348,7 +2481,7 @@ void report_cb() {
   const char* parname=NULL;
   int16_t parval;
   // bail out if line is busy
-  if(serial_write_ready()) return;
+  if(!serial_write_ready()) return;
   // figure change of CCS state
   if((parname==NULL) && (g_ccs_st!=rccss)) {
     parname="ccss";
@@ -2469,6 +2602,9 @@ int main(){
       cmdline(ln);
       serial_readln_flush();
     }
+
+    // cancel operator button
+    g_button=false;    
     
   } // loop forever
 

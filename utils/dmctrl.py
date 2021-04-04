@@ -101,8 +101,9 @@ class CommandTCPHandler(socketserver.BaseRequestHandler):
                 reply = self.request.recv(1024).strip(b'\0x0 \n\r')
                 jreply=json.loads(reply)
                 if jreply['mtype'] != "heartbeat":
-                    print(reply.decode("utf-8"))
-                    now=time.time()
+                    if jreply['mtype'] != "targetlog":
+                        print(reply.decode("utf-8"))
+                        now=time.time()
                 if time.time()-now > 3:
                     break
         except socket.error:
@@ -202,7 +203,7 @@ class AvrflashTCPHandler(socketserver.BaseRequestHandler):
                     print("writing firmware to target AVR succeeded")
 
         # done        
-        print('shutting down demesh avrots server')
+        print('shutting down demesh avrota server')
         shutdown_evt.set()
 
 

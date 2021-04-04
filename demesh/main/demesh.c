@@ -49,10 +49,10 @@ repository.
 ===========================================================================
 */
 
-// firmware revision 2021-04-03 
+// firmware revision 2021-04-04 
 
 // firmware version string for OTA (hardcoded format "<OneDigit>.<OneDigit>")
-#define DEMESH_VERSION "1.2"
+#define DEMESH_VERSION "1.8"
 
  
 // minimum includes
@@ -86,32 +86,30 @@ static char* g_upgrade_version=NULL;
 static char* g_upgrade_board=NULL;
 static esp_mqtt_client_handle_t g_mqtt_client=NULL;
 static int g_mqtt_stop=0;
+static bool g_debug_target=false;
 
 
 // DEMESH globals, local copy of target uC state for heartbeat
 // Note: we should be transparent regarding the target state interface
-static int g_heartbeat_period=5000;  // period to send heartbeat in ms
+static int g_heartbeat_period=10000;  // period to send heartbeat in ms
 static int g_tstate_version=0;    // target uC firmware version 
 static int g_tstate_ccss=0;       // state in CCS charging scheme (0<>idle ... 30<> charging, >=50 error)
-static int g_tstate_phases=0;     // phases to operate  
-static int g_tstate_smaxcur=0;    // max current per phase by mains supply (unit 100mA, aka "10" reads "1A")
-static int g_tstate_cmaxcur=0;    // max current per phase by charging cable (unit 100mA, aka "10" reads "1A")
-static int g_tstate_cur1=0;       // actual current drawn on phase 1 (unit 100mA %)
-static int g_tstate_cur2=0;       // actual current drawn on phase 1 (unit 100mA %)
-static int g_tstate_cur3=0;       // actual current drawn on phase 1 (unit 100mA %)
+static int g_tstate_sphases=0;    // phases allocated by remote server    
+static int g_tstate_aphases=0;    // actual phases enabled by SSRs (matches sphases in simulation)  
+static int g_tstate_smaxcur=0;    // max current allocated by remote server (per phase, unit 100mA, aka "10" reads "1A")
+static int g_tstate_cmaxcur=100;  // max current allowed by charging cable (per phase, unit 100mA)
+static int g_tstate_amaxcur=0;    // actual max current as indicated by CP (unit 100mA, matches min(smaxcur,cmaxcur) in simulation)
+static int g_tstate_cur1=0;       // current drawn on phase 1 (unit 100mA)
+static int g_tstate_cur2=0;       // current drawn on phase 1 (unit 100mA)
+static int g_tstate_cur3=0;       // current drawn on phase 1 (unit 100mA)
 
 // DEMESH globals, target uC control parameters (used for simulation only)
-static int g_tcontrol_blinks=-1;       // operator button flash light 
-static int g_tcontrol_smaxcur=-1;      // current allowed by supply (unit 100mA)
-static int g_tcontrol_cmaxcur=-1;      // current allowed by cable (unit 100mA) (convenience remote overwrite)
-static int g_tcontrol_phases=-1;       // enabled phases (i.e. "1" for use phase 1 only) 
-static int g_tcontrol_opbutton=-1;     // operator button pressed (convenience remote overwrite)
+static int g_tcontrol_blinks=-1;       // server to overwrite operator button flash light 
+static int g_tcontrol_sphases=-1;      // server to allocate phases to use (i.e. "1" for use phase 1 only) 
+static int g_tcontrol_smaxcur=-1;      // server to allocate current (per phase, unit 100mA)
+static int g_tcontrol_cmaxcur=-1;      // set current allowed by cable (unit 100mA) (convenience remote overwrite)
+static int g_tcontrol_opbutton=-1;     // set button pressed (convenience remote overwrite)
 
-// DEMESH globals, debug server
-static bool g_debug_target=false;
-static int g_sockfd_telnet    = -1;
-static int g_sockfd_optiboot    = -1;
-static int g_station_cnt    = 0;
 
 // convenience macros to printf the least significant bytes of a MAC address (Mesh Id)
 #define LSDMAC2STR(a) (a)[2], (a)[3], (a)[4], (a)[5]
@@ -125,7 +123,7 @@ static int g_station_cnt    = 0;
 static TickType_t systime(void);
 
 // forward declr.: trigger heartbeat (published via MQTT and sent over plain TCP socket) 
-//static void heartbeat_trigger(void);
+static void heartbeat_trigger(void);
 
 
 /*
@@ -307,9 +305,9 @@ static void status_screen_update_b(void)
     char strbuff[50];
     sprintf(strbuff, "CTRL22 v%.1f             ",g_tstate_version/10.0);
     TFT_print(strbuff, 5, 0);
-    sprintf(strbuff, "CCSState: %2d[P=%03d]", g_tstate_ccss, g_tstate_phases);
+    sprintf(strbuff, "CCSState: %2d[P=%03d]", g_tstate_ccss, g_tstate_aphases);
     TFT_print((char *)strbuff, 5, 12);
-    sprintf(strbuff, "SMaxCur:       %4.1f", g_tstate_smaxcur/10.0);
+    sprintf(strbuff, "AMaxCur:       %4.1f", g_tstate_amaxcur/10.0);
     TFT_print((char *)strbuff, 5, 24);
     sprintf(strbuff, "Current 1:     %4.1f", g_tstate_cur1/10.0);
     TFT_print(strbuff, 5, 36);
@@ -431,15 +429,6 @@ static void init_devices(void)
 #define AVR_OPT_BADDR                     // target AVR: Optiboot_x uses byte addresses as opposed to word addresses
 #define AVR_OPT_TADDR   0x200             // target AVR: offset for application code 0.5kByte (botloader)
 
-
-
-/*
-#define AVR_BAUDRATE  57600               // target AVR serial: baudrate (format always is "8N1", old arduino nano takes 57600)
-#define AVR_RST_GPIO  GPIO_NUM_5          // target AVR: how to reset
-#define AVR_RST_ACTIVE  0                 // target AVR: dont need to be active high for "run"
-#define AVR_IMG_CNT     (31*1024)         // target AVR: size of firmware (e.g. arduino nano "32k - bootloader")
-#define AVR_OPT_CNT     128               // target AVR: byte count per page write (128 bytes are common practice)
-*/
 
 void init_devices(void)
 {
@@ -723,10 +712,75 @@ II: collect and flash AVR firmware images.
 // (see below for the simulation of a target uC otherwise)
 #ifdef AVR_PRESENT
 
-
-// mutex for AVR UART communications (so far, there are no competing tasks
-// and "node_read_task" exclusively uses the UART -- this however may change)
+// mutex for AVR UART communications
 SemaphoreHandle_t g_avruart_mutex;
+
+// have an event queue for UART events
+static QueueHandle_t g_avruart_queue;
+
+// last line (adjust with TX buffer
+static char g_avruart_lline[256+1];
+
+// have a task to monitor the UART event queue
+static void avruart_event_task(void *arg) {
+    uart_event_t event;
+    uint8_t sta_mac[MWIFI_ADDR_LEN] = {0};
+    mwifi_data_type_t data_type     = {0};
+    char* data;
+    size_t size;
+    mdf_err_t ret                   = MDF_OK;
+
+    // loop forever
+    while(true) {
+        // waiting for UART event.
+        if(xQueueReceive(g_avruart_queue, (void * )&event, (portTickType)portMAX_DELAY)) {
+            switch(event.type) {
+            // received data
+	    /*  
+            case UART_DATA:
+	        if(xSemaphoreTake(g_avruart_mutex,0)!=pdTRUE) break; 
+                MDF_LOGI("avruart_event_task: received stray data #%d", event.size);
+                uart_read_bytes(UART_NUM_1, (uint8_t*) g_avruart_lline, event.size, portMAX_DELAY);
+		if(dtmp[0]=='[') heartbeat_trigger();
+                xSemaphoreGive(g_avruart_mutex);
+		break;
+	    */
+	    // found end-of-line mark '\n'		
+            case UART_PATTERN_DET:
+		if(xSemaphoreTake(g_avruart_mutex,0)!=pdTRUE) break; 
+                int pos = uart_pattern_pop_pos(UART_NUM_1);
+		if(pos>=0) {
+  		    uart_read_bytes(UART_NUM_1, (uint8_t*) g_avruart_lline, pos+1, 100 / portTICK_PERIOD_MS);
+		    g_avruart_lline[pos]=0;
+                    if(pos>0) if(g_avruart_lline[pos-1]=='\r') g_avruart_lline[pos-1]=0;
+                    MDF_LOGI("avruart_event_task: received stray line #%s", g_avruart_lline);
+	            // insist in mesh
+                    if(mwifi_is_connected()) {	  
+                        // get mesh config
+                        esp_wifi_get_mac(ESP_IF_WIFI_STA, sta_mac);
+                        // compose and send message (TODO: JSON escape)
+                        size = asprintf(&data,
+	                "{\"src\":\"" MACSTR "\",\"mtype\":\"targetlog\",\"line\":\"%s\"}\r\n",MAC2STR(sta_mac), g_avruart_lline);
+                        ret = mwifi_write(NULL, &data_type, data, size, true); 
+                        if(ret != MDF_OK)  
+                            MDF_LOGD("avruart_event_task:  mwifi_write error (%s)", mdf_err_to_name(ret));
+                        MDF_FREE(data);
+		   }
+		}
+                
+                xSemaphoreGive(g_avruart_mutex);
+		break;
+            // others events
+            default:
+                MDF_LOGI("avruart_event_task: ignoring evtype %d", event.type);
+                break;
+	    }
+        }
+    }
+
+    // goodbye (never get here)
+    vTaskDelete(NULL);
+}
 
 // line buffer size
 #define MAX_LINE 128
@@ -792,7 +846,8 @@ int avrreadln(char* str, int timeout) {
     if(pos>0) if(str[pos-1]=='\r') str[pos-1]=0;
     MDF_LOGI("avrreadln: ok \"%s\"",str);
     return MDF_OK;
-}    
+}
+
 
 // Set a parameter on the target AVR
 // return MDF_OK or MDF_FAIL
@@ -839,7 +894,7 @@ int command_avrsetpar(char* par, int val) {
     if(val!=rval) {
       MDF_LOGI("avrsetpar: failed validation)");
       goto FREE_MEM;
-    }    
+    }
     // done, give away mutex
     ret = MDF_OK;
 
@@ -895,31 +950,41 @@ FREE_MEM:
     return ret;
 }
 
-// get entire target state
+// convenience: get entire target state
 int command_avrgetstate(void) {
-  int ret=MDF_OK;
-  if(command_avrgetpar("ccss", &g_tstate_ccss)!=MDF_OK) ret=MDF_FAIL;
-  if(command_avrgetpar("cmaxcur", &g_tstate_cmaxcur)!=MDF_OK) ret=MDF_FAIL;
-  if(command_avrgetpar("smaxcur", &g_tstate_smaxcur)!=MDF_OK) ret=MDF_FAIL;
-  if(command_avrgetpar("phases", &g_tstate_phases)!=MDF_OK) ret=MDF_FAIL;
-  if(command_avrgetpar("cur1", &g_tstate_cur1)!=MDF_OK) ret=MDF_FAIL;
-  if(command_avrgetpar("cur2", &g_tstate_cur2)!=MDF_OK) ret=MDF_FAIL;
-  if(command_avrgetpar("cur3", &g_tstate_cur3)!=MDF_OK) ret=MDF_FAIL;
-  if(ret!=MDF_OK) g_tstate_ccss=0x7f;
-  // make compiler happy (unused simulation parameters) 
-  g_tcontrol_blinks=-1;
-  g_tcontrol_smaxcur=-1;
-  g_tcontrol_cmaxcur=-1;
-  g_tcontrol_phases=-1;
-  g_tcontrol_opbutton=-1;
-  return ret;
-}  
+    int ret=MDF_OK;
+    if(command_avrgetpar("ccss", &g_tstate_ccss)!=MDF_OK) ret=MDF_FAIL;
+    if(command_avrgetpar("cmaxcur", &g_tstate_cmaxcur)!=MDF_OK) ret=MDF_FAIL;
+    if(command_avrgetpar("amaxcur", &g_tstate_amaxcur)!=MDF_OK) ret=MDF_FAIL;
+    if(command_avrgetpar("aphases", &g_tstate_aphases)!=MDF_OK) ret=MDF_FAIL;
+    if(command_avrgetpar("smaxcur", &g_tstate_smaxcur)!=MDF_OK) ret=MDF_FAIL;
+    if(command_avrgetpar("sphases", &g_tstate_sphases)!=MDF_OK) ret=MDF_FAIL;
+    if(command_avrgetpar("cur1", &g_tstate_cur1)!=MDF_OK) ret=MDF_FAIL;
+    if(command_avrgetpar("cur2", &g_tstate_cur2)!=MDF_OK) ret=MDF_FAIL;
+    if(command_avrgetpar("cur3", &g_tstate_cur3)!=MDF_OK) ret=MDF_FAIL;
+    if(ret!=MDF_OK) g_tstate_ccss=0x7f;
+    // make compiler happy (unused simulation parameters) 
+    g_tcontrol_blinks=-1;
+    g_tcontrol_sphases=-1;
+    g_tcontrol_smaxcur=-1;
+    g_tcontrol_cmaxcur=-1;
+    g_tcontrol_opbutton=-1;
+    return ret;
+}
 
+// convenience: overwrite target blinks
+int command_avrsetblinks(void) {
+    int xblinks=0;
+    // overwrite with mesh status
+    if(!mwifi_is_connected()) xblinks=3;
+    if(g_upgrade_stage>0) xblinks=20;
+    return command_avrsetpar("xblinks",xblinks);
+}  
 
 // sync AVR systime (invoked as timer callback)
 // this is just like "command_avrsetpar("time",systime())" except if we actually
 // invoked that function we would suffer inaccuracy due to task switching, mutexes etc.
-static void command_avrsettime_cb(void *timer) {
+static void command_avrsettime(void) {
     char *avrstr           = NULL;
     if(xSemaphoreTake(g_avruart_mutex, 1000/portTICK_PERIOD_MS) != pdTRUE)
        return;
@@ -956,16 +1021,18 @@ typedef struct {
 
 // name to target uC table (NULL-terminated, for simulation only)
 const tpartable_t g_tpartable[]={
-    {"ver",     &g_tstate_version,   NULL},
-    {"blinks",  NULL,                &g_tcontrol_blinks},
-    {"smaxcur", &g_tstate_smaxcur,   &g_tcontrol_smaxcur},
-    {"cmaxcur", &g_tstate_cmaxcur,   &g_tcontrol_cmaxcur},  // simulation: set cable capacity remotely
-    {"phases",  &g_tstate_phases,    &g_tcontrol_phases},
-    {"ccss",    &g_tstate_ccss,      NULL},
-    {"opbutton",NULL,                &g_tcontrol_opbutton}, // simulation: trigger button remotely
-    {"cur1",    &g_tstate_cur1,      NULL},
-    {"cur2",    &g_tstate_cur2,      NULL},
-    {"cur3",    &g_tstate_cur3,      NULL},
+    {"ver",      &g_tstate_version,   NULL},
+    {"blinks",   NULL,                &g_tcontrol_blinks},
+    {"sphases",  &g_tstate_sphases,   &g_tcontrol_sphases},
+    {"aphases",  &g_tstate_aphases,   NULL},
+    {"smaxcur",  &g_tstate_smaxcur,   &g_tcontrol_smaxcur},
+    {"cmaxcur",  &g_tstate_cmaxcur,   &g_tcontrol_cmaxcur},  // simulation: set cable capacity remotely
+    {"amaxcur",  &g_tstate_amaxcur,   NULL},
+    {"ccss",     &g_tstate_ccss,      NULL},
+    {"opbutton", NULL,                &g_tcontrol_opbutton}, // simulation: trigger button remotely
+    {"cur1",     &g_tstate_cur1,      NULL},
+    {"cur2",     &g_tstate_cur2,      NULL},
+    {"cur3",     &g_tstate_cur3,      NULL},
     { NULL, NULL, NULL}
 };
 
@@ -1004,7 +1071,7 @@ int command_avrgetpar(const char* p, int* v)   {
 };
 
 // dummies for target uC serial comms: silently ignore set target uC time
-void command_avrsettime_cb(void* timer) {
+void command_avrsettime(void) {
 };
 
 // dummies for target uC serial comms: silently ignore get target uC state
@@ -1012,21 +1079,29 @@ int command_avrgetstate(void) {
     return MDF_OK;
 }  
 
+// dummies for target uC serial comms: silently ignore set target uC blinks
+int command_avrsetblinks(void) {
+    return MDF_OK;
+}  
 
 
 // This task is called with a 1000ms period and is meant to simulate EV charging.
 // It assumes that fake hardware will set g_tcontrol_opbutton to mimic operator interaction
 // (e.g. M5Stick via button B). This task will directly write on relevant components of
 // the local copy of the target uC state, which are in turn forwarded via the periodical heartbeat.
-static void simulate_target_cb(void *timer) {
+static void simulate_target_tcb(void *timer) {
     // pseudo globals for simulation state
     static int ccss=0;
     static int level=0;
-    static int smaxcur=0;
-    static int cmaxcur=100; // default to a 10A cable to facilitate simulation
-    static int bphases=0;
+    static int maxcur=0;
     static int expire=0;
-    static const int capacity=1000;
+    static int aphases=0;   
+    static int amaxcur=0;   
+    static int cur1=0;
+    static int cur2=0;
+    static int cur3=0;
+    // battery capacity (unit Asec; 2000Asec <> approx 1min when charged with 3x32A) 
+    static const int capacity=2000;
     // have fake version number (reads "v0.0" nor "none" to indicate simulation)
     g_tstate_version=0;
     // forward blink to e.g. m5stick
@@ -1034,9 +1109,14 @@ static void simulate_target_cb(void *timer) {
       g_blinks=g_tcontrol_blinks;
       g_tcontrol_blinks=-1;
     }  
+    // allocated phases are set by g_tcontrol_sphases
+    if(g_tcontrol_sphases>=0) {
+        g_tstate_sphases=g_tcontrol_sphases;
+	g_tcontrol_sphases=-1;
+    }
     // allocated smaxcur is set by g_tcontrol_smaxcur and expires after 20sec
     if(g_tcontrol_smaxcur >= 0) {
-        smaxcur= g_tcontrol_smaxcur;
+        g_tstate_smaxcur = g_tcontrol_smaxcur;
         g_tcontrol_smaxcur=-1;
         expire=20; 
     }  
@@ -1044,76 +1124,107 @@ static void simulate_target_cb(void *timer) {
         expire--;
     }
     if(expire==0) {
-        smaxcur=0;
+      // g_tstate_smaxcur=0; // TODO: periodic  update by server software
     }
     // cable capacity cmaxcur is set by g_tcontrol_cmaxcur remotely
     if(g_tcontrol_cmaxcur>=0) {
-        cmaxcur=g_tcontrol_cmaxcur;
+        g_tstate_cmaxcur=g_tcontrol_cmaxcur;
 	g_tcontrol_cmaxcur=-1;
     }	
-    // copy local state to externally accessible state
-    g_tstate_smaxcur=smaxcur;
-    g_tstate_cmaxcur=cmaxcur;    
-    // copy and decode phase from control data
-    if(g_tcontrol_phases>=0) {
-        bphases=0;
-        int dphases=g_tcontrol_phases;
-        while(dphases>0) {
-            int lsd=dphases % 10;
-            if(lsd>0) bphases |= (0x1 << (lsd-1));
-            dphases = dphases /10;
-        }  
-        g_tstate_phases=g_tcontrol_phases;
-	g_tcontrol_phases=-1;
-    }
-    // CCS state 0 (OFF): wait for operator button (mimiqued e.g. by M5Stick button B)
-    if(ccss==0) {
-      g_tstate_cur1=0;
-      g_tstate_cur2=0;
-      g_tstate_cur3=0;   
-      if(g_tcontrol_opbutton ==1) {
-	g_tcontrol_opbutton =-1;
-	ccss=1;
-      }	
-    }
-    // CCS state 1 (A): wait for car (ignored in simulation)
-    if(ccss==1) {
-        ccss=2;
-    }  
-    // CCS state 2 (B): wait for load allocation
-    if(ccss==2) {
-        if((smaxcur>50) && (bphases!=0)) {
-            level=0;
-            ccss=3;
-        }  
+    // CCS state 0x (OFF): wait for operator button 
+    if(ccss==00) {
+        // all passive
+        aphases=0;   
+        amaxcur=0;   
+        cur1=0;
+        cur2=0;
+        cur3=0;
+	// sense button
         if(g_tcontrol_opbutton ==1) {
    	    g_tcontrol_opbutton =-1;
-   	    ccss=0;
+	    ccss=10;
+        }	
+    }
+    // CCS state 1x (A): wait for car (ignored in simulation)
+    if(ccss==10) {
+        // all passive
+        aphases=0;   
+        amaxcur=0;   
+        cur1=0;
+        cur2=0;
+        cur3=0;   
+        ccss=20;
+    }  
+    // CCS state 2x (B): wait for load allocation
+    if(ccss==20) {
+        // all passive
+        aphases=0;   
+        amaxcur=0;   
+        cur1=0;
+        cur2=0;
+        cur3=0;
+	// load allocation ==> proceed
+        maxcur=g_tstate_smaxcur;
+	if(maxcur>g_tstate_cmaxcur) maxcur=g_tstate_cmaxcur;
+        if((maxcur>=60) && (g_tstate_sphases!=0)) {
+            level=0;
+            ccss=30;
+        }  
+	// button ==> abort
+        if(g_tcontrol_opbutton ==1) {
+   	    g_tcontrol_opbutton =-1;
+   	    ccss=00;
 	} 
     }
-    // CCS state 3 (C): run primitive PT1-style charging curves
-    if(ccss==3) {
+    // CCS state 3x (C): run primitive PT1-style charging curves
+    if(ccss==30) {
+        // activate SSRs and CP  
+        aphases=g_tstate_sphases;
+        amaxcur=g_tstate_smaxcur;
+	if(amaxcur>g_tstate_cmaxcur) amaxcur=g_tstate_cmaxcur;
+  	// PT1 charging curve
         int cur = 320.0 * (capacity - level) / capacity; // max 32A
-        if(cur>smaxcur) cur=smaxcur; // limit current by supply
-        if(cur>cmaxcur) cur=cmaxcur; // limit current by cable
-        if(cur<50) cur=0;            // min 5A
-        g_tstate_cur1= bphases & 0x01 ? cur : 0;
-        g_tstate_cur2= bphases & 0x02 ? cur : 0;
-        g_tstate_cur3= bphases & 0x04 ? cur : 0;
-        level+= cur*0.1;  // scale timing 0.1 <> 40sec for one charge
-        if(cur==0) ccss=0;
-        if(bphases==0) ccss=0;
+	// limit by CP
+        if(cur>amaxcur) cur=amaxcur;
+	// insist in min 5A
+        if(cur<50) cur=0;
+	// measure current
+        cur1=0;
+        cur2=0;
+        cur3=0;
+        int dphases=aphases;
+        while(dphases>0) {
+            int lsd=dphases % 10;
+	    switch(lsd) {
+	    case 1: cur1=cur; break;
+	    case 2: cur2=cur; break;
+	    case 3: cur3=cur; break;
+	    default: break;
+	    }  
+            dphases = dphases /10;
+        }  
+	// integrate charge 
+        level+= (cur1+cur1+cur1)*0.1 + 0.5;
+	// identify end of charging cycle
+        if(cur==0) ccss=00;
+        if(aphases==0) ccss=00;
+	// abort on operator request
         if(g_tcontrol_opbutton ==1) {
 	    g_tcontrol_opbutton =-1;
-            ccss=0;
+            ccss=00;
 	}
     }
     // clear opbutton anyway
     g_tcontrol_opbutton=0;
-    // copy local state (one extra digit for compatibility with actual AGCCS hardware)
-    if(g_tstate_ccss!=10*ccss) {
-        g_tstate_ccss=10*ccss;
-        //heartbeat_trigger();
+    // copy local states 
+    g_tstate_aphases=aphases;   
+    g_tstate_amaxcur=amaxcur;   
+    g_tstate_cur1=cur1;
+    g_tstate_cur2=cur2;
+    g_tstate_cur3=cur3;
+    if(g_tstate_ccss!=ccss) {
+        g_tstate_ccss=ccss;
+        heartbeat_trigger();
     }     
 }
 
@@ -1452,7 +1563,7 @@ int command_avrota_flash(int avrimgcnt) {
     if(avrflash()!=MDF_OK) {
         return MDF_FAIL;
     }	
-    command_avrsettime_cb(NULL);
+    command_avrsettime();
     // back to reset
     g_avrstate=0;
     return MDF_OK;
@@ -1562,7 +1673,7 @@ The remainder is just about the mesh ourselfs ...
    name (e.g. "demesh v3.4 (m5stick)") and filename on the server
    (e.g. "demesh_m5stick_3_4.bin")
  - the firmware name is used by the individual nodes to decide whether 
-   or not to accept the update; see "mesh_event_cb" in this regard
+   or not to accept the update; see "mesh_event_ecb" in this regard
  **********************************************************************
  **********************************************************************
  */
@@ -1747,7 +1858,7 @@ void upstream_read_task(void *arg)
 		   CONFIG_UPSTREAM_SERVER_IP, CONFIG_UPSTREAM_SERVER_PORT);
 	    } else {   
 	        vTaskDelay(2000 / portTICK_PERIOD_MS);
-                MDF_ERROR_CONTINUE(g_sockfd < 0, "<%s> upstream task failed to connect to server", strerror(errno));
+                MDF_ERROR_CONTINUE(g_sockfd < 0, "upstream task failed to connect to server (%s)", strerror(errno));
 	    }
 	}  
 		  
@@ -1859,6 +1970,7 @@ static void root_read_task(void *arg)
     cJSON *json_mtype                 = NULL;
     char hbmsg =0;
     char akmsg =0;
+    char lgmsg =0;
     
   
     MDF_LOGI("Root read task is running");
@@ -1894,7 +2006,7 @@ static void root_read_task(void *arg)
         // dispatch: forward to tcp upstream server
         if (g_sockfd > 0) {
   	    ret = write(g_sockfd, data, size);
-            MDF_ERROR_CONTINUE(ret <= 0, "<%s> root read failed when forwarding message to upstream server", strerror(errno));
+            MDF_ERROR_CONTINUE(ret <= 0, "root read failed when forwarding message to upstream server (%s)", strerror(errno));
 	}
 
 	// dispatch: forward to mqtt broker
@@ -1909,49 +2021,51 @@ static void root_read_task(void *arg)
             MDF_ERROR_GOTO(!json_mtype, MQTT_FAIL, "Root read: mqtt forward: parse error: no mtype");            
             MDF_ERROR_GOTO(!cJSON_IsString(json_mtype), MQTT_FAIL, "Root read: mqtt forward: invalid mtype a");
 
-            // only forward heartbeat, system, and status messages.
+            // only forward relevant message types.
 	    hbmsg = !strcmp(json_mtype->valuestring,"heartbeat");
-	    akmsg = !strcmp(json_mtype->valuestring,"system");
-	    akmsg |= !strcmp(json_mtype->valuestring,"status");  
-	    akmsg |= !strcmp(json_mtype->valuestring,"avrgetpar");  
-	    akmsg |= !strcmp(json_mtype->valuestring,"avrsetpar");  
-	    akmsg |= !strcmp(json_mtype->valuestring,"avrimg");  
-	    akmsg |= !strcmp(json_mtype->valuestring,"avrota");  
-	    if(hbmsg || akmsg) {
-	   
-		// prepare payload: remove mtype from heartbeat message
-	        /*
-	        if(hbmsg) {
-	          cJSON_DetachItemViaPointer(json_root,json_mtype);
-	          cJSON_Delete(json_mtype);
-		} 
-                */ 
+	    lgmsg = !strcmp(json_mtype->valuestring,"targetlog");
+	    akmsg = !(hbmsg || lgmsg);
 
-		// prepare payload: replace "mac-style src" by "mqtt-style dev"
-	        snprintf(srcdev,13,NOCMACSTR,NOCMAC2STR(src_addr));
-		json_dev=cJSON_CreateStringReference(srcdev);
-		cJSON_AddItemToObject(json_root,"dev",json_dev);
-	        cJSON_DetachItemViaPointer(json_root,json_dev);
-	        cJSON_ReplaceItemViaPointer(json_root,json_src,json_dev);
+	    /*
+	    // cosmetic: remove mtype from heartbeat
+	    if(hbmsg) {
+	        cJSON_DetachItemViaPointer(json_root,json_mtype);
+	        cJSON_Delete(json_mtype);
+	    }
+            */ 
 
-                // convert message to string
-                rdata = cJSON_PrintUnformatted(json_root);
-	        rdsize=strlen(rdata);
+            // replace "mac-style src" by "mqtt-style dev"
+	    snprintf(srcdev,13,NOCMACSTR,NOCMAC2STR(src_addr));
+	    json_dev=cJSON_CreateStringReference(srcdev);
+	    cJSON_AddItemToObject(json_root,"dev",json_dev);
+	    cJSON_DetachItemViaPointer(json_root,json_dev);
+	    cJSON_ReplaceItemViaPointer(json_root,json_src,json_dev);
+
+            // convert message to string
+            rdata = cJSON_PrintUnformatted(json_root);
+	    rdsize=strlen(rdata);
 		
-	        // publish (heartbeat messages have topic 'heartbeat', anything else has topic 'achnowledge')
-		if(hbmsg)
-  	          asprintf(&rtopic, "/" CONFIG_MESH_ID "/" NOCMACSTR "/heartbeat" , NOCMAC2STR(src_addr));
-		else
-  	          asprintf(&rtopic, "/" CONFIG_MESH_ID "/" NOCMACSTR "/acknowledge" , NOCMAC2STR(src_addr));
-	        if(esp_mqtt_client_publish(g_mqtt_client, rtopic, rdata, rdsize, 0, 0)!=ESP_OK)
-	  	    MDF_LOGW("publishing heartbeat to mqtt broaker failed");
-		else      
-		    MDF_LOGW("publishing heartbeat to mqtt broaker succeeded");
-	    }	
+	    // compose topic
+	    if(hbmsg) {
+  	        asprintf(&rtopic, "/" CONFIG_MESH_ID "/" NOCMACSTR "/heartbeat" , NOCMAC2STR(src_addr));
+	    } else {
+	    if(lgmsg) {
+  	        asprintf(&rtopic, "/" CONFIG_MESH_ID "/" NOCMACSTR "/targetlog" , NOCMAC2STR(src_addr));
+	    } else {
+	    if(akmsg) {
+ 	        asprintf(&rtopic, "/" CONFIG_MESH_ID "/" NOCMACSTR "/acknowledge", NOCMAC2STR(src_addr));
+	    } else {
+	      goto MQTT_FAIL;
+	    }}}	
 
+	    // report success
+	    if(esp_mqtt_client_publish(g_mqtt_client, rtopic, rdata, rdsize, 0, 0)!=ESP_OK)
+	  	 MDF_LOGW("publishing to mqtt broaker failed");
+	    else      
+		 MDF_LOGW("publishing mqtt broaker succeeded");	 
 
    	}	
-    MQTT_FAIL:
+     MQTT_FAIL:
 
 
 
@@ -2160,14 +2274,13 @@ static void node_read_task(void *arg)
         size = MWIFI_PAYLOAD_LEN;
         memset(data, 0, MWIFI_PAYLOAD_LEN);
         ret = mwifi_read(src_addr, &data_type, data, &size, portMAX_DELAY);
-        MDF_ERROR_CONTINUE(ret != MDF_OK, "<%s> node read failed (mwifi_read)", mdf_err_to_name(ret));
+        MDF_ERROR_CONTINUE(ret != MDF_OK, "node mwifi_read failed (%s)", mdf_err_to_name(ret));
         MDF_LOGI("Node read: received data from " MACSTR ", size: %d", MAC2STR(src_addr), size);
 
 	// dispatch: firmware upgrade data
         if (data_type.upgrade) { 
             ret = mupgrade_handle(src_addr, data, size);
-            MDF_ERROR_CONTINUE(ret != MDF_OK, "<%s> mupgrade_handle", mdf_err_to_name(ret));
-            MDF_ERROR_CONTINUE(ret != MDF_OK, "<%s> root read failed (mupgrade_root_handle)", mdf_err_to_name(ret));
+            MDF_ERROR_CONTINUE(ret != MDF_OK, "mupgrade_handle failed (%s)", mdf_err_to_name(ret));
 	    continue;
         }
 
@@ -2234,7 +2347,7 @@ static void node_read_task(void *arg)
 	        MDF_ERROR_GOTO(json_t3, FREE_MEM, "node read parse error (spourious parameter)");
 		if(esp_mesh_is_root()) {
 		    MDF_LOGD("root will not sync systime with parent");
-		    command_avrsettime_cb(NULL);
+		    command_avrsettime();
 		    goto FREE_MEM;
 		}    
  	        json_t1=cJSON_CreateNumber(systime());
@@ -2264,7 +2377,7 @@ static void node_read_task(void *arg)
                 MDF_ERROR_GOTO(!cJSON_IsNumber(json_t2), FREE_MEM, "node read parse error (t2 num)");
 	        TickType_t t3=systime();
 	        if(systime_adjust(json_t1->valueint,json_t2->valueint,t3))
- 	            command_avrsettime_cb(NULL);
+ 	            command_avrsettime();
 		// reply to root only if not self generated
 		if(!strcmp(command, "tsync")) {
                     rsize = asprintf(&rdata,
@@ -2416,44 +2529,26 @@ static void node_read_task(void *arg)
 
 
 /*
-// this is mesh-blink for testing aka ping
-static void node_send_ping_task(void *arg)
+ **********************************************************************
+ **********************************************************************
+ * Periodic tasks heartbeat and synctime
+ **********************************************************************
+ **********************************************************************
+ */
+
+
+// access to the one and only synctime  task per node
+TaskHandle_t g_synctime_task = NULL;
+
+// wake up synctime
+static void synctime_trigger(void)
 {
-    size_t size                     = 0;
-    char *data                      = NULL;
-    mdf_err_t ret                   = MDF_OK;
-    mwifi_data_type_t data_type     = {0};
-    uint8_t sta_mac[MWIFI_ADDR_LEN] = {0};
-
-    MDF_LOGI("Node ping task is running");
-
-    esp_wifi_get_mac(ESP_IF_WIFI_STA, sta_mac);
-
-    while(mwifi_is_connected()) {
-
-        size = asprintf(&data, "{\"src\": \"" MACSTR "\",\"cmd\": \"ping\"}\r\n",
-                        MAC2STR(sta_mac));
-
-        MDF_LOGD("Node ping: send message to root, size: %d, data: %s", size, data);
-        ret = mwifi_write(NULL, &data_type, data, size, true); 
-        if(ret != MDF_OK) { // tm: is there a macro for this construct?
-          MDF_LOGD("<%s> node ping mesh error (mwifi_write)", mdf_err_to_name(ret));
-	}  
-        MDF_FREE(data);
-        vTaskDelay(10000 / portTICK_PERIOD_MS);
-
-    }
-
-    MDF_FREE(data);
-    MDF_LOGW("Node ping task exit");
-
-    vTaskDelete(NULL);
-}
-*/
-
+    if(g_synctime_task==NULL) return;
+    xTaskNotifyGive(g_synctime_task);
+}  
 
 // periodically request for synchronised system time
-static void node_request_time_task(void *arg)
+static void synctime_task(void *arg)
 {
     size_t size                     = 0;
     char *data                      = NULL;
@@ -2461,60 +2556,58 @@ static void node_request_time_task(void *arg)
     mwifi_data_type_t data_type     = {0};
     uint8_t sta_mac[MWIFI_ADDR_LEN] = {0};
  
-   
-    MDF_LOGW("Node request time has started");
+    // hello
+    MDF_LOGW("synctime task has started");
+    g_synctime_task=xTaskGetCurrentTaskHandle();
 
-    while(mwifi_is_connected()) {
+    // run forever
+    while(true) {
 
         // regulary trigger round-trip calculus to sync systime();
         // this is received and handeled in node_read_task; the extra prefix "s"
         // in the command name "stsync" will allow us to distinguish self-generated
         // time scyns from externally ones
-        esp_wifi_get_mac(ESP_IF_WIFI_STA, sta_mac);
-        size = asprintf(&data, "{\"cmd\":\"stsync\"}\r\n");
-        MDF_LOGD("Node request time: send message to myself to trigger roundtrip: " MACSTR ", size: %d, data: %s",
-	    MAC2STR(sta_mac),size,data);
-        ret = mwifi_write(sta_mac, &data_type, data, size, true); 
-        if(ret != MDF_OK) { // tm: is there a macro fo this construct?
-            MDF_LOGD("<%s> node request time mesh error (mwifi_write)", mdf_err_to_name(ret));
-        }  
-        MDF_FREE(data);
+      
+        // insist in mesh
+        if(mwifi_is_connected()) {
+
+ 	    // compose and send message to my parent
+            esp_wifi_get_mac(ESP_IF_WIFI_STA, sta_mac);
+            size = asprintf(&data, "{\"cmd\":\"stsync\"}\r\n");
+            MDF_LOGD("synctime: send message to myself to trigger roundtrip: " MACSTR ", size: %d, data: %s",
+	        MAC2STR(sta_mac),size,data);
+            ret = mwifi_write(sta_mac, &data_type, data, size, true); 
+            if(ret != MDF_OK) { 
+                MDF_LOGD("synctime mwifi_write error (%s)", mdf_err_to_name(ret));
+            }  
+            MDF_FREE(data);
+
+	}    
 
 	// wait for 10+/-1 minutes 
-        vTaskDelay(600000 / portTICK_PERIOD_MS );
-        vTaskDelay( esp_random() / ((0xffffffffU /  60000) / portTICK_PERIOD_MS ) ) ;
+	ulTaskNotifyTake(true, 600000 / portTICK_PERIOD_MS + esp_random() / ((0xffffffffU /  60000) / portTICK_PERIOD_MS) );
 
     }
 
-    MDF_FREE(data);
+    // goodbye (never get here)
     MDF_LOGW("Node request time task is exit");
-
+    g_synctime_task=NULL;
     vTaskDelete(NULL);
 }
 
-/*
- **********************************************************************
- **********************************************************************
- * Periodic heartbeat sysinfo via mesh to root 
- * (both tcp socket and publich via mqtt)
- **********************************************************************
- **********************************************************************
- */
 
 // access to the one and only heartbeat task per node
 TaskHandle_t g_heartbeat_task = NULL;
 
 // wake up heartbeat
-/*
 static void heartbeat_trigger(void)
 {
     if(g_heartbeat_task==NULL) return;
     xTaskNotifyGive(g_heartbeat_task);
 }  
-*/
 
 // send heartbeat every 5secs (or programatic on trigger "heartbeat_trigger")
-static void heartbeat_task(void *qrg)
+static void heartbeat_task(void *arg)
 {
 
     size_t size                     = 0;
@@ -2522,45 +2615,54 @@ static void heartbeat_task(void *qrg)
     mdf_err_t ret                   = MDF_OK;
     mwifi_data_type_t data_type     = {0};
     uint8_t sta_mac[MWIFI_ADDR_LEN] = {0};
-    //mesh_assoc_t mesh_assoc         = {0x0}; // 107 -- not functional, see below
-    wifi_ap_record_t mesh_ap        = {0x0};   // 107 -- functional alternative for rssi
+    wifi_ap_record_t mesh_ap        = {0x0};
    
     // hello
     MDF_LOGW("Heartbeat task starting");
     g_heartbeat_task=xTaskGetCurrentTaskHandle();
 
-    // insist in mesh 
-    while(mwifi_is_connected()) {
+    // run forever
+    while(true) {
 
-        // get mesh data
-        esp_wifi_get_mac(ESP_IF_WIFI_STA, sta_mac);
-        esp_wifi_sta_get_ap_info(&mesh_ap);    // 107 -- functional alternative for rssi
-        // esp_wifi_vnd_mesh_get(&mesh_assoc); // 107 -- not functional
+        // overwrite target uC blinks
+	command_avrsetblinks();
+
+	// sync target uC time
+	command_avrsettime();
 
 	// get target uC state
 	command_avrgetstate();
-	
-        // compose message
-        size = asprintf(&data,
-           "{\"src\":\"" MACSTR "\",\"mtype\":\"heartbeat\",\"rssi\":%d,\"ccss\":%d,\"smaxcur\":%d,\"cmaxcur\":%d,\"phases\":%d,\"cur1\":%d,\"cur2\":%d,\"cur3\":%d}\r\n",
-			MAC2STR(sta_mac), mesh_ap.rssi, g_tstate_ccss, g_tstate_smaxcur, g_tstate_cmaxcur, g_tstate_phases, g_tstate_cur1, g_tstate_cur2, g_tstate_cur3);
 
-        // send message
-        ret = mwifi_write(NULL, &data_type, data, size, true); 
-        if(ret != MDF_OK) { // tm: is there a macro fo this construct?
-            MDF_LOGD("<%s> node heartbeat mesh error (mwifi_write)", mdf_err_to_name(ret));
-        }  
-        MDF_FREE(data);
+	// insist in mesh
+        if(mwifi_is_connected()) {
+	  
+            // get mesh config
+            esp_wifi_get_mac(ESP_IF_WIFI_STA, sta_mac);
+            esp_wifi_sta_get_ap_info(&mesh_ap);   
+
+            // compose and send message
+            size = asprintf(&data,
+               "{\"src\":\"" MACSTR "\",\"mtype\":\"heartbeat\",\"rssi\":%d,\"ccss\":%d,\"amaxcur\":%d,\"cmaxcur\":%d,\"aphases\":%d,\"cur1\":%d,\"cur2\":%d,\"cur3\":%d}\r\n",
+	       MAC2STR(sta_mac), mesh_ap.rssi, g_tstate_ccss, g_tstate_amaxcur, g_tstate_cmaxcur, g_tstate_aphases, g_tstate_cur1, g_tstate_cur2, g_tstate_cur3);
+            ret = mwifi_write(NULL, &data_type, data, size, true); 
+            if(ret != MDF_OK) { 
+                MDF_LOGD("heartbeat mwifi_write error (%s)", mdf_err_to_name(ret));
+            }  
+            MDF_FREE(data);
+
+	}    
 
 	// delay
-	ulTaskNotifyTake(true, g_heartbeat_period / portTICK_PERIOD_MS );
+	ulTaskNotifyTake(true, 0);
+	ulTaskNotifyTake(true, g_heartbeat_period / portTICK_PERIOD_MS);
     }
 
-    // goodbye
+    // goodbye (never get here)
     MDF_LOGW("Heartbeat task terminating");
     g_heartbeat_task=NULL;
     vTaskDelete(NULL);
 }
+
 
 /*
  **********************************************************************
@@ -2570,7 +2672,7 @@ static void heartbeat_task(void *qrg)
  **********************************************************************
  */
 
-static void print_system_info_cb(void *timer)
+static void print_system_info_tcb(void *timer)
 {
     uint8_t primary                 = 0;
     wifi_second_chan_t second       = 0;
@@ -2599,6 +2701,8 @@ static void print_system_info_cb(void *timer)
 
 }
 
+
+
 /*
  **********************************************************************
  **********************************************************************
@@ -2609,7 +2713,7 @@ static void print_system_info_cb(void *timer)
 
 
 // esp-mdf main event loop callback 
-static mdf_err_t mesh_event_cb(mdf_event_loop_t event, void *ctx)
+static mdf_err_t mesh_event_ecb(mdf_event_loop_t event, void *ctx)
 {
     MDF_LOGI("event loop: esp-mdf %d", event);
 
@@ -2625,14 +2729,11 @@ static mdf_err_t mesh_event_cb(mdf_event_loop_t event, void *ctx)
             }
             xTaskCreate(node_read_task, "node_read_task", 4 * 1024,
                         NULL, CONFIG_MDF_TASK_DEFAULT_PRIOTY, NULL);
-            xTaskCreate(node_request_time_task, "node_request_time_task", 4 * 1024,
-                        NULL, CONFIG_MDF_TASK_DEFAULT_PRIOTY, NULL);
-            xTaskCreate(heartbeat_task, "heartbeat_task", 4 * 1024,
-                        NULL, CONFIG_MDF_TASK_DEFAULT_PRIOTY, NULL);
             if (esp_mesh_is_root()) {
 	        xTaskCreate(root_read_task, "root_read_task", 4 * 1024,
                             NULL, CONFIG_MDF_TASK_DEFAULT_PRIOTY, NULL);
             }
+	    synctime_trigger();
 	    break;
 
         case MDF_EVENT_MWIFI_PARENT_DISCONNECTED:
@@ -2702,7 +2803,7 @@ static mdf_err_t mesh_init()
 {
 
     // have mdf event loop, effectively drives all our code
-    MDF_ERROR_ASSERT(mdf_event_loop_init(mesh_event_cb));
+    MDF_ERROR_ASSERT(mdf_event_loop_init(mesh_event_ecb));
 
     // start wifi
     wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
@@ -2757,8 +2858,19 @@ static mdf_err_t mesh_init()
  **********************************************************************
  */
 
+
+
+#ifdef AVR_PRESENT
+
 #define SOFTAP_CHANNEL 7
 
+
+// DEMESH globals, debug server
+static int g_sockfd_telnet    = -1;
+static int g_sockfd_optiboot    = -1;
+static int g_station_cnt    = 0;
+
+// DEMESH globals, debug server task control
 int g_tcpcon_telnet=0;    // 0: not running; 1: running; -1: ask to terminate
 int g_tcpcon_optiboot=0;  // 0: not running; 1: running; -1: ask to terminate
 
@@ -3166,7 +3278,7 @@ void debug_optiboot_listen_task(void *arg)
 
 
 // SoftAP event handler
-static void softap_event_cb(void* arg, esp_event_base_t event_base,
+static void softap_event_ecb(void* arg, esp_event_base_t event_base,
                                     int32_t event_id, void* event_data)
 {
 
@@ -3200,16 +3312,21 @@ static void softap_event_cb(void* arg, esp_event_base_t event_base,
 // set up and start SoftAP
 static mdf_err_t softap_init(void)
 {
-    g_blinks=10;
 
+    // say hello and take serial line mutex
+    g_blinks=10;
+    xSemaphoreTake(g_avruart_mutex,0);
+
+    // start interface
     ESP_ERROR_CHECK(esp_netif_init());
     ESP_ERROR_CHECK(esp_event_loop_create_default());
     esp_netif_create_default_wifi_ap();
 
+    // start wifi
     wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
     MDF_ERROR_ASSERT(esp_wifi_init(&cfg));
     ESP_ERROR_CHECK(esp_event_handler_instance_register(
-        WIFI_EVENT, ESP_EVENT_ANY_ID, &softap_event_cb, NULL, NULL));
+        WIFI_EVENT, ESP_EVENT_ANY_ID, &softap_event_ecb, NULL, NULL));
     
     wifi_config_t wifi_config = {
         .ap = {
@@ -3242,7 +3359,7 @@ static mdf_err_t softap_init(void)
 }
 
 
-
+#endif
 
 
 
@@ -3266,52 +3383,14 @@ void app_main()
     // board devices (LEDs, TFT,  etc, except for the blink led)
     init_devices();
 
-    // figure whether we go to debug mode
-#ifdef DEBUG_GPIO    
-    g_debug_target = ( gpio_get_level(DEBUG_GPIO) == DEBUG_ON );
-#endif    
-   
     // run blink
     xTaskCreate(blink_task, "blink_task", 4 * 1024,
         NULL, CONFIG_MDF_TASK_DEFAULT_PRIOTY, NULL);
-
+   
     // initialise avrflash partition
 #ifdef AVR_PRESENT    
     g_avrimg_part = esp_partition_find_first(ESP_PARTITION_TYPE_DATA, ESP_PARTITION_SUBTYPE_ANY,"avrimg");
     MDF_ERROR_ASSERT(g_avrimg_part!=NULL ? MDF_OK : MDF_FAIL);
-#endif    
-
-
-    // initialise UART1 for AVR (using 256 bytes for RX and TX buffers, resp.)
-#ifdef AVR_PRESENT    
-    const uart_config_t uart_config = {
-        .baud_rate    =  AVR_BAUDRATE,
-        .data_bits    =  UART_DATA_8_BITS,
-        .parity       =  UART_PARITY_DISABLE,
-        .stop_bits    =  UART_STOP_BITS_1,
-        .flow_ctrl    =  UART_HW_FLOWCTRL_DISABLE,
-    };
-    ESP_ERROR_CHECK(uart_param_config(UART_NUM_1, &uart_config));
-    ESP_ERROR_CHECK(uart_set_pin(UART_NUM_1, AVR_TXD_GPIO, AVR_RXD_GPIO, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE));
-    ESP_ERROR_CHECK(uart_driver_install(UART_NUM_1, 256, 256, 0, NULL, 0));
-
-    // test uart e.g. with hardware echo
-    /*
-    while(1) {
-      char reply[256];
-      int cnt;
-      cnt= uart_write_bytes(UART_NUM_1, "HelloWorldEsp\r\n", 15);
-      uart_wait_tx_done(UART_NUM_1, 1000 / portTICK_RATE_MS);
-      MDF_LOGD("tx: #%d bytes", cnt);
-      cnt = uart_read_bytes(UART_NUM_1, (unsigned char*) reply, 256, 1000 / portTICK_RATE_MS);
-      reply[cnt]=0;
-      MDF_LOGD("rx: %s (#%d)", reply,cnt);
-    } 
-    */
-
-    // have a mutex for AVR UART communications
-    g_avruart_mutex = xSemaphoreCreateMutex();
-
 #endif    
 
     // both mesh and softap need nvs
@@ -3322,37 +3401,62 @@ void app_main()
     }
     MDF_ERROR_ASSERT(ret);
 
-    // start network
+
+#ifdef AVR_PRESENT    
+    // initialise UART1 for AVR (using 256 bytes for RX and TX buffers, resp.)
+    const uart_config_t uart_config = {
+        .baud_rate    =  AVR_BAUDRATE,
+        .data_bits    =  UART_DATA_8_BITS,
+        .parity       =  UART_PARITY_DISABLE,
+        .stop_bits    =  UART_STOP_BITS_1,
+        .flow_ctrl    =  UART_HW_FLOWCTRL_DISABLE,
+    };
+    ESP_ERROR_CHECK(uart_param_config(UART_NUM_1, &uart_config));
+    ESP_ERROR_CHECK(uart_set_pin(UART_NUM_1, AVR_TXD_GPIO, AVR_RXD_GPIO, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE));
+
+    // install adriver with event queue
+    ESP_ERROR_CHECK(uart_driver_install(UART_NUM_1, 256, 256, 20, &g_avruart_queue, 0));
+
+    // detect single '\n' with 20 places in teh queue
+    uart_enable_pattern_det_baud_intr(UART_NUM_1, '\n', 1, 9, 0, 0);
+    uart_pattern_queue_reset(UART_NUM_1, 20);
+
+    // have a mutex for AVR UART communications
+    g_avruart_mutex = xSemaphoreCreateMutex();
+
+    // monitor uart events
+    xTaskCreate(avruart_event_task, "avruart_event_task", 4 * 1024, NULL, CONFIG_MDF_TASK_DEFAULT_PRIOTY, NULL);
+
+    // figure whether we go to debug mode
+#ifdef DEBUG_GPIO    
+    g_debug_target = ( gpio_get_level(DEBUG_GPIO) == DEBUG_ON );
+#endif
+
+    // start softap, incl. debug event loop --- this drives all of our target uC debug functionallity
+    if(g_debug_target) {
+        MDF_ERROR_ASSERT(softap_init());
+    } 
+#endif    
+
+    // start normal operation
     if(!g_debug_target) {
         // start mesh, incl. event loop --- this drives all of our main functionality
         MDF_ERROR_ASSERT(mesh_init());
-    } else {
-        // start softap, incl. debug event loop --- this drives all of our target uC debug functionallity
-        MDF_ERROR_ASSERT(softap_init());
-    }
-
+        // start periodic tasks
+        xTaskCreate(synctime_task, "synctime_task", 4 * 1024, NULL, CONFIG_MDF_TASK_DEFAULT_PRIOTY, NULL);
+        xTaskCreate(heartbeat_task, "heartbeat_task", 4 * 1024, NULL, CONFIG_MDF_TASK_DEFAULT_PRIOTY, NULL);
+        // start periodic sysinfo on serial line
+        TimerHandle_t ptimer = xTimerCreate("print_system_info", 10000 / portTICK_PERIOD_MS,
+                                       true, NULL, print_system_info_tcb);
+        xTimerStart(ptimer, 0);
+    }	
     
+
 #ifndef AVR_PRESENT
     // start target uC simulation 
     TimerHandle_t stimer = xTimerCreate("simulate_target", 1000 / portTICK_PERIOD_MS,
-                                       true, NULL, simulate_target_cb);
+                                       true, NULL, simulate_target_tcb);
     xTimerStart(stimer, 0);
 #endif
-
-
-#ifdef AVR_PRESENT
-    // update target uC time regulary (the AGCCS board does not have a crystal, and is about 1% of) 
-    TimerHandle_t ttimer = xTimerCreate("command_avrsettime", 10000 / portTICK_PERIOD_MS,
-                                       true, NULL, command_avrsettime_cb);
-    xTimerStart(ttimer, 0);
-#endif    
-    
-
-    // start periodic sysinfo on serial line
-    if(!g_debug_target) {
-        TimerHandle_t ptimer = xTimerCreate("print_system_info", 10000 / portTICK_PERIOD_MS,
-                                       true, NULL, print_system_info_cb);
-        xTimerStart(ptimer, 0);
-    }	
 
 }
