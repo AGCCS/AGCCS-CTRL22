@@ -1804,8 +1804,8 @@ uint16_t g_systicks=0;
 int16_t g_systime=0;
 
 // local systicks/time for ISR
-uint16_t g_systicks_isr=0;
-int16_t g_systime_isr=0;
+volatile uint16_t g_systicks_isr=0;
+volatile int16_t g_systime_isr=0;
 
 // setup RTC to produce 100us interrupt
 void systime_init(void) {
@@ -1918,6 +1918,7 @@ const char h_error[]    PROGMEM = "read error flags, see declaration \"g_error\"
 const char h_save[]     PROGMEM = "use \"save!\" to save configuration to EEPROM";
 const char h_smaxcur[]  PROGMEM = "read/write max. current available from supply [100mA]";
 const char h_sphases[]  PROGMEM = "read/write available phases from supply [decimal encoding]"; 
+const char h_ccsdmp[]   PROGMEM = "use \"ccsdmp!\" to track CCS state progress";
 const char h_sigrel[]   PROGMEM = "use \"sigrel!\"/\"sigrel~\" to en/disable the signal relay";
 const char h_pilots[]   PROGMEM = "use \"pilots!\"/\"piloys~\" to en/disable periodic pilot reading";
 const char h_cpilot[]   PROGMEM = "read CP [V]";
@@ -1936,7 +1937,7 @@ const char h_lock[]     PROGMEM = "use \"lock!\"/\"lock~\" to operate the lock";
 const char h_lopnms[]   PROGMEM = "read/write pulse length to open lock [ms]";
 const char h_lclsms[]   PROGMEM = "read/write pulse length to close lock [ms]";
 const char h_ssr[]      PROGMEM = "operate contactors (dec. encoded), use \"ssr~\" for \"all off\"";
-const char h_ccsdmp[]   PROGMEM = "use \"ccsdmp!\" to track CCS state progress";
+const char h_usage[]    PROGMEM = "use \"?\" or \"usage!\" to obtain this list";
 const char h_reset[]    PROGMEM = "use \"reset!\" for a soft reset";
 
 // set/get function types
@@ -1952,6 +1953,9 @@ typedef struct {
     parsetfnct_t parsetfnct;   // function for writing
     const char* parhlp;        // help text
 } partable_t;
+
+// forward
+int16_t usage(int16_t);
 
 
 // name to token table (NULL-terminated --- should be in PROGMEM)
@@ -1979,6 +1983,7 @@ const partable_t partable[]={
 #endif  
   // first installation
 #ifdef MODE_INSTALL  
+  {"ccsdmp",  NULL,         &p_ccsdmp,   NULL,        h_ccsdmp},  // "ccsdmp!" enables tracking of the CCS state
   {"sigrel",  NULL,         NULL,        &sigrel,     h_sigrel},  // operate signal rellay
   {"pilots",  &g_pilots,    NULL,        &pilots,     h_pilots},  // en/disable periodic pilot reading
   {"cpilot",  &g_cpilot,    NULL,        NULL,        h_cpilot},  // ctrl pilot read-back [V]
@@ -1997,7 +2002,7 @@ const partable_t partable[]={
   {"lopnms",  &p_lopnms,    &p_lopnms,   NULL,        h_lopnms},  // time to open lock
   {"lclsms",  &p_lclsms,    &p_lclsms,   NULL,        h_lclsms},  // time to close lock
   {"ssr",     NULL,         NULL,        &ssr,        h_ssr},     // "ssr=123" to activate all SSRs
-  {"ccsdmp",  NULL,         &p_ccsdmp,   NULL,        h_ccsdmp},  // "ccsdmp!" enables tracking of the CCS state
+  {"usage",   NULL,         NULL,        &usage,      h_usage},   // list all parameters
   {"reset",   NULL,         NULL,        &reset,      h_reset},   // softreset "reset!"
 #endif  
   // end of table
@@ -2010,6 +2015,7 @@ void serial_write_parlist(void) {
   // iterate table
   const partable_t* ptab=partable;
   while(ptab->parstr!=NULL) {
+    serial_write_pstr("% ");
     serial_write_str(ptab->parstr);
     if(ptab->pargetaddr) {
       serial_write('=');
@@ -2115,37 +2121,43 @@ bool parse(char* line){
   return true;
 }
 
+// convenience command
+int16_t usage(int16_t doit) {
+    if(!doit) return 0;
+    serial_writeln_sync();
+    serial_write_pln("% [[[");
+    serial_write_pln("% =======");
+    serial_write_pstr("% AGCCS-CTRL22 AVR Firmware Version ");
+    serial_write_uint(g_version/10);
+    serial_write('.');
+    serial_write_uint(g_version%10);
+    serial_write_eol();
+    serial_write_pln("% Copyright Thomas Moor (c) 2020, 2021"); 
+    serial_write_pln("% =======");
+    serial_write_parlist();
+    serial_write_pln("% =======");
+    serial_write_monitor();
+    serial_write_pstr("% systime: ");
+    serial_write_uint(g_systime);
+    serial_write_eol();
+    serial_write_pstr("% lock state: ");
+    serial_write_uint(g_lock_st);
+    serial_write_eol();
+    serial_write_pstr("% ccs state: ");
+    serial_write_uint(g_ccs_st);
+    serial_write_eol();
+    serial_write_pln("% =======");
+    serial_write_pln("% ]]]");
+    serial_writeln_async();
+    g_cycleskip=true;
+    return 1;
+}
 
 // overall command line interface (aka std parameter set/get + some special commands)
 void cmdline(char* ln) {
   // special command: list all status
   if(*ln=='?') {
-    serial_writeln_sync();
-    serial_write_pln("[[[");
-    serial_write_pln("=======");
-    serial_write_pstr("AGCCS-CTRL22 AVR Firmware Version ");
-    serial_write_uint(g_version/10);
-    serial_write('.');
-    serial_write_uint(g_version%10);
-    serial_write_eol();
-    serial_write_pln("Copyright Thomas Moor (c) 2020, 2021"); 
-    serial_write_pln("=======");
-    serial_write_parlist();
-    serial_write_pln("=======");
-    serial_write_monitor();
-    serial_write_pstr("systime: ");
-    serial_write_uint(g_systime);
-    serial_write_eol();
-    serial_write_pstr("lock state: ");
-    serial_write_uint(g_lock_st);
-    serial_write_eol();
-    serial_write_pstr("ccs state: ");
-    serial_write_uint(g_ccs_st);
-    serial_write_eol();
-    serial_write_pln("=======");
-    serial_write_pln("]]]");
-    serial_writeln_async();
-    g_cycleskip=true;
+    usage(1);
     return;
   }
   // std get/set parameter 

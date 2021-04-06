@@ -52,7 +52,7 @@ repository.
 // firmware revision 2021-04-04 
 
 // firmware version string for OTA (hardcoded format "<OneDigit>.<OneDigit>")
-#define DEMESH_VERSION "1.8"
+#define DEMESH_VERSION "1.5"
 
  
 // minimum includes
@@ -721,14 +721,34 @@ static QueueHandle_t g_avruart_queue;
 // last line (adjust with TX buffer
 static char g_avruart_lline[256+1];
 
-// have a task to monitor the UART event queue
-static void avruart_event_task(void *arg) {
-    uart_event_t event;
+
+// utility: forward a (stray) line to roor for logging
+static void avruart_log(const char* ln) {
     uint8_t sta_mac[MWIFI_ADDR_LEN] = {0};
     mwifi_data_type_t data_type     = {0};
     char* data;
     size_t size;
     mdf_err_t ret                   = MDF_OK;
+  
+   // insist in mesch
+   if(!mwifi_is_connected()) return;
+   // get mesh config
+   esp_wifi_get_mac(ESP_IF_WIFI_STA, sta_mac);
+   // compose and send message (TODO: JSON escape)
+   size = asprintf(&data,
+       "{\"src\":\"" MACSTR "\",\"mtype\":\"targetlog\",\"line\":\"%s\"}\r\n",MAC2STR(sta_mac), ln);
+   if( mwifi_write(NULL, &data_type, data, size, true) != MDF_OK)   
+       MDF_LOGD("avruart_event_task:  mwifi_write error (%s)", mdf_err_to_name(ret));
+   MDF_FREE(data);
+}
+
+
+// TODO: "either-or" ... if we try to pick log-lines, the entre read-line should be in one
+// procedure. ...
+
+// have a task to monitor the UART event queue (obly for pikcing log-lines)
+static void avruart_event_task(void *arg) {
+    uart_event_t event;
 
     // loop forever
     while(true) {
@@ -753,21 +773,9 @@ static void avruart_event_task(void *arg) {
   		    uart_read_bytes(UART_NUM_1, (uint8_t*) g_avruart_lline, pos+1, 100 / portTICK_PERIOD_MS);
 		    g_avruart_lline[pos]=0;
                     if(pos>0) if(g_avruart_lline[pos-1]=='\r') g_avruart_lline[pos-1]=0;
-                    MDF_LOGI("avruart_event_task: received stray line #%s", g_avruart_lline);
-	            // insist in mesh
-                    if(mwifi_is_connected()) {	  
-                        // get mesh config
-                        esp_wifi_get_mac(ESP_IF_WIFI_STA, sta_mac);
-                        // compose and send message (TODO: JSON escape)
-                        size = asprintf(&data,
-	                "{\"src\":\"" MACSTR "\",\"mtype\":\"targetlog\",\"line\":\"%s\"}\r\n",MAC2STR(sta_mac), g_avruart_lline);
-                        ret = mwifi_write(NULL, &data_type, data, size, true); 
-                        if(ret != MDF_OK)  
-                            MDF_LOGD("avruart_event_task:  mwifi_write error (%s)", mdf_err_to_name(ret));
-                        MDF_FREE(data);
-		   }
-		}
-                
+                    MDF_LOGI("avruart_event_task: received stray line #%d", strlen(g_avruart_lline));
+		    avruart_log(g_avruart_lline);
+		}                
                 xSemaphoreGive(g_avruart_mutex);
 		break;
             // others events
@@ -832,8 +840,12 @@ int avrreadln(char* str, int timeout) {
 	    return MDF_FAIL;
 	}
         if(str[pos]=='\n') {
-	  if((str[0]=='%') || (str[0]=='[')) pos=0;
-	  else break; 
+            str[pos]=0;
+            if(pos>0) if(str[pos-1]=='\r') str[pos-1]=0;
+	    if((str[0]!='%') && (str[0]!='[')) break;
+	    avruart_log(str);
+	    pos=0;
+	    continue;
 	}  
         ++pos;
         if(pos>=MAX_LINE) {
@@ -842,8 +854,6 @@ int avrreadln(char* str, int timeout) {
             return MDF_FAIL;
 	}
     }
-    str[pos]=0;
-    if(pos>0) if(str[pos-1]=='\r') str[pos-1]=0;
     MDF_LOGI("avrreadln: ok \"%s\"",str);
     return MDF_OK;
 }

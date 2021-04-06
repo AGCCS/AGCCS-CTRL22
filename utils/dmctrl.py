@@ -1,11 +1,15 @@
 #!/usr/bin/python3
 #
 # simple python script to control/test/demo demesh, tmoor 2020-2021.
+#
+# revision 2021-04-04
+#
 
 # imports
 import sys
 import time
 import socket
+import select
 import socketserver
 import threading
 import http.server
@@ -33,18 +37,26 @@ def usage():
     print("  dmctrl                                // broadcast status request")
     print("  dmctrl <CMD>                          // broadcast <CMD>, i.e., send {\"dst\":\"*\",\"cmd\":\"<CMD>\"}") 
     print("  dmctrl <JSON>                         // specify verbatim JSON message to be sent")
+    print("  dmctrl monitor                        // monitor heartbeat of target uCs")
     print("  dmctrl upgrade <VER> <BRD>            // disribute ESP firmware version/board as specified")
     print("  dmctrl avrflash <FILE> <NODE>         // flash avr image for target uC (obmit NODE to broadcast)")
     print("  dmctrl avrgetpar <PAR> <NODE>         // get parameter <PAR> in target uC")
     print("  dmctrl avrsetpar <PAR> <VALUE> <NODE> // set parameter <PAR> in client uC to specified value")
-    print("  dmctrl monitor                        // monitor heartbeat of target uCs")
+    print("  dmctrl avrlog <NODE>                  // pipe the client uC serial out to stdout")
     
 
 
 # shutdown server event
 shutdown_evt = threading.Event()
 
-# monitor target uCs via their heartbeat
+
+
+##########################################################################
+# monitor mesh heartbeat
+##########################################################################
+
+
+# track target uCs via their heartbeat
 TARGETDICT={}
 
 def print_targets():
@@ -81,9 +93,77 @@ class MonitorTCPHandler(socketserver.BaseRequestHandler):
                     parse_heartbeat(jreply)
         except socket.error:
             print('timeout')
-        print('shutting down demesh tcp heartbeat server')
+        print('shutting down demesh TCP heartbeat server')
         shutdown_evt.set()
-        
+
+
+
+
+
+##########################################################################
+# pipe targetlog messages to stdout
+##########################################################################
+
+
+# tcp request handle to pipe targetlog messages
+class AvrlogTCPHandler(socketserver.BaseRequestHandler):
+    # called on connection established
+    def handle(self):
+        print("{} connected, reading targetlog".format(self.client_address[0]))
+        #self.request.settimeout(300)
+        #try:
+        #    while True:
+        #        msg = self.request.recv(1024).strip(b'\0x0 \n\r')
+        #        jmsg=json.loads(msg)
+        #        if jmsg['mtype'] == "targetlog":
+        #            if (NODE == jmsg['src']) or (NODE == "*"):
+        #                print("> {}".format(jmsg['line'])) 
+        #except socket.error:
+        #    print('timeout')
+        #print('shutting down demesh TCP targetlog  server')
+        #shutdown_evt.set()
+        self.request.setblocking(0)
+        try:
+            while True:
+                r,w,e = select.select([self.request, sys.stdin], [], [])         
+                if self.request in r:
+                    msg = self.request.recv(1024).strip(b'\0x0 \n\r')
+                    print(msg)
+                    jmsg=json.loads(msg)
+                    if jmsg['mtype'] == "targetlog":
+                        if (NODE == jmsg['src']) or (NODE == "*"):
+                            print("> {}".format(jmsg['line']))
+                if sys.stdin in r:
+                    msg = sys.stdin.readline()
+                    print("< {}".format(msg))                
+                    cmd=None
+                    qpos = msg.find("?")
+                    if qpos >0:
+                       cmd='{{"dst":"{}","cmd":"avrgetpar","avrpar":"{}"}}'.format(NODE,msg[:qpos])
+                    epos = msg.find("=")
+                    if epos >0:
+                       cmd='{{"dst":"{}","cmd":"avrsetpar","avrpar":"{}","avrval":{}}}'.format(NODE,msg[:epos],msg[epos+1:-1])
+                    xpos = msg.find("!")
+                    if xpos >0:
+                       cmd='{{"dst":"{}","cmd":"avrsetpar","avrpar":"{}","avrval":1}}'.format(NODE,msg[:xpos])
+                    tpos = msg.find("~")
+                    if tpos >0:
+                       cmd='{{"dst":"{}","cmd":"avrsetpar","avrpar":"{}","avrval":0}}'.format(NODE,msg[:tpos])
+                    if cmd is not None:   
+                        print("< {}".format(cmd))
+                        self.request.sendall(cmd.encode(encoding="utf-8", errors="strict"))
+    
+        except socket.error:
+            print('error reading socket')
+        print('shutting down demesh TCP targetlog  server')
+        shutdown_evt.set()
+                    
+
+
+##########################################################################
+# send a JSON encoded command and await for a reply
+##########################################################################
+
 
 # tcp request handle for simple command, e.g. broadcast status
 class CommandTCPHandler(socketserver.BaseRequestHandler):
@@ -111,6 +191,11 @@ class CommandTCPHandler(socketserver.BaseRequestHandler):
         print('shutting down demesh tcp command server')
         shutdown_evt.set()
 
+
+
+##########################################################################
+# schedule commands for AVR firmware update
+##########################################################################
 
 # tcp request handle for avr firmware update (broadcast not yet implemented)
 class AvrflashTCPHandler(socketserver.BaseRequestHandler):
@@ -207,6 +292,12 @@ class AvrflashTCPHandler(socketserver.BaseRequestHandler):
         shutdown_evt.set()
 
 
+
+
+##########################################################################
+# set up TCP server with an handler appropraite for the spcified task 
+##########################################################################
+
 # Run the server, binding to localhost
 def run( ):
 
@@ -218,6 +309,8 @@ def run( ):
         demesh_server = socketserver.ThreadingTCPServer((HOST, PORT), AvrflashTCPHandler)
     elif COMMAND=="monitor":
         demesh_server = socketserver.ThreadingTCPServer((HOST, PORT), MonitorTCPHandler)
+    elif COMMAND=="avrlog":
+        demesh_server = socketserver.ThreadingTCPServer((HOST, PORT), AvrlogTCPHandler)
     else:            
         demesh_server = socketserver.ThreadingTCPServer((HOST, PORT), CommandTCPHandler)       
     demesh_thread = threading.Thread(target=demesh_server.serve_forever)
@@ -229,7 +322,12 @@ def run( ):
 # configure  
 socketserver.ThreadingTCPServer.allow_reuse_address = True;
 
+
+
+##########################################################################
 # primitive commandline parsing
+##########################################################################
+
 COMMAND=""
 run_http=False
 # default: broadcast mesh status request
@@ -285,6 +383,11 @@ if (COMMAND=="") and (len(sys.argv) == 4):
         par = sys.argv[2]
         node = sys.argv[3]
         COMMAND="{{\"dst\":\"{0:s}\",\"cmd\":\"avrgetpar\",\"avrpar\":\"{1:s}\"}}".format(node,par)
+# pipe AVR uC serial line             
+if (COMMAND=="") and (len(sys.argv) == 3):        
+    if sys.argv[1] == "avrlog":
+        NODE = sys.argv[2]
+        COMMAND="avrlog"
 # no valid command found        
 if not COMMAND:
     usage()
