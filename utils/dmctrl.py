@@ -101,36 +101,24 @@ class MonitorTCPHandler(socketserver.BaseRequestHandler):
 
 
 ##########################################################################
-# pipe targetlog messages to stdout
+# pipe avrlog messages to stdout
 ##########################################################################
 
 
-# tcp request handle to pipe targetlog messages
+# tcp request handle to pipe avrlog messages
 class AvrlogTCPHandler(socketserver.BaseRequestHandler):
     # called on connection established
     def handle(self):
-        print("{} connected, reading targetlog".format(self.client_address[0]))
-        #self.request.settimeout(300)
-        #try:
-        #    while True:
-        #        msg = self.request.recv(1024).strip(b'\0x0 \n\r')
-        #        jmsg=json.loads(msg)
-        #        if jmsg['mtype'] == "targetlog":
-        #            if (NODE == jmsg['src']) or (NODE == "*"):
-        #                print("> {}".format(jmsg['line'])) 
-        #except socket.error:
-        #    print('timeout')
-        #print('shutting down demesh TCP targetlog  server')
-        #shutdown_evt.set()
+        print("{} connected, reading avrlog".format(self.client_address[0]))
         self.request.setblocking(0)
         try:
             while True:
                 r,w,e = select.select([self.request, sys.stdin], [], [])         
                 if self.request in r:
                     msg = self.request.recv(1024).strip(b'\0x0 \n\r')
-                    print(msg)
-                    jmsg=json.loads(msg)
-                    if jmsg['mtype'] == "targetlog":
+                    # print(msg)
+                    jmsg=json.loads(msg,strict=False)
+                    if jmsg['mtype'] == "avrlog":
                         if (NODE == jmsg['src']) or (NODE == "*"):
                             print("> {}".format(jmsg['line']))
                 if sys.stdin in r:
@@ -155,7 +143,7 @@ class AvrlogTCPHandler(socketserver.BaseRequestHandler):
     
         except socket.error:
             print('error reading socket')
-        print('shutting down demesh TCP targetlog  server')
+        print('shutting down demesh TCP avrlog  server')
         shutdown_evt.set()
                     
 
@@ -181,7 +169,7 @@ class CommandTCPHandler(socketserver.BaseRequestHandler):
                 reply = self.request.recv(1024).strip(b'\0x0 \n\r')
                 jreply=json.loads(reply)
                 if jreply['mtype'] != "heartbeat":
-                    if jreply['mtype'] != "targetlog":
+                    if jreply['mtype'] != "avrlog":
                         print(reply.decode("utf-8"))
                         now=time.time()
                 if time.time()-now > 3:

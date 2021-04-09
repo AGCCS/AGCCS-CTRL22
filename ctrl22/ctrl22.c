@@ -47,10 +47,10 @@ THE SOFTWARE.
 *************************************************************************
 */
 
-// firmware revision 2021-04-04
+// firmware revision 2021-04-09
 
 // firmware version for OTA
-#define CTRL22_VERSION 17  // XY reads vX.Y, i.e., one digit for major and minor, resp.
+#define CTRL22_VERSION 12  // XY reads vX.Y, i.e., one digit for major and minor, resp.
 
 
 // 10 MHz clock on fgccs board 
@@ -237,6 +237,8 @@ int16_t reset(int16_t val) {
   if(!val) return 0;
   CPU_CCP = CCP_IOREG_gc;          
   RSTCTRL.SWRR|=RSTCTRL_SWRE_bm;
+  while(1);
+  // never get here
   return 1;
 }  
 
@@ -2124,6 +2126,7 @@ bool parse(char* line){
 // convenience command
 int16_t usage(int16_t doit) {
     if(!doit) return 0;
+    serial_write_pln("usage=1");
     serial_writeln_sync();
     serial_write_pln("% [[[");
     serial_write_pln("% =======");
@@ -2555,7 +2558,7 @@ int main(){
   conf_load();
 
   // say hello
-  serial_write_pln("% AGCCS-CTRL22 --- enter \"?\\n\\r\" for more details");
+  serial_write_pln("% AGCCS-CTRL22 --- enter \"?[CR/LF]\" for more details");
   
   // run forever (target for less than 10ms cycle time)
   while(1){

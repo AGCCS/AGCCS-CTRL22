@@ -49,10 +49,10 @@ repository.
 ===========================================================================
 */
 
-// firmware revision 2021-04-04 
+// firmware revision 2021-04-09 
 
 // firmware version string for OTA (hardcoded format "<OneDigit>.<OneDigit>")
-#define DEMESH_VERSION "1.5"
+#define DEMESH_VERSION "1.3"
 
  
 // minimum includes
@@ -712,18 +712,61 @@ II: collect and flash AVR firmware images.
 // (see below for the simulation of a target uC otherwise)
 #ifdef AVR_PRESENT
 
+// line buffer (adjust length with TX buffer)
+static char g_avruart_line[256+1];
+
+// AVR UART mode of operation
+typedef enum {
+  IDLE,  // uart is free
+  RWLN,  // uart is in line mode
+  BIN    // uart is in bin mode
+} avruart_mode_t;
+avruart_mode_t avruart_mode = IDLE;
+
 // mutex for AVR UART communications
-SemaphoreHandle_t g_avruart_mutex;
+SemaphoreHandle_t g_avruart_mxmode;
+SemaphoreHandle_t g_avruart_mxline;
+SemaphoreHandle_t g_avruart_bseol;
+
+// request to take control over high-level UART access
+int avruart_mxtake(avruart_mode_t mode, int timeout) {
+  // makes no sense to request IDLE
+  if(mode==IDLE) return MDF_FAIL;
+  // mode get mutex
+  if(xSemaphoreTake(g_avruart_mxmode, timeout/portTICK_PERIOD_MS)!=pdTRUE)
+    return MDF_FAIL;
+  // access line (std 100ms timeout, sould be avialable anyway)
+  if(xSemaphoreTake(g_avruart_mxline, 100/portTICK_PERIOD_MS)!=pdTRUE) {
+    xSemaphoreGive(g_avruart_mxmode);
+    return MDF_FAIL;
+  }
+  // clear line
+  avruart_mode=mode;
+  uart_wait_tx_done(UART_NUM_1, timeout/portTICK_PERIOD_MS);
+  uart_flush_input(UART_NUM_1);
+  xSemaphoreTake(g_avruart_bseol,0);
+  g_avruart_line[0]=0;
+  xSemaphoreGive(g_avruart_mxline);
+  // done
+  return MDF_OK;
+}
+
+// return control over AVR UART
+int avruart_mxgive() {
+  // make no sense to give if we are IDLE
+  if(avruart_mode==IDLE) return MDF_FAIL;
+  // set to idle and return mutex  
+  avruart_mode=IDLE;
+  xSemaphoreGive(g_avruart_mxmode);
+  return MDF_OK;
+}
 
 // have an event queue for UART events
 static QueueHandle_t g_avruart_queue;
 
-// last line (adjust with TX buffer
-static char g_avruart_lline[256+1];
 
-
-// utility: forward a (stray) line to roor for logging
-static void avruart_log(const char* ln) {
+// utility: forward a (stray) line to root for logging
+static void avruart_fwdlog(char* ln) {
     uint8_t sta_mac[MWIFI_ADDR_LEN] = {0};
     mwifi_data_type_t data_type     = {0};
     char* data;
@@ -732,19 +775,19 @@ static void avruart_log(const char* ln) {
   
    // insist in mesch
    if(!mwifi_is_connected()) return;
+   // remove any '"' for the JSON parser
+   for(int pos=0; ln[pos]!=0; ++pos) 
+     if(ln[pos]=='"') ln[pos]='\'';
    // get mesh config
    esp_wifi_get_mac(ESP_IF_WIFI_STA, sta_mac);
-   // compose and send message (TODO: JSON escape)
+   // compose and send message
    size = asprintf(&data,
-       "{\"src\":\"" MACSTR "\",\"mtype\":\"targetlog\",\"line\":\"%s\"}\r\n",MAC2STR(sta_mac), ln);
+       "{\"src\":\"" MACSTR "\",\"mtype\":\"avrlog\",\"line\":\"%s\"}\r\n",MAC2STR(sta_mac), ln);
    if( mwifi_write(NULL, &data_type, data, size, true) != MDF_OK)   
        MDF_LOGD("avruart_event_task:  mwifi_write error (%s)", mdf_err_to_name(ret));
    MDF_FREE(data);
 }
 
-
-// TODO: "either-or" ... if we try to pick log-lines, the entre read-line should be in one
-// procedure. ...
 
 // have a task to monitor the UART event queue (obly for pikcing log-lines)
 static void avruart_event_task(void *arg) {
@@ -756,27 +799,29 @@ static void avruart_event_task(void *arg) {
         if(xQueueReceive(g_avruart_queue, (void * )&event, (portTickType)portMAX_DELAY)) {
             switch(event.type) {
             // received data
-	    /*  
             case UART_DATA:
-	        if(xSemaphoreTake(g_avruart_mutex,0)!=pdTRUE) break; 
                 MDF_LOGI("avruart_event_task: received stray data #%d", event.size);
-                uart_read_bytes(UART_NUM_1, (uint8_t*) g_avruart_lline, event.size, portMAX_DELAY);
-		if(dtmp[0]=='[') heartbeat_trigger();
-                xSemaphoreGive(g_avruart_mutex);
 		break;
-	    */
 	    // found end-of-line mark '\n'		
             case UART_PATTERN_DET:
-		if(xSemaphoreTake(g_avruart_mutex,0)!=pdTRUE) break; 
+  	        if(avruart_mode==BIN) break;
+		// access line (std 100ms timeout)
+		if(xSemaphoreTake(g_avruart_mxline,100/portTICK_PERIOD_MS)!=pdTRUE) break; 
                 int pos = uart_pattern_pop_pos(UART_NUM_1);
-		if(pos>=0) {
-  		    uart_read_bytes(UART_NUM_1, (uint8_t*) g_avruart_lline, pos+1, 100 / portTICK_PERIOD_MS);
-		    g_avruart_lline[pos]=0;
-                    if(pos>0) if(g_avruart_lline[pos-1]=='\r') g_avruart_lline[pos-1]=0;
-                    MDF_LOGI("avruart_event_task: received stray line #%d", strlen(g_avruart_lline));
-		    avruart_log(g_avruart_lline);
-		}                
-                xSemaphoreGive(g_avruart_mutex);
+		if(pos<0){
+	            xSemaphoreGive(g_avruart_mxline);
+		    break;
+		} 
+  		uart_read_bytes(UART_NUM_1, (uint8_t*) g_avruart_line, pos+1, 100 / portTICK_PERIOD_MS);
+		g_avruart_line[pos]=0;
+                if(pos>0) if(g_avruart_line[pos-1]=='\r') g_avruart_line[pos-1]=0;
+                MDF_LOGI("avruart_event_task: received line #%d", strlen(g_avruart_line));
+		if(avruart_mode==IDLE) {
+		    avruart_fwdlog(g_avruart_line);
+		}
+                xSemaphoreGive(g_avruart_mxline);
+		// advertiese new line
+		xSemaphoreGive(g_avruart_bseol);
 		break;
             // others events
             default:
@@ -794,9 +839,18 @@ static void avruart_event_task(void *arg) {
 #define MAX_LINE 128
 
 // UART helper: clear line buffers
-void avrclearln(void) {
-  uart_wait_tx_done(UART_NUM_1, 1000 / portTICK_PERIOD_MS);
+int avrclearln(void) {
+  if(xSemaphoreTake(g_avruart_mxline, 100/portTICK_PERIOD_MS)!=pdTRUE) 
+    return MDF_FAIL;
+  // clear IDF buffers
+  uart_wait_tx_done(UART_NUM_1, 100/portTICK_PERIOD_MS);
   uart_flush_input(UART_NUM_1);
+  // clear DEMSH buffers
+  xSemaphoreTake(g_avruart_bseol,0);
+  g_avruart_line[0]=0;
+  // done
+  xSemaphoreGive(g_avruart_mxline);
+  return MDF_OK;
 }        
 
 // UART helper: write line
@@ -823,6 +877,48 @@ int avrwriteln(char* msg) {
 // allocated by the caller and must be capable to hold MAX_LINE bytes.
 // Lines starting with '%' or '[' will be silently discarded.
 
+static bool g_avrreadln_tout;
+void g_avrreadln_tcb(TimerHandle_t timer) {g_avrreadln_tout=true;};
+
+int avrreadln(char* str, int timeout) {
+    // initialise timeout mechanism
+    g_avrreadln_tout=false;
+    TimerHandle_t rtimer= xTimerCreate("ReadLnTimer",timeout/portTICK_PERIOD_MS,false,NULL,g_avrreadln_tcb);
+    xTimerStart(rtimer,0);
+    // loop until timeout
+    while(1) {
+        // wait for semafore to trigger line
+        if(xSemaphoreTake(g_avruart_bseol,timeout/portTICK_PERIOD_MS)!=pdTRUE)
+  	  return MDF_FAIL;
+        // access line (std 100ms timeout)
+        if(xSemaphoreTake(g_avruart_mxline,100/portTICK_PERIOD_MS)!=pdTRUE) continue; 
+        // sense void line
+        if(g_avruart_line[0]=='0') {
+	    xSemaphoreGive(g_avruart_mxline);
+	    if(g_avrreadln_tout) return MDF_FAIL;
+	    continue;
+        }
+        // sense stray line
+        if((g_avruart_line[0]=='%') || (g_avruart_line[0]=='[')) {
+            avruart_fwdlog(g_avruart_line);
+	    xSemaphoreGive(g_avruart_mxline);
+	    if(g_avrreadln_tout) return MDF_FAIL;
+   	    continue;
+        }
+        // line is fine
+	if(str!=NULL) {
+          strncpy(str,g_avruart_line,MAX_LINE);
+          str[MAX_LINE-1]=0;
+          MDF_LOGI("avrreadln: ok \"%s\"",str);
+	}  
+        g_avruart_line[0]=0;
+        xSemaphoreGive(g_avruart_mxline);      
+        break;
+    }
+    return MDF_OK;
+}
+
+/*
 static bool avrreadln_tout;
 void avrreadln_tcb(TimerHandle_t timer) {avrreadln_tout=true;};
 
@@ -843,7 +939,7 @@ int avrreadln(char* str, int timeout) {
             str[pos]=0;
             if(pos>0) if(str[pos-1]=='\r') str[pos-1]=0;
 	    if((str[0]!='%') && (str[0]!='[')) break;
-	    avruart_log(str);
+	    avruart_fwdlog(str);
 	    pos=0;
 	    continue;
 	}  
@@ -857,6 +953,7 @@ int avrreadln(char* str, int timeout) {
     MDF_LOGI("avrreadln: ok \"%s\"",str);
     return MDF_OK;
 }
+*/
 
 
 // Set a parameter on the target AVR
@@ -874,13 +971,11 @@ int command_avrsetpar(char* par, int val) {
       MDF_LOGI("avrsetpar: value out if range");
       return ret;
     }       
-    // take mutex
-    if(xSemaphoreTake(g_avruart_mutex, 1000/portTICK_PERIOD_MS) != pdTRUE)
-       return ret;
+    // take control over uart
+    if(avruart_mxtake(RWLN,1000) != MDF_OK) return ret;
     // assemble command string e.g. "power=20" and erite to AVR
     if(snprintf(avrstr,MAX_LINE-2,"%s=%d",par,val)>=MAX_LINE-2) goto FREE_MEM;
     // write to AVR, await reply (1000ms timeout, tune this down)
-    avrclearln();
     if(avrwriteln(avrstr)!=MDF_OK) goto FREE_MEM;
     if(avrreadln(avrstr,1000)!=MDF_OK) goto FREE_MEM;
     //parse result
@@ -909,7 +1004,7 @@ int command_avrsetpar(char* par, int val) {
     ret = MDF_OK;
 
 FREE_MEM:    
-    xSemaphoreGive(g_avruart_mutex);
+    avruart_mxgive();
     return ret;
 } 
     
@@ -922,9 +1017,8 @@ int command_avrgetpar(char* par, int* val) {
     char* pstr;
     size_t len;
 
-    // say hello and take mutex
-    if(xSemaphoreTake(g_avruart_mutex, 1000/portTICK_PERIOD_MS) != pdTRUE)
-        return ret;
+    // take control over uart
+    if(avruart_mxtake(RWLN,1000) != MDF_OK) return ret;
     MDF_LOGI("avrgetpar: %s?", par);
     // assemble command string e.g. "power?"
     len=strlen(par);
@@ -933,7 +1027,6 @@ int command_avrgetpar(char* par, int* val) {
     avrstr[len]='?';
     avrstr[len+1]=0;
     // send to AVR, await reply (1000ms timeout, tune this down)
-    avrclearln();
     if(avrwriteln(avrstr)!=MDF_OK) goto FREE_MEM;
     if(avrreadln(avrstr,1000)!=MDF_OK) goto FREE_MEM;
     //parse result
@@ -956,7 +1049,7 @@ int command_avrgetpar(char* par, int* val) {
     // done, give away mutex
     ret = MDF_OK;
 FREE_MEM:    
-    xSemaphoreGive(g_avruart_mutex);
+    avruart_mxgive();
     return ret;
 }
 
@@ -996,13 +1089,12 @@ int command_avrsetblinks(void) {
 // invoked that function we would suffer inaccuracy due to task switching, mutexes etc.
 static void command_avrsettime(void) {
     char *avrstr           = NULL;
-    if(xSemaphoreTake(g_avruart_mutex, 1000/portTICK_PERIOD_MS) != pdTRUE)
-       return;
-    avrclearln();
+    if(avruart_mxtake(RWLN,1000) != MDF_OK) return;
     asprintf(&avrstr,"time=%d",systime() % 30000); // our avr target has a 30sec rollover  
     avrwriteln(avrstr);
+    avrreadln(NULL,1000);
     MDF_FREE(avrstr);
-    xSemaphoreGive(g_avruart_mutex);
+    avruart_mxgive();
 } 
 
 
@@ -1449,8 +1541,7 @@ int avrflash(void) {
     
     // say hello and take mutex
     MDF_LOGI("avsflash: do flash now");
-    if(xSemaphoreTake(g_avruart_mutex, 1000/portTICK_PERIOD_MS) != pdTRUE)
-        return ret;
+    if(avruart_mxtake(BIN, 1000) != MDF_OK) return ret;
     // reset AVR target
     avrreset(1);
     vTaskDelay(500 / portTICK_PERIOD_MS);
@@ -1517,7 +1608,7 @@ int avrflash(void) {
     avroptquit();
     ret=MDF_OK;
 FREE_MEM:
-    xSemaphoreGive(g_avruart_mutex);
+    avruart_mxgive();
     return ret;
 }
 
@@ -2033,7 +2124,7 @@ static void root_read_task(void *arg)
 
             // only forward relevant message types.
 	    hbmsg = !strcmp(json_mtype->valuestring,"heartbeat");
-	    lgmsg = !strcmp(json_mtype->valuestring,"targetlog");
+	    lgmsg = !strcmp(json_mtype->valuestring,"avrlog");
 	    akmsg = !(hbmsg || lgmsg);
 
 	    /*
@@ -2060,7 +2151,7 @@ static void root_read_task(void *arg)
   	        asprintf(&rtopic, "/" CONFIG_MESH_ID "/" NOCMACSTR "/heartbeat" , NOCMAC2STR(src_addr));
 	    } else {
 	    if(lgmsg) {
-  	        asprintf(&rtopic, "/" CONFIG_MESH_ID "/" NOCMACSTR "/targetlog" , NOCMAC2STR(src_addr));
+  	        asprintf(&rtopic, "/" CONFIG_MESH_ID "/" NOCMACSTR "/avrlog" , NOCMAC2STR(src_addr));
 	    } else {
 	    if(akmsg) {
  	        asprintf(&rtopic, "/" CONFIG_MESH_ID "/" NOCMACSTR "/acknowledge", NOCMAC2STR(src_addr));
@@ -3325,8 +3416,8 @@ static mdf_err_t softap_init(void)
 
     // say hello and take serial line mutex
     g_blinks=10;
-    xSemaphoreTake(g_avruart_mutex,0);
-
+    avruart_mxtake(BIN,0);
+ 
     // start interface
     ESP_ERROR_CHECK(esp_netif_init());
     ESP_ERROR_CHECK(esp_event_loop_create_default());
@@ -3431,8 +3522,10 @@ void app_main()
     uart_enable_pattern_det_baud_intr(UART_NUM_1, '\n', 1, 9, 0, 0);
     uart_pattern_queue_reset(UART_NUM_1, 20);
 
-    // have a mutex for AVR UART communications
-    g_avruart_mutex = xSemaphoreCreateMutex();
+    // have semafores for AVR UART communications
+    g_avruart_mxmode = xSemaphoreCreateMutex();
+    g_avruart_mxline = xSemaphoreCreateMutex();
+    g_avruart_bseol =  xSemaphoreCreateBinary();
 
     // monitor uart events
     xTaskCreate(avruart_event_task, "avruart_event_task", 4 * 1024, NULL, CONFIG_MDF_TASK_DEFAULT_PRIOTY, NULL);
