@@ -1226,7 +1226,7 @@ static void simulate_target_tcb(void *timer) {
         expire--;
     }
     if(expire==0) {
-      // g_tstate_smaxcur=0; // TODO: periodic  update by server software
+      // g_tstate_smaxcur=0; // TODO: periodic update by server software
     }
     // cable capacity cmaxcur is set by g_tcontrol_cmaxcur remotely
     if(g_tcontrol_cmaxcur>=0) {
@@ -1237,7 +1237,8 @@ static void simulate_target_tcb(void *timer) {
     if(ccss==00) {
         // all passive
         aphases=0;   
-        amaxcur=0;   
+        amaxcur=0;
+	g_tstate_cmaxcur=-1; // require cmaxcur to be set in state A
         cur1=0;
         cur2=0;
         cur3=0;
@@ -1247,15 +1248,16 @@ static void simulate_target_tcb(void *timer) {
 	    ccss=10;
         }	
     }
-    // CCS state 1x (A): wait for car (ignored in simulation)
+    // CCS state 1x (A): wait for car i.e. valid PP signal)
     if(ccss==10) {
         // all passive
         aphases=0;   
         amaxcur=0;   
         cur1=0;
         cur2=0;
-        cur3=0;   
-        ccss=20;
+        cur3=0;
+	if(g_tstate_cmaxcur>=60)
+          ccss=20;
     }  
     // CCS state 2x (B): wait for load allocation
     if(ccss==20) {
