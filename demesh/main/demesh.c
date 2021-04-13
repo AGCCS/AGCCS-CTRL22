@@ -49,10 +49,10 @@ repository.
 ===========================================================================
 */
 
-// firmware revision 2021-04-09 
+// firmware revision 2021-04-13 
 
 // firmware version string for OTA (hardcoded format "<OneDigit>.<OneDigit>")
-#define DEMESH_VERSION "1.3"
+#define DEMESH_VERSION "1.4"
 
  
 // minimum includes
@@ -123,8 +123,7 @@ static int g_tcontrol_opbutton=-1;     // set button pressed (convenience remote
 static TickType_t systime(void);
 
 // forward declr.: trigger heartbeat (published via MQTT and sent over plain TCP socket) 
-static void heartbeat_trigger(void);
-
+static void heartbeat_trigger(TimerHandle_t timer);
 
 /*
 ===========================================================================
@@ -761,8 +760,6 @@ int avruart_mxgive() {
   return MDF_OK;
 }
 
-// have an event queue for UART events
-static QueueHandle_t g_avruart_queue;
 
 
 // utility: forward a (stray) line to root for logging
@@ -789,10 +786,14 @@ static void avruart_fwdlog(char* ln) {
 }
 
 
+// have an event queue for UART events
+static QueueHandle_t g_avruart_queue;
+
+
 // have a task to monitor the UART event queue (obly for pikcing log-lines)
 static void avruart_event_task(void *arg) {
     uart_event_t event;
-
+    TimerHandle_t hbtimer=xTimerCreate("UartHbTimer",500/portTICK_PERIOD_MS,false,NULL,heartbeat_trigger);
     // loop forever
     while(true) {
         // waiting for UART event.
@@ -818,6 +819,7 @@ static void avruart_event_task(void *arg) {
                 MDF_LOGI("avruart_event_task: received line #%d", strlen(g_avruart_line));
 		if(avruart_mode==IDLE) {
 		    avruart_fwdlog(g_avruart_line);
+		    xTimerReset(hbtimer,0);
 		}
                 xSemaphoreGive(g_avruart_mxline);
 		// advertiese new line
@@ -878,12 +880,12 @@ int avrwriteln(char* msg) {
 // Lines starting with '%' or '[' will be silently discarded.
 
 static bool g_avrreadln_tout;
-void g_avrreadln_tcb(TimerHandle_t timer) {g_avrreadln_tout=true;};
+void avrreadln_tcb(TimerHandle_t timer) {g_avrreadln_tout=true;};
 
 int avrreadln(char* str, int timeout) {
     // initialise timeout mechanism
     g_avrreadln_tout=false;
-    TimerHandle_t rtimer= xTimerCreate("ReadLnTimer",timeout/portTICK_PERIOD_MS,false,NULL,g_avrreadln_tcb);
+    TimerHandle_t rtimer= xTimerCreate("ReadLnTimer",timeout/portTICK_PERIOD_MS,false,NULL,avrreadln_tcb);
     xTimerStart(rtimer,0);
     // loop until timeout
     while(1) {
@@ -1238,7 +1240,7 @@ static void simulate_target_tcb(void *timer) {
         // all passive
         aphases=0;   
         amaxcur=0;
-	g_tstate_cmaxcur=-1; // require cmaxcur to be set in state A
+	//g_tstate_cmaxcur=-1; // require cmaxcur to be set in state A
         cur1=0;
         cur2=0;
         cur3=0;
@@ -1320,16 +1322,21 @@ static void simulate_target_tcb(void *timer) {
     }
     // clear opbutton anyway
     g_tcontrol_opbutton=0;
-    // copy local states 
+    // copy local states
+    bool hbt=false;
+    if((g_tstate_ccss!=ccss) || (g_tstate_aphases!=aphases) ||
+       (g_tstate_cur1!=cur1) || (g_tstate_cur2!=cur2)|| (g_tstate_cur3!=cur3)) {
+      hbt=true;
+    }     
     g_tstate_aphases=aphases;   
     g_tstate_amaxcur=amaxcur;   
     g_tstate_cur1=cur1;
     g_tstate_cur2=cur2;
     g_tstate_cur3=cur3;
-    if(g_tstate_ccss!=ccss) {
-        g_tstate_ccss=ccss;
-        heartbeat_trigger();
-    }     
+    g_tstate_ccss=ccss;
+    if(hbt)
+      heartbeat_trigger(NULL);
+  
 }
 
 
@@ -2703,7 +2710,7 @@ static void synctime_task(void *arg)
 TaskHandle_t g_heartbeat_task = NULL;
 
 // wake up heartbeat
-static void heartbeat_trigger(void)
+static void heartbeat_trigger(TimerHandle_t timer)
 {
     if(g_heartbeat_task==NULL) return;
     xTaskNotifyGive(g_heartbeat_task);
@@ -2756,8 +2763,8 @@ static void heartbeat_task(void *arg)
 	}    
 
 	// delay
-	ulTaskNotifyTake(true, 0);
-	ulTaskNotifyTake(true, g_heartbeat_period / portTICK_PERIOD_MS);
+	ulTaskNotifyTake(pdTRUE, 0);
+	ulTaskNotifyTake(pdTRUE, g_heartbeat_period / portTICK_PERIOD_MS);
     }
 
     // goodbye (never get here)
