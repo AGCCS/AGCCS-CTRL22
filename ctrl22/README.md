@@ -1,6 +1,6 @@
 # Ctrl22 --- AVR Firmware
 
-Our firmware for the AVR uC ATmega4808 controls the charging process according to the CCS standard. For details of the circuitry, see [../circuit](../circuit/).  The code is organised in a cyclic fashion, i.e., there is one indefinite while-loop which runs a number of callback functions to actually operate the attached hardware modules (e.g. generate control pilot CP, read back CP, read proximity pilot PP, operate mains relays, measure current, etc.). The firmware is controlled via the TX0/RX0 serial line with a line-based human readable protocol. In our project, this control is exercised by an ESP32 SoC to allow for remote access. For first installation, we propose to set the ESP32 in target AVR development mode in order to forward the AVR's TX0/RX0 via telnet; see [../circuit](../circuit/) for details.
+Our firmware for the AVR uC ATmega4808 controls the charging process according to the CCS standard. For details of the circuitry, see [../circuit](../circuit/).  The code is organised in a cyclic fashion, i.e., there is one indefinite while-loop which runs a number of callback functions to actually operate the attached hardware modules (e.g. generate control pilot CP, read back CP, read proximity pilot PP, operate mains relays, measure current, etc.). The firmware is controlled via the TX0/RX0 serial line with a line-based human-readable protocol. In our project, this control is exercised by an ESP32 SoC to allow for remote access. For first installation, we propose to set the ESP32 in target AVR development mode in order to transparently forward the AVR's TX0/RX0 via telnet; see [../circuit](../circuit/) for details.
 
 
 
@@ -34,7 +34,7 @@ You can inspect the implemantation of this state machine in the callback functio
 
 - `rms_cb()` keeps updating the RMS measurement of the actual current; it triggers a 10kHz interrupt to take samples and subsequently organises RMS computation in short slices; eventually, `g_cur1`, `g_cur2` and `g_cur3` will be updated accordingly; the convenenience functions `rms(1)` and `rms(0)`  enable and disable RMS periodic measurement, respectively.
 
-- `pilots_cb()` keeps updating synchronous analog reading of pilots to` g_cpilot` (scaled in [V]) and `g_ppilot` (conveniently scaled in [100mA] read back); again, pilot reading is enabled/disabled by  `pilots(1)`/`pilots(0)`;
+- `pilots_cb()` keeps updating synchronous analog reading of pilots to` g_cpilot` (scaled in [V]) and `g_ppilot` (conveniently scaled in [100mA]); again, pilot reading is enabled/disabled by  `pilots(1)`/`pilots(0)`;
 
   
 
@@ -42,11 +42,11 @@ You can inspect the implemantation of this state machine in the callback functio
 
 ## Serial Line Protocol
 
-The AVR organises its operation by a dedicated set of state variables. Relevant subsets of these variables can be read from or written to the serial line. The protocol is as follows.
+A relevant subsets of the state variables can be read from or written to via the serial line. It is set to 115200 8N1 and is physically accessible via J4 or, more conveniently, via telnet and the ESP32 in target development mode; see also [../citcuit](../circuit). The protocol is as follows.
 
-- to read the parameter `<PAR>`, send `<PAR>?\r\n` to the AVR; expect a reply in the form ` <PAR>=<VAL>\r\n`, or `parse error\r\n` for a parse error; here `<PAR>` the printable ASCII name of the parameter and `<VAL>` is  a signed 16bit integer in common decimal ASCII representation;
-- to write the parameter `<PAR>`, send `<PAR>=<VAL>\r\n` to the AVR; expect a reply in the form ` <PAR>=<VAL>\r\n`, or `fail` for `parse error`; here `<PAR>` and  `<VAL>`  are ASCII encoded name and value of the respective parameter as indicated above;
-- semantic suger: send `<PAR>!` to set the value to `1`, or  `<PAR>~` to set the value to `0`.
+- to read the parameter `<PAR>`, send `<PAR>?\r\n` to the AVR; expect a reply in the form ` <PAR>=<VAL>\r\n`, or `parse error\r\n` for a parse error; here `<PAR>` is the printable-ASCII name of the parameter and `<VAL>` is a signed 16bit integer in common decimal ASCII representation;
+- to write the parameter `<PAR>`, send `<PAR>=<VAL>\r\n` to the AVR; expect a reply in the form ` <PAR>=<VAL>\r\n`, or  `parse error`; here `<PAR>` and  `<VAL>`  are ASCII encoded name and value of the respective parameter as indicated above;
+- semantic suger: send `<PAR>!` to set the value to `1`, or  `<PAR>~` to clear the value to `0`.
 
 The protocol is strictly line based. That is, the host sends one line and expects one line as reply. This is to facilitate parsing on host side, which in our use case is done by the attached ESP32.
 
@@ -61,7 +61,7 @@ The protocol is strictly line based. That is, the host sends one line and expect
 | `phases=12/r/n`   | `phases=12/r/n`   | enable mains phases L1 and L2 (i.e., decimal encoding)       |
 | `cur1?/r/n`       | `cur1=65/r/n`     | read 6.5A as current drawn on phase L1; likewise phases L2 and L3 |
 
-**Conventions.** Current is throughout communicated by integers in the unit [100mA], i.e., fixed point representation with one decimal place when interpreted in [A]. Selection of any subset of the three phases L1, L2 and L3 is "decimal encoded", i.e., those decimal digits present in the parameter are selected. E.g., "123" reads "all three phases", "32" and "23" both read "phases L2 and L3", and "0" reads "no phases".   
+**Conventions.** Current is throughout communicated by integers in the unit [100mA], i.e., fixed point representation with one decimal place when interpreted as [A]. Selection of any subset of the three phases L1, L2 and L3 is "decimal encoded", i.e., those decimal digits present in the parameter are selected. E.g., "123" reads "all three phases", "32" and "23" both read "phases L2 and L3", and "0" reads "no phases".   
 
 Optional convenience commands are implemented on top of the strict set/get-parameter scheme. The AVR reply on such a command is escaped with a beginning line `[[[\r\n` and trailing line `]]]\r\n`. Currently, there is only one such convenience command, namely `?\r\n` to request an overall system status and the overall list of accessible global variables; see also below. 
 
@@ -122,6 +122,8 @@ reset       [-/W] % use "reset!" for a soft reset
 
 The firmware supports some commands via the serial line that are specifically meant to facilitate first installation. For this purpose, it is recommended to power the circuitry from a 12V bench supply and to test individual functional modules separately with dedicated test peripherals attached.
 
+**Serial Line.** Whether physically attached via J4 and an USB-to-Serial converter (set 1o 115200 8N1)  or whether using telnet via the ESP32, enter `?\r\n` and observe the above parameter summary to verify serial communications.
+
 **Operator LED.** Connect the LED anode to +12V and the cathode via a suitable resistor to the LED-terminal; 500R should be fine for a "standard" 2V/20mA red LED. On power up, the device will blink at a 2sec period to indicate its status. When observing continuously flashes at high frequency, this indicates an error state. On first-installation, the reason is presumably an EEPROM checksum error. This is to be fixed by saving the default parameters (command `save!\r\n`) . 
 
 **Operator Button.** Connect the button to +12V and to the BTN-terminal. On button press, the firmware transitions to EV detection. This is indicated by changing the blink pattern of the LED to a smooth 0.5Hz blink. Since there is no EV connected, the device will go to an error state after timeout.
@@ -146,5 +148,5 @@ The firmware supports some commands via the serial line that are specifically me
 
 We provide a `Makefile` that should be easily adaptable to Linux/MacOSX programming environments. The easiest way to get a recent AVR toolchain is to install the Arduino IDE and to figure the path of the relevant binaries. A simple `make` on the command line will then produce the binaries `ctrl22.bin` and `ctrl22.hex`. The former is required when updating firmware over the wireless mesh network (see [../demesh](../demesh/)), the latter when using `avrdude` via telnet or the J4 header (see [../circuit](../circuit/))
 
-The code itself has a number of debug switches right at the beginning which we use for "serial line debugging". If e.g. there are issues with the lock, it is worth turning on `#define DEBUG_LOCK`; or use `#define DEBUG_CCS` to track the progress in the CCS state machine depicted above.
+The code itself has a number of debug switches right at the beginning which we use for "serial line debugging". If e.g. there are issues with the lock, it is worth turning on `#define DEBUG_LOCK`.
 

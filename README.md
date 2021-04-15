@@ -66,7 +66,7 @@ very near future --- stay tuned.
 
 ## Prototype
 
-The below photo shows our hardware (rev 1.2) assembled in an enclosure to include mains contactors, leakage current detector/protection and current transformers. It is supplied by a three-phases 32A CEE cable on the left, with power forwarded to the CCS 2 outlet on the right. 
+The below photo shows our hardware (rev 1.2) assembled in an enclosure to include mains contactors, residual current detector/protection and current transformers. It is supplied by a three-phases 32A CEE cable on the left, with power forwarded to the CCS 2 outlet on the right. 
 
 <img src="./images/hardware_1_2_enclosure.jpeg" alt="Rev 1.2" style="zoom:80%;" />
 
@@ -97,7 +97,7 @@ This project is an initiative by Christoph Pflaum and Thomas Moor, both with FAU
 
 ## Acknowledgements
 
-The Wikipedia articles on the [SAE 1772](https://de.wikipedia.org/wiki/SAE_J1772nd), the [IEC 62196](https://de.wikipedia.org/wiki/IEC_62196)  and the [IEC 62196 Type 2](https://de.wikipedia.org/wiki/IEC_62196_Typ_2) standards provide an excellent entry point to learn about EV charging technology and we would like thank the respective authors for their effort. Regarding the electrical engineeering aspects of this project, we hereby acknowlegde that the projects [SmartEVSE](https://www.smartevse.nl/) and [OpenEVSE](https://www.openevse.com/) make their hardware solution available for us to inspect and re-use. Starting from scratch would have been so much more tedious. On a more general scale, we appreciate the fact that nowerdays relevent software tools are made freely available, such as  the [KiCad EDA](https://kicad.org) , the [Espressif SDKs](https://github.com/espressif), and the [GCC](https://gcc.gnu.org/)-based XTENSA and AVR toolchains, naming only the ones most crucial for our project.
+The Wikipedia articles on the [SAE 1772](https://de.wikipedia.org/wiki/SAE_J1772nd), the [IEC 62196](https://de.wikipedia.org/wiki/IEC_62196)  and the [IEC 62196 Type 2](https://de.wikipedia.org/wiki/IEC_62196_Typ_2) standards provide an excellent entry point to learn about EV charging technology and we would like to thank the respective authors for their effort. Regarding the electrical engineeering aspects of this project, we hereby acknowledge the projects [SmartEVSE](https://www.smartevse.nl/) and [OpenEVSE](https://www.openevse.com/), which make their circuitry available for us to inspect and re-use. Starting from scratch would have been so much more tedious. On a more general scale, we appreciate the fact that nowerdays relevent software tools are made freely available, such as  the [KiCad EDA](https://kicad.org) , the [Espressif SDKs](https://github.com/espressif), and the [GCC](https://gcc.gnu.org/)-based XTENSA and AVR toolchains, naming only the ones most crucial for our project.
 
 
 
