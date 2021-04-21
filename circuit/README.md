@@ -95,19 +95,19 @@ Short instructions:
 - get some AVR device specs and check the connection
 
   ```
-  pyupdi.py -d mega4808 -c /dev/{SOME_USB_SERIAL_DEV} -b 115400 -i
+  pyupdi.py -d mega4808 -c /dev/{SOME_USB_SERIAL_DEV} -b 115200 -i
   ```
 
 - read fuses 
 
   ```
-  pyupdi.py -d mega4808 -c /dev/{SOME_USB_SERIAL_DEV} -b 115400 -fr
+  pyupdi.py -d mega4808 -c /dev/{SOME_USB_SERIAL_DEV} -b 115200 -fr
   ```
 
 - write fuses
 
   ```
-  pyupdi.py -d mega4808 -c /dev/{SOME_USB_SERIAL_DEV} -b 115400 -fs {ADDRESS}:{VALUE}
+  pyupdi.py -d mega4808 -c /dev/{SOME_USB_SERIAL_DEV} -b 115200 -fs {ADDRESS}:{VALUE}
   ```
 
    {ADDRESS}:{VALUE} is specified in the output format of `-fr`, e.g.,  `8:0x02` to set BOOTEND to 0x02 as propsoed below.
@@ -115,7 +115,7 @@ Short instructions:
 - program flash memory, e.g. the Optiboot bootloader
 
   ```
-  pyupdi.py -d mega4808 -c /dev/{SOME_USB_SERIAL_DEV} -b 115400 -f {OPTIBOOT_FOR_ATM4808}.hex
+  pyupdi.py -d mega4808 -c /dev/{SOME_USB_SERIAL_DEV} -b 115200 -f {OPTIBOOT_FOR_ATM4808}.hex
   ```
 
 Although you can flash any firmware via the routine described above, we need a bootloader for our project such that later firmware updates can be organised remotely. We use Optiboot for its compliance with the Arduino toolchain. Get your original copy of [Optiboot](https://github.com/Optiboot) or use the `.hex` file provided in our repository. 

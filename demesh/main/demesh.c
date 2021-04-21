@@ -418,8 +418,8 @@ static void init_devices(void)
 #define DEBUG_ON 0                        // active low 
 
 #define AVR_PRESENT                       // we do have an AVR taget to care (undefine this if no AVR present)
-#define AVR_TXD_GPIO  GPIO_NUM_17         // target AVR serial: pins to transmit
 #define AVR_RXD_GPIO  GPIO_NUM_16         // target AVR serial: pins to receive
+#define AVR_TXD_GPIO  GPIO_NUM_17         // target AVR serial: pins to transmit
 #define AVR_BAUDRATE  115200              // target AVR serial: baudrate (always "8N1")
 #define AVR_RST_GPIO  GPIO_NUM_12         // target AVR: how to reset
 #define AVR_RST_ACTIVE  0                 // target AVR: dont need to be active high for "run"
@@ -469,8 +469,8 @@ void init_devices(void)
 #define DEBUG_ON 1                        // active low 0 (set to high 1 to boot into debug mode by default)
 
 #define AVR_PRESENT                       // we do have an AVR taget to care
-#define AVR_TXD_GPIO  GPIO_NUM_17         // target AVR serial: pins to transmit
 #define AVR_RXD_GPIO  GPIO_NUM_16         // target AVR serial: pins to receive
+#define AVR_TXD_GPIO  GPIO_NUM_17         // target AVR serial: pins to transmit
 #define AVR_BAUDRATE  115200              // target AVR serial: baudrate (always "8N1")
 #define AVR_RST_GPIO  GPIO_NUM_12         // target AVR: how to reset
 #define AVR_RST_ACTIVE  1                 // target AVR: be always active (incl. "high" for "run")
@@ -522,8 +522,8 @@ void init_devices(void)
 #define DEBUG_ON 0                        // active low (set to 1 to boot into debug mode by default)
 
 #define AVR_PRESENT                       // we do have an AVR taget to care
-#define AVR_TXD_GPIO  GPIO_NUM_17         // target AVR serial: pins to transmit
 #define AVR_RXD_GPIO  GPIO_NUM_16         // target AVR serial: pins to receive
+#define AVR_TXD_GPIO  GPIO_NUM_17         // target AVR serial: pins to transmit
 #define AVR_BAUDRATE  115200              // target AVR serial: baudrate (always "8N1")
 #define AVR_RST_GPIO  GPIO_NUM_12         // target AVR: how to reset
 #define AVR_RST_ACTIVE  1                 // target AVR: be always active (incl. "high" for "run")

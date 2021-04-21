@@ -1,0 +1,37 @@
+.slider-selection {
+  background-color: #007bff;
+  background-image: none;
+}
+.slider-track-high {
+  background-color: #808182;
+  background-image: none;
+}
+.slider-handle {
+  background-color: #212529;
+  background-image: none;
+}
+
+
+#spowsldSlider {
+  width: 100%;
+}    
+
+
+/*
+.card-body p,div,span {
+    font-size: 1.25rem;
+    font-weight: 500;
+    line-height: 1.5;
+    text-align: left;
+}
+*/
+
+/*
+.card-header {
+    font-size: 1.00rem;
+    font-weight: 400;
+    line-height: 1.25;
+}
+*/
+
+
