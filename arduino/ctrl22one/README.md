@@ -30,7 +30,7 @@ The ESP32 firmware ``CTRL22ONE`` implements a simple HTTP server to handle GET r
 
 Load the sketch in the Arduino IDE, compile, download, done. Some considerations:
 
-- install the below third party components; use the board manager for the ESP32 Core and the library manager for the remaining libraries; they all come with GitHub documentation incl. installation instructions ; be aware that there typically exist multiple libraries for the same topic but with different API and different features --- the name matters.
+- install the third party components listed at the bottom of this page; use the board manager for the ESP32 Core and the library manager for the remaining libraries; they all come with GitHub documentation incl. installation instructions; regarding the various JavaScript libraries, you do not need to bother as long as you are happy with the versions included in the source tree; 
 
 - you can conduct first tests with an M5StickC or an ESP32 dev board; observe the respective  `#define`directives the beginning of the sketch;  you will need a *J5-Programming-Adaptor* to program the AGCCS rev 1.2 board (see [circuit](../../circuit)); regarding the Arduino IDE, the AGCCS board can be configured as "ESP32 dev board";
 
@@ -46,7 +46,7 @@ Load the sketch in the Arduino IDE, compile, download, done. Some considerations
 
 Assuming that you have compiled an dowloaded the Arduino sketch on either an M5StickC, some other ESP32 dev. board, or the actual AGCCS-CTRL22 board, the ESP32 will attempt to connect with your wireless network --- and fail, how should it know the secret credentials? Therefore, the ESP will turn to access-point mode and span its own WLAN with SSID `agccs-^XYZ^` with `^XYZ^` derived from MAC address and password _ctrl22one_. You should be able to join this network with a laptop or mobile device. In this mode, the Web GUI can be accessed at address 192.168.4.1, i.e., type http://192.168.4.1 in the address bar of you browser. Scroll to the bottom of the page and enter your WLAN credentials and press `Restart` to restart the ESP32 in station-mode. 
 
-![ctrl22one-b](/Users/tmoor/current/code/agccs-ctrl22/images/ctrl22one-b.png) 
+![ctrl22one-b](../../images/ctrl22one-b.png) 
 
 
 
@@ -106,7 +106,9 @@ We usually prefer for good reasons to code directly on top of the ESP-MDF/IDF SD
 - [ArduinoOTA](https://github.com/jandrassy/ArduinoOTA) 1.0.6 (Juray Andrassy, Arduino)
 - [ArduinoJson](https://arduinojson.org/) 6.17.3 (Benoit Banchon) 
 
-Likewise, on the HTML/CSS/JavaSkript side we did not need to start from scratch. It can be be really cumbersome to try to learn the technical details on how hundreds of modern CSS properties and HTML elements interact. None of this should be of our concern: Boostrap & friends wrap it all up with a nice top-level interface, no need to worry --- thank you. 
+You will need to install all of the above in oder to build our Arduino sketch. Be aware that there typically exist multiple libraries for the same topic but with different APIs, different features, and at different stages of maturity. Be sure to get exactly those listed above, higher version numbers should be fine in most cases.   
+
+Likewise, on the HTML/CSS/JavaSkript side we did not need to start from scratch. It can be be really cumbersome to try to learn the technical details on how hundreds of modern CSS properties and HTML elements interact. None of this should be of our concern: Boostrap & friends wrap it all up with a nice top-level interface, no need to worry --- thank you. All of the below are included in minimal distribution form in our source tree, so you do only need to bother if you want to update to a newer version.
 
 - [jQuery](https://jquery.com/) 3.6.0 (OpenJS Foundation) 
 - [Bootstrap](https://getbootstrap.com/) 5.0.0-beta3 (Bootstrap Team)
