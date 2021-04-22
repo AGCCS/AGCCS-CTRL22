@@ -32,21 +32,73 @@ Load the sketch in the Arduino IDE, compile, download, done. Some considerations
 
 - install the below third party components; use the board manager for the ESP32 Core and the library manager for the remaining libraries; they all come with GitHub documentation incl. installation instructions ; be aware that there typically exist multiple libraries for the same topic but with different API and different features --- the name matters.
 
-- you can conduct first tests with an M5StickC or an ESP32 dev board, but finally you will need a *J5-Programming-Adaptor* to program the AGCCS rev 1.2 board (see [circuit](../../circuit)); regarding the Arduino IDE, the AGCCS board can be configured as "ESP32 dev board";
+- you can conduct first tests with an M5StickC or an ESP32 dev board; observe the respective  `#define`directives the beginning of the sketch;  you will need a *J5-Programming-Adaptor* to program the AGCCS rev 1.2 board (see [circuit](../../circuit)); regarding the Arduino IDE, the AGCCS board can be configured as "ESP32 dev board";
 
-- before flashing via the Arduino IDE be sure to choose "large APP, minimal SPIFS, with OTA" as partition table (_Tools_- menu); on a common 4GByte ESP32 this gives un about 1.9GByte for our application and we should be fine with that; 
+- before flashing via the Arduino IDE be sure to choose "large APP, minimal SPIFS, with OTA" as partition table (_Tools_- menu); on a common 4MByte ESP32 this gives un about 1.9MByte for our application and we should be fine with that; if not, we can get ESP32s with up to 16MByte;
 
 - the sketch is rather verbose on the serial line, so the serial-monitor can be utilised to locate issues if any;
 
-- for simplicity, we opted to embed the files served via HTTP as PROGEM strings; the respective include files are located in the directory  `./webinc/*`  and they are built from the human editable sources in `./websrc/`*; hence, if you plan for changes on this end, you will need to re-generate the respective include files; for OSX/Linux, we provide the shell script `mkheaders`  (let us know about more comfortable but yet lightweight solutions; also  similar script for Windows would be appreciated).
+- for simplicity, we opted to embed the files served via HTTP as PROGEM strings as opposed to a SPIFFS filesystem in a operate partition; on the downside, we need to care about converting the original text files into respective C-header files need; see below; on the first take, you can ignore this step and go with the provided C-headers;
 
   
+
+## First Installation
+
+Assuming that you have compiled an dowloaded the Arduino sketch on either an M5StickC, some other ESP32 dev. board, or the actual AGCCS-CTRL22 board, the ESP32 will attempt to connect with your wireless network --- and fail, how should it know the secret credentials? Therefore, the ESP will turn to access-point mode and span its own WLAN with SSID `agccs-^XYZ^` with `^XYZ^` derived from MAC address and password _ctrl22one_. You should be able to join this network with a laptop or mobile device. In this mode, the Web GUI can be accessed at address 192.168.4.1, i.e., type http://192.168.4.1 in the address bar of you browser. Scroll to the bottom of the page and enter your WLAN credentials and press `Restart` to restart the ESP32 in station-mode. 
+
+![ctrl22one-b](/Users/tmoor/current/code/agccs-ctrl22/images/ctrl22one-b.png) 
+
+
+
+Once restarted, the ESP32 will succeed in joining your wireless network. Its hostname is  `agccs-^XYZ^` with `^XYZ^` derived from the MAC address. Depending on your router, you can access the ESP32 via a symbolic address derived from the hostname (e.g. our M5StickC is accessible by the address http://agccs-d8a01d5537cc/ when connected via a FritzBox). You can configure your router to use a more convenient address or use the numeric IP address instead. 
+
+Thats all to it -- you can now control the AGCCS-CTRL22 board via any browser, icl. your favourite mobile device. If you still have the Arduino IDE open and the J5-adapter connected, you can observe the verbose output via the serial monitor. Alternatively, any status reports from the AVR serial line are forwarded to the _Diagnostics_ collapsable in the Web GUI. So there is plenty of internal monitoring to provide a comfortable basis for you further development so that you can indeed tailor the device to your very needs and preferences.
+
+
+
+## Editing/Testing Static HTML/CCS/JS Content
+
+Static content to be served via HTTP resides in the subdirectory `./websrc/*` in the source tree. Of formats interest are the files `index.html` and `style.css` which define the appearance of the GUI. Next, there are various `*.js`/`*.css` files for our local copy of jQuery/Bootstrap & friends. To Test/Develop the configuration, simply run an HTTP server to publish the entire contents of  `./websrc`. A simple way to do this, is to facilitate the built-in server from Python (any version, no Python-programming at this point):
+
+```
+$ cd [WHERE-EVER]/agccs-ctrl22/arduino/ctrl22one
+$ cd ./websrc
+$ python -m http.server
+```
+
+Thats it. Although you'll get a warning because there is no web socket to connect for live data, you can still inspect the GUI with you browser at `127.0.0.1:8000`. Feel free to rearrange the layout, remove/add elements, change colours a.s.o. 
+
+Once happy with the general appearance of the GUI, we need to have the ESP32 effectively to serve the content of `./websrc`. The scalable solution here would be to have a filesystem (e.g. SPIFFS) on the ESP32 and to transfer the files to there. There are two cons to this approach: (a) given the small number of read-only files to serve, a full filesystem is overkill; (b) if we apply changes, we most like do so uniformly to the application program and the GUI. Therefore we opted to embed the text files as PROGMEN strings into the firmware. For this reason, we need to convert all static content files into C-headers which define an equivalent constant C-string. E.g., `index.html` is converted to `index.html.h` reading out
+
+```
+PROGMEM const char f_index_html[] = {
+  0x3c, 0x21, 0x44, 0x4f, 0x43, 0x54, 0x59, 0x50, 0x45, 0x20, 0x68, 0x74,
+  [ ... many more similar lines ...]
+  0x62, 0x6f, 0x64, 0x79, 0x3e, 0x0a, 0x0a, 0x3c, 0x2f, 0x68, 0x74, 0x6d,
+  0x6c, 0x3e, 0x0a, 0x00
+};   
+```
+
+Note that although the converted file is considerable larger, the effective memory footprint in the ESP32 obviously remains the same. By convention, each text file in `./websrc` is accompanied by an equivalent C-header in the neighbour directory `./webinc`. When editing the text files, we will need to update the headers. The core conversion is done by the command-line tool `xxd`, available for OSX/Linux/Windows. Except for Windows, we provide the shell script `mkheaders.sh` to facilitate the conversion and to add appropriate decoration (i.e.. C-variables are prefixed `f_` and are of C-type `const char` with the directive `PROGMEM`). When invoked with no arguments, `mkheaders.sh` will convert all files found in `./websrc`and place the result in `./webinc`. Example:
+
+ ``` 
+ $ cd {WHERE-EVER}/agccs-ctrl22/arduino/ctrl22one
+ $ ls ./websrc
+   index.html style.css jquery.min.js [... and so on ...] 
+ $ ./mkheaders.sh 
+ $ ls ./webinc
+   index.html.h style.css.h jquery.min.js.h [... and so on ...] 
+ ```
+
+[Windows users: any hints on how to do this conveniently with Windows? Its a quite common task, perhaps there is a Python script for this purpose?]
+
+ 
 
 
 
 ## Third Party Components 
 
-Although we prefer for good reasons to code directly on top of the ESP-MDF/IDF SDKs, we must admit that within the Arduino environment a functional prototype can be obtained with far less effort. One aspect here is that the ESP32 SoC is considered sufficiently powerful to trade in some resources in favour for a modern C++ coding style (think of string manipulation and/or JSON parsing) However, the major share of the experienced convenience is owed to the readily available libraries with their intuitive high-level APIs.  Specifically
+We usually prefer for good reasons to code directly on top of the ESP-MDF/IDF SDKs. However, we must admit that within the Arduino environment a functional prototype can be obtained with far less effort. One aspect here is that the ESP32 SoC is considered sufficiently powerful to trade in some resources in favour for a modern C++ coding style (think of string manipulation and/or JSON parsing). But the major share of the experienced convenience is owed to the readily available libraries with their intuitive high-level APIs.  Specifically
 
 - [ESP32Core](https://github.com/espressif/arduino-esp32) 1.0.6 (lots of contributors, Espressif)
 - [WiFiWebServer](https://github.com/khoih-prog/WiFiWebServer) 1.1.1 (Khoi Hoang)
