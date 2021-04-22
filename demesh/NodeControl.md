@@ -35,7 +35,7 @@ The system report request command is specified by `"cmd:"system"` and has no fur
 | "time":^TIME^           | system time ^TIME^ in ms; all nodes have manage a synchronised system time with a role-ove at 3600000, i.e., one hour |
 | "version":"^MAJ^.^MIN^" | version of the firmware as string with ^MAJ^ and ^MIN^ one decimal digit each |
 | "board":"^BOARD^"       | hardware platform identigyer, e.g. `"board":"m5stick"` for the M5StickC or `"board"="agccs12"` for our charging station with a Rev-1-2 board |
-| "avrver":^VER^          | version of the firmware of the attached AVR as an integer; our firmware `ctrl22.c` reports a two digit number with the first digit the major version and the second digit the minor version; version 0 is reserved to indicate "no AVR attached" |
+| "avrver":^VER^          | version of the firmware of the attached AVR as an integer; our firmware `Ctrl22C` reports a two digit number with the first digit the major version and the second digit the minor version; version 0 is reserved to indicate "no AVR attached" |
 | "plat"=^LATENCY^        | the estimated latency in ms to send a message to the parent node |
 
 To obtain an overview over all nodes and their respective firmware versions, the host may send `{"dst":"*","cmd":"system"}` via TCP to the root node. 
@@ -62,7 +62,7 @@ The relevant state of the attached AVR is encoded in a set of parameters to asse
 
 | Key              | Comment                                                      |
 | ---------------- | ------------------------------------------------------------ |
-| "avrpar":"^PAR^" | symbolic name ^PAR^ of the parameter to access; available parameters for our charging station are documented [here](../ctrl22/README.md#Serial-Line-Protocol). |
+| "avrpar":"^PAR^" | symbolic name ^PAR^ of the parameter to access; available parameters for our charging station are documented [here](../ctrl22c/README.md#Serial-Line-Protocol). |
 | "avrval":^VAL^   | value read from or to be written to the process image; in the acknowledgement on a write access, ^VAL^ will be set to `"ok"` on success. |
 
 To have all charging stations flash their LED button twice at the beginning of every two-seconds period, the host may send `{"dst":"*", "cmd":"avrsetpar", "avrpar":"blinks", "avrval":2}` via TCP to the root node. 

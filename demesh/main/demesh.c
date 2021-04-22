@@ -302,7 +302,7 @@ static void status_screen_update_b(void)
     _fg=TFT_RED;
     _bg=TFT_BLACK;    
     char strbuff[50];
-    sprintf(strbuff, "CTRL22 v%.1f             ",g_tstate_version/10.0);
+    sprintf(strbuff, "Ctrl22 v%.1f             ",g_tstate_version/10.0);
     TFT_print(strbuff, 5, 0);
     sprintf(strbuff, "CCSState: %2d[P=%03d]", g_tstate_ccss, g_tstate_aphases);
     TFT_print((char *)strbuff, 5, 12);

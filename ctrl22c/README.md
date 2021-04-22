@@ -1,4 +1,4 @@
-# Ctrl22 --- AVR Firmware
+# Ctrl22C --- AVR Firmware
 
 Our firmware for the AVR uC ATmega4808 controls the charging process according to the CCS standard. For details of the circuitry, see [../circuit](../circuit/).  The code is organised in a cyclic fashion, i.e., there is one indefinite while-loop which runs a number of callback functions to actually operate the attached hardware modules (e.g. generate control pilot CP, read back CP, read proximity pilot PP, operate mains relays, measure current, etc.). The firmware is controlled via the TX0/RX0 serial line with a line-based human-readable protocol. In our project, this control is exercised by an ESP32 SoC to allow for remote access. For first installation, we propose to set the ESP32 in target AVR development mode in order to transparently forward the AVR's TX0/RX0 via telnet; see [../circuit](../circuit/) for details.
 
@@ -76,7 +76,7 @@ Thus, the ESP32 firmware shall filter any lines that start  `%` an optionally in
 
 ```
 =======
-AGCCS-CTRL22 AVR Firmware Version 1.3
+AGCCS-Ctrl22C AVR Firmware Version 1.3
 Copyright Thomas Moor (c) 2020, 2021
 =======
 ver=13      [R/-] % read out firmware version
@@ -146,7 +146,7 @@ The firmware supports some commands via the serial line that are specifically me
 
 ## Compiling/Programming the AVR
 
-We provide a `Makefile` that should be easily adaptable to Linux/MacOSX programming environments. The easiest way to get a recent AVR toolchain is to install the Arduino IDE and to figure the path of the relevant binaries. A simple `make` on the command line will then produce the binaries `ctrl22.bin` and `ctrl22.hex`. The former is required when updating firmware over the wireless mesh network (see [../demesh](../demesh/)), the latter when using `avrdude` via telnet or the J4 header (see [../circuit](../circuit/))
+We provide a `Makefile` that should be easily adaptable to Linux/MacOSX programming environments. The easiest way to get a recent AVR toolchain is to install the Arduino IDE and to figure the path of the relevant binaries. A simple `make` on the command line will then produce the binaries `ctrl22c.bin` and `ctrl22c.hex`. The former is required when updating firmware over the wireless mesh network (see [../demesh](../demesh/)), the latter when using `avrdude` via telnet or the J4 header (see [../circuit](../circuit/))
 
 The code itself has a number of debug switches right at the beginning which we use for "serial line debugging". If e.g. there are issues with the lock, it is worth turning on `#define DEBUG_LOCK`.
 

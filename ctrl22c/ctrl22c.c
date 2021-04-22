@@ -3,7 +3,7 @@
 *************************************************************************
 *************************************************************************
 
-agccs ctrl22 
+AGCCS Ctrl22C
 
 - target platform agccs board (set revision as runtime parameter)
 - compiles with avr-gcc, verified avr-libc 2.0. and gcc 7.3
@@ -50,7 +50,7 @@ THE SOFTWARE.
 // firmware revision 2021-04-09
 
 // firmware version for OTA
-#define CTRL22_VERSION 12  // XY reads vX.Y, i.e., one digit for major and minor, resp.
+#define CTRL22C_VERSION 12  // XY reads vX.Y, i.e., one digit for major and minor, resp.
 
 
 // 10 MHz clock on fgccs board 
@@ -71,7 +71,7 @@ THE SOFTWARE.
 
 
 // have version as parameter to facilitate CLI read out
-const int16_t g_version=CTRL22_VERSION;   
+const int16_t g_version=CTRL22C_VERSION;   
 
 /*
 *************************************************************************
@@ -2130,7 +2130,7 @@ int16_t usage(int16_t doit) {
     serial_writeln_sync();
     serial_write_pln("% [[[");
     serial_write_pln("% =======");
-    serial_write_pstr("% AGCCS-CTRL22 AVR Firmware Version ");
+    serial_write_pstr("% AGCCS-Ctrl22C AVR Firmware Version ");
     serial_write_uint(g_version/10);
     serial_write('.');
     serial_write_uint(g_version%10);
@@ -2558,7 +2558,7 @@ int main(){
   conf_load();
 
   // say hello
-  serial_write_pln("% AGCCS-CTRL22 --- enter \"?[CR/LF]\" for more details");
+  serial_write_pln("% AGCCS-Ctrl22C --- enter \"?[CR/LF]\" for more details");
   
   // run forever (target for less than 10ms cycle time)
   while(1){

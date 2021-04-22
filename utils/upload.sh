@@ -68,12 +68,12 @@ scp -q $BIN $DST/$FILE
 # part 2: avr firmware
 
 # file to upload
-BIN=$BASE/ctrl22/ctrl22.bin
+BIN=$BASE/ctrl22c/ctrl22c.bin
 
 # make sure we are up to date
 rm -f $BIN > /dev/null
 CDIR=$(pwd)
-cd $BASE/ctrl22
+cd $BASE/ctrl22c
 make  > /dev/null
 cd $CDIR
 if [ ! -f $BIN ]; then
@@ -82,8 +82,8 @@ if [ ! -f $BIN ]; then
 fi
 
 # find version
-SRC=$BASE/ctrl22/ctrl22.c
-VERSION_LINE=$(grep "#define CTRL22_VERSION" $SRC)
+SRC=$BASE/ctrl22c/ctrl22c.c
+VERSION_LINE=$(grep "#define CTRL22C_VERSION" $SRC)
 VERSION_NUMBER=$(echo $VERSION_LINE | grep -o '\<.[0-9]')
 VERSION_SUFFIX=$(echo $VERSION_NUMBER  | sed 's/\([1-9]\)$/_\1/')
 if [[ $VERSION_SUFFIX == "" ]] ; then

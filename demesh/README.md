@@ -108,7 +108,7 @@ $ mosquitto_pub -h lrt101 -p 1884 -t /DEMESH/d8a01d55a56c/control -m '{"cmd":"av
 $ mosquitto_pub -h lrt101 -p 1884 -t /DEMESH/d8a01d55a56c/control -m '{"cmd":"avrsetpar","avrpar":"opbutton","avrval":1}'
 ```
 
-The first target-AVR parameter `smaxcur` limits the mains supply current, the second `phases` enables all three phases. The third triggers the charging cycle by mimicking the operator button of the charging station; see [ctrl22.c](../ctrl22/) for detailed information on relevant target-AVR parameters.
+The first target-AVR parameter `smaxcur` limits the mains supply current, the second `phases` enables all three phases. The third triggers the charging cycle by mimicking the operator button of the charging station; see [ctrl22c.c](../ctrl22c/) for detailed information on relevant target-AVR parameters.
 
 ## Compiling and Installing ESP32 Firmware
 

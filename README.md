@@ -4,7 +4,7 @@ AGCCS-CTRL22
 We propose a design for a network of EV charging stations compliant to the CCS standard. The repository is organised as follows:
 
 - [./circuit](./circuit/): hardware platform, incl. schematics and a HowTo on firmware installation
-- [./ctrl22](./ctrl22/): AVR firmware to control the charging process
+- [./ctrl22c](./ctrl22c/): AVR firmware to control the charging process
 - [./demesh](./demesh/): ESP32 firmware to organise messaging over a wireless mesh network
 - [./monitor](./monitor/): server software for overall control and monitoring of the charging station network
 - [./utils](./utils/): scripts to facilitate first-installation and debugging
@@ -53,7 +53,7 @@ Regarding the analog circuitry, our implementation is derived from the [SmatEVSE
 
 ## Node Firmware
 
-Each charging spot comes with an AVR uC for time/safety critical low-level behaviour which communicates via RS232 with an ESP32 for inter-node networking. While the AVR is programed from scratch, the ESP32 firmware builds on the MDF-SDK for wireless mesh-networking. From the latter, we expect a comparatively large area of coverage without additional infrastructure such as Wifi repeaters. Our mesh network subscribes to and publishes from an MQTT broker and is thus interoperable with a wide range of available home automation software. Both, the AVR firmware and the ESP firmware support OTA updates, i.e., no crawling along the parking lot to plug in programming adaptors. More detailed documentation is given by in [./ctrl22/README.md](./ctrl22/) for the AVR firmware and by  [./demesh/README.md](./demesh/) for the ESP32 firmware.
+Each charging spot comes with an AVR uC for time/safety critical low-level behaviour which communicates via RS232 with an ESP32 for inter-node networking. While the AVR is programed from scratch, the ESP32 firmware builds on the MDF-SDK for wireless mesh-networking. From the latter, we expect a comparatively large area of coverage without additional infrastructure such as Wifi repeaters. Our mesh network subscribes to and publishes from an MQTT broker and is thus interoperable with a wide range of available home automation software. Both, the AVR firmware and the ESP firmware support OTA updates, i.e., no crawling along the parking lot to plug in programming adaptors. More detailed documentation is given by in [./ctrl22c/README.md](./ctrl22c/) for the AVR firmware and by  [./demesh/README.md](./demesh/) for the ESP32 firmware.
 
 
 

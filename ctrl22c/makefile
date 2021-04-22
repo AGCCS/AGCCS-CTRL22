@@ -16,7 +16,7 @@ DUDECONF	= -C /Applications/Arduino.app/Contents/Java/hardware/tools/avr/etc/avr
 #
 
 # program to build
-PRG            = ctrl22
+PRG            = ctrl22c
 SRC	       = $(PRG).c
 OBJ            = $(PRG).o
 DEFS           =
