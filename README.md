@@ -8,6 +8,7 @@ We propose a design for a network of EV charging stations compliant to the CCS s
 - [./demesh](./demesh/): ESP32 firmware to organise messaging over a wireless mesh network
 - [./monitor](./monitor/): server software for overall control and monitoring of the charging station network
 - [./utils](./utils/): scripts to facilitate first-installation and debugging
+- [./arduino](./arduino/): Arduino IDE compatible firmware for stand-alone operation (side track)
 - [./doc](./doc/): Thesis and other documents regarding this project
 
 **DISCLAIMER 1.** We do not provide a turn-key solution and do not plan to do so in near future. Rather we invite the enthusiast to actively contribute or to passively make use of our collection of resources and to share their experience. The current project status is **"work in progress"**.
@@ -18,7 +19,7 @@ We propose a design for a network of EV charging stations compliant to the CCS s
 
 ## Motivation
 
-The Combined Charging System (CCS) provides a specification for low-cost home-charging of electric vehicles with up to 22kW. It is based on a simplistic protocol by which the vehicle and the charging station negotiate available power. Of-the-shelf wall-boxes forward the common 3x230V supply at an adjustable current limit to the vehicle via the CCS standard.
+The Combined Charging System (CCS) provides a specification for low-cost home-charging of electric vehicles (EVs) with up to 22kW. It is based on a simplistic protocol by which the vehicle and the charging station negotiate available power. Of-the-shelf wall-boxes forward the common 3x230V supply at an adjustable current limit to the vehicle via the CCS standard.
 
 The aim of this project is to scale the simplicity of the low-cost single-user wallbox approach to larger parking lots in order to address appartment buildings or shopping venues. These configurations are characterised by a limited and possibly varying amount of available power. Hence, a fixed allocation per parking slot would be inefficient. Instead, we seek for an environment by which individual charging spots communicate and negotiate the power distribution dynamically. Conveivable schemes include first-comes-first-serve, fairness-based-energy-distribution, or ready-to-go-by-schedule. Optionally, an external agent may limit the ussage of non-renewable enery in favour of e.g. available solar power at the given time to the day. 
 
@@ -85,7 +86,7 @@ Well, no turn-key solution ... but perhaps some interesting venues for the enthu
 
 This project is an initiative by Christoph Pflaum and Thomas Moor, both with FAU/Erlangen/Germany. We appreciate the following contributions by our students/staff.
 
-- Roland Kießling: electrics/electronics lab support, including the assembly of the prototype enclosure. 
+- Roland Kießling: electrics/electronics lab support, including design and assembly of the prototype enclosures. 
 
 - Pascal Thurnherr: [BA thesis](./doc/Bachelorarbeit_Pascal_Thurnherr.pdf) , _Aufbau und Test einer Ladeneinrichtung für Elektrofahrzeuge nach IEC62169_, FAU/Erlangen 2020; see also [this project](https://github.com/dreadnomad/FGCCS-Ctrl22).
 
@@ -103,7 +104,7 @@ The Wikipedia articles on the [SAE 1772](https://de.wikipedia.org/wiki/SAE_J1772
 
 ## Copyright/License
 
-All software compents in this project are _"Copyright by the Authors"_ and have been developed independently and from scratch. We provide them as  _"Open Source"_ under terms of the MIT License and/or the Apache License, as indicated in the respective code headers.  In particular, you are invited to re-cycle whatever you find useful in whatever project you are after. In the case you feel that you gained a relevant benefit, we would appreciate an acknowledgement, e.g., by linking to our GitHub repository. Regarding the hardware circuitry, our work in relevant aspects is a derivative of [SmartEVSE](https://www.smartevse.nl/) distributed as _"Open Source"_ via [GitHub](https://github.com/SmartEVSE) with no specific license stated, and we pass on our contribution to the circuitry likewise. 
+All software compents in this project are _"Copyright by the Authors"_ and have been developed independently and from scratch. We provide them as  _"Open Source"_ under terms of the MIT License, the Apache License, and/or the GPL, as indicated in the respective code headers.  In particular, you are invited to re-cycle whatever you find useful in whatever project you are after. In the case you feel that you gained a relevant benefit, we would appreciate an acknowledgement, e.g., by linking to our GitHub repository. Regarding the hardware circuitry, our work in relevant aspects is a derivative of [SmartEVSE](https://www.smartevse.nl/) distributed as _"Open Source"_ via [GitHub](https://github.com/SmartEVSE) with no specific license stated, and we pass on our contribution to the circuitry likewise. 
 
 
 

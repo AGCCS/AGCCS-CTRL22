@@ -1,8 +1,6 @@
 # Arduino Firmware ESP32/AVR
 
-In parallel to our main intent to organise a network of charging station, we plant to provide a simple stand-alone configuration, i.e., charging from solar power while available. In order to be more easily adaptable to individual use cases, we prefer for this purpose the commonly accepted Arduino programming environment / programming style. 
-
-[ work in progress --- scratch pad ]
+In parallel to our main intent to organise a network of charging station, we plant to provide a simple stand-alone configuration, i.e., charging from solar power while available. In order to be more easily adaptable to individual use cases, we prefer the commonly accepted Arduino programming environment / programming style for this purpose. 
 
 
 
@@ -18,7 +16,7 @@ In parallel to our main intent to organise a network of charging station, we pla
 
 ## AVR firmware base on Arduino XMegaCoreX 
 
-[nothing ready to share at this point of time]
+[nothing ready to share at this point of time -- not sure, how to go with this, in particular the current measurement]
 
 
 
