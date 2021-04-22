@@ -15,7 +15,7 @@ In parallel to our main intent to organise a network of charging station, we pla
 
 Easy to use remote control and monitoring Web GUI, all implemented stand-alone in the ESP32. No external server required, no internet gateway either, i.e, this also works if you decide that you home automation WLAN can not reach the internet. Optionally, you can configure the ESP32 to forward monitoring to an external MQTT broker. This is how it looks (more details [here](./ctr22one/)):
 
-![ctrl22one](/Users/tmoor/current/code/agccs-ctrl22/images/ctrl22one-a.png)
+![ctrl22one](../images/ctrl22one-a.png)
 
  
 
