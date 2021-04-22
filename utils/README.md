@@ -54,7 +54,7 @@ usage:
 
 - to upgrade the firmware AVR attached to the ESP32 node d8:a0:1d:55:a7:10 to version 1.2, run
   ```
-  ./dmctrl.py avrflash ctrl22_1_2.bin d8:a0:1d:55:a7:10
+  ./dmctrl.py avrflash ctrl22c_1_2.bin d8:a0:1d:55:a7:10
   ```
 this will compose a number of adequate JSON encoded messages to be forwarded to node `d8:a0:1d:55:a7:10` and a final message to ask the ES32 to flash the AVR via the Optiboot protocol; you may check back by inquiring the value of the AVR parameter `"ver".`
 
@@ -67,7 +67,7 @@ this will compose a number of adequate JSON encoded messages to be forwarded to 
   ```
   ./dmctrl.py avrsetpar blinks 5
   ```
-respectively; this will compose an appropriate JSON encoded message to ask the ESP32 to set/get the respective parameter to/from the AVR attached via the serial line; available parameters depend on the AVR firmware, for `ctrl22.c` the serial line protocol is further explained [here](../ctrl22/README.md#Serial-Line-Protocol).
+respectively; this will compose an appropriate JSON encoded message to ask the ESP32 to set/get the respective parameter to/from the AVR attached via the serial line; available parameters depend on the AVR firmware, for `Ctrl22C` the serial line protocol is further explained [here](../ctrl22c/README.md#Serial-Line-Protocol).
 
  
 

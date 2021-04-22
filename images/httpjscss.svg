@@ -875,8 +875,8 @@
      inkscape:pageopacity="0.0"
      inkscape:pageshadow="2"
      inkscape:zoom="1.2828706"
-     inkscape:cx="208.20815"
-     inkscape:cy="318.19694"
+     inkscape:cx="629.13915"
+     inkscape:cy="591.46356"
      inkscape:document-units="mm"
      inkscape:current-layer="layer1"
      inkscape:document-rotation="0"
@@ -1245,7 +1245,7 @@
          y="-35.251175"
          x="208.87003"
          sodipodi:role="line"
-         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:4.93889px;font-family:sans-serif;-inkscape-font-specification:'sans-serif Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;text-align:center;text-anchor:middle;stroke-width:0.264583">(copy2nd)</tspan><tspan
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:4.93889px;font-family:sans-serif;-inkscape-font-specification:'sans-serif Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;text-align:center;text-anchor:middle;stroke-width:0.264583">(copy 2)</tspan><tspan
          y="-28.372028"
          x="208.87003"
          id="tspan929-2-7-59-4"
@@ -1585,7 +1585,7 @@
        inkscape:export-ydpi="96" />
     <path
        style="fill:none;stroke:#8f8f8f;stroke-width:2;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1;marker-end:url(#marker5885-4-5)"
-       d="m 174.62502,66.145831 21.16667,-23.8125"
+       d="m 171.97926,60.854151 23.8125,-18.520834"
        id="path4275-0-3"
        sodipodi:nodetypes="cc"
        inkscape:export-xdpi="96"
@@ -1694,7 +1694,7 @@
          y="37.773853"
          x="208.87"
          sodipodi:role="line"
-         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:4.93889px;font-family:sans-serif;-inkscape-font-specification:'sans-serif Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;text-align:center;text-anchor:middle;stroke-width:0.264583">(copy1st)</tspan><tspan
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:4.93889px;font-family:sans-serif;-inkscape-font-specification:'sans-serif Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;text-align:center;text-anchor:middle;stroke-width:0.264583">(copy 1)</tspan><tspan
          y="44.653"
          x="208.87"
          id="tspan929-2-7-59-4-4"
@@ -2029,7 +2029,7 @@
          x="114.95325"
          sodipodi:role="line"
          style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:4.93889px;font-family:sans-serif;-inkscape-font-specification:'sans-serif Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;text-align:center;text-anchor:middle;stroke-width:0.264583"
-         id="tspan16956">(ctrl22.c)</tspan><tspan
+         id="tspan16956">(Ctrl22C</tspan><tspan
          id="tspan931-5-1-96-0-5-8"
          y="137.29192"
          x="114.95325"

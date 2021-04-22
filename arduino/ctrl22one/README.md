@@ -1,6 +1,6 @@
 # CTRL22ONE
 
-Web-GIU fo the control of one single AGCCS-CTRL22 board in standalone configuration, i.e., no wifi-mesh, no load balancing. The motivation here is to have a convenient basis to fine-tune the AVR firmware [ctrl22.c](../../ctrl22/) to cope with a variety of different EVs with different sleep/wake-up behaviour and such. We do log to a configurable MQTT broker and accept dynamic power allocation. This could be interesting for charging at home from solar power when available.
+Web-GIU fo the control of one single AGCCS-CTRL22 board in standalone configuration, i.e., no wifi-mesh, no load balancing. The motivation here is to have a convenient basis to fine-tune the AVR firmware [Ctrl22C](../../ctrl22c/) to cope with a variety of different EVs with different sleep/wake-up behaviour and such. We do log to a configurable MQTT broker and accept dynamic power allocation. This could be interesting for charging at home from solar power when available.
 
 **DISCLAIMER.** Although in generally in a good shape, this is still work in progress.
 
