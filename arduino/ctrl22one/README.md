@@ -26,7 +26,7 @@ Web-GIU fo the control of one AGCCS-CTRL22 board in standalone configuration, i.
 
 The ESP32 firmware ``CTRL22ONE`` implements a simple HTTP server to handle static GET requests. It serves "text files" which are encoded as strings in PROGMEM. There is one main page ``index.html`` which provides a reactive GUI based on [jQuery](https://jquery.com/)/[Bootstrap](https://getbootstrap.com/). Here, _reactive_ reads that individual GUI elements adapt their look and feel as expected and without further coding on our side; i.e., accordion stacks collapse and expand on user user interaction. Also the layout mechanism adapts to the screen size and the GUI should be usable both in desktop and on mobile devices. However for dynamic content elements we do have to code. The JavaScript embedded in  ``index.html`` connects to a websocket on the ESP32 and forwards any changes of control and.or configuration parameters to that socket. The ESP32 in turn is responsible to forward appropriate control to the target AVR and/or to adapt its configuration. 
 
-![](/Users/tmoor/current/code/agccs-ctrl22/images/httpjscss.png)
+![](../../images/httpjscss.png)
 
 ## Build Process 
 
