@@ -41,8 +41,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 
 // select board
-//#define M5STICK
-#define AGCCS12
+#define M5STICK
+//#define AGCCS12
 
 
 // ctrl22one configuration
@@ -166,8 +166,7 @@ Organize systime
 **************************************************************************  
 */ 
 
-unsigned long    g_systime_ms=0;
-int              g_systime_sec=0;
+unsigned long    g_systime=0;
 bool             g_trig1sec=false;
 
 void systime_lcb(void) {
@@ -176,18 +175,11 @@ void systime_lcb(void) {
   static unsigned long offsetms=0; 
   static unsigned long schedsec=0; 
   static unsigned long nextsec=0;  
-  g_systime_ms=millis() +offsetms;
-  if(g_systime_ms>3600L*1000L) {
+  g_systime=millis() +offsetms;
+  if(g_systime>3600L*1000L) {
     offsetms-=3600L*1000L;
-    g_systime_ms-=3600L*1000L;
+    g_systime-=3600L*1000L;
     schedsec-=3600L*1000L;
-  }
-  g_trig1sec=false;
-  if(g_systime_ms>=schedsec) {
-     g_systime_sec+=1;
-     g_systime_sec %= 3600;
-     schedsec+=1000;
-     g_trig1sec=true;
   }
 }
 
@@ -209,8 +201,8 @@ public:
   bool expired(void) {
     bool res=false;
     if(schd==-1) return res;
-    if((g_systime_ms >= schd) && ( (g_systime_ms - schd) < 3600L*1000L/2 )) res=true;
-    if((schd > g_systime_ms) && ( (schd - g_systime_ms) > 3600L*1000L/2 )) res=true;
+    if((g_systime >= schd) && ( (g_systime - schd) < 3600L*1000L/2 )) res=true;
+    if((schd > g_systime) && ( (schd - g_systime) > 3600L*1000L/2 )) res=true;
     if(!res) return res;
     if(rld) 
       schd= (schd+ dly) % (3600L*1000L);
@@ -224,7 +216,7 @@ public:
   }
 protected:
   void start(void) {
-    schd=(g_systime_ms + dly) % (3600L*1000L);
+    schd=(g_systime + dly) % (3600L*1000L);
   }  
   int schd;
   int dly;     
@@ -238,17 +230,12 @@ public:
   Periodic(int prd, int off=0) : Timer() {
     dly=prd;
     rld=true;
-    schd= ( ((g_systime_ms / dly) *dly) + dly + off )   % (3600L*1000L);
+    schd= ( ((g_systime / dly) *dly) + dly + off )   % (3600L*1000L);
   }
   bool expired(void) {
     return Timer::expired();
   }    
 };
-
-// utility: test for period (should be a divisor of 3600)
-bool periodic(int per, int off=0) {
-  return g_trig1sec && (g_systime_sec % per ==off); 
-};      
 
 
 
@@ -639,7 +626,11 @@ void mqtt_config(void) {
   String dnsname;
   int port;
   int p;
-  Serial.println("configure for external MQTT broker");
+  if(!g_cfg_brkxen) {
+    Serial.println("external MQTT broker disabled");    
+    return;
+  }
+  Serial.println("parsing configuration of external MQTT broker");
   dnsname=g_cfg_brkxurl;
   p=dnsname.indexOf("mqtt://");
   if(p>0) {
@@ -687,7 +678,7 @@ void mqtt_lcb(void) {
   // maintain mqqt libraray
   g_mqtt_client.loop();
   // manage connection to broker 
-  if((!g_mqtt_client.connected()) && (!g_mqtt_tcon.running())) { 
+  if((!g_mqtt_client.connected()) && (g_cfg_brkxen) && (!g_mqtt_tcon.running())) { 
     Serial.println("MQTT client trying to connect to broker");
     g_mqtt_client.connect(g_devname.c_str());
     g_mqtt_tcon.set(5000); 
@@ -695,7 +686,7 @@ void mqtt_lcb(void) {
   if(g_mqtt_client.connected()) 
     g_mqtt_tcon.clear();     
   // publish heartbeat
-  static phb(5000,100);
+  static Periodic phb(5000,100);
   if(g_mqtt_client.connected() && phb.expired()) {
     Serial.println("MQTT client publishing heartbeat");
     g_mqtt_client.publish(g_cfg_brkxtpc+"/heartbeat",  String("{") +
@@ -755,9 +746,9 @@ void  target_lcb() {
     g_tstate_amaxcur=vsmaxcur;
   }      
   // simulate funny state variables
-  g_state_update=false;
+  g_tstate_update=false;
   static Periodic psim(5000);
-  if(tsim.expired()) {
+  if(psim.expired()) {
     g_tstate_ccss+=1;
     g_tstate_cur1+=7;
     g_tstate_cur2+=23;
@@ -952,8 +943,8 @@ void loop() {
   // development heartbeat
   static Periodic phb(10000);
   if(phb.expired()) {
-    Serial.println("systime: "+String(g_systime_sec)+" [sec]");
-    wsck_log("systime: "+String(g_systime_sec)+" [sec]");
+    Serial.println("systime: "+String(g_systime/1000)+" [sec]");
+    wsck_log("systime: "+String(g_systime/1000)+" [sec]");
   }
 
   // blink

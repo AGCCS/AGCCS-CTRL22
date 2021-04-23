@@ -2,7 +2,15 @@
 
 # copy the most recently compiled binaries to the firmware server
 # i.e., we need to extract version and board ids from the configuration,
-# pick the binaries from the build and rename it according to our naming convention
+# pick the binaries from the build and rename it according to our naming
+# convention, i.e.
+#
+# * demesh binaries are named "demesh_<MAJ>_<MIN>_<BRD>.bin", e.g.
+#   "demesh_3_4_stick5.bin" for version 3.4 on an M5StickC board
+#
+# * Ctrl22C binaries are named "ctrl22c_<MAJ>_<MIN>.bin, e.g.
+#   "ctrl22c_1_2.bin" for version 1.2,
+#
 
 # firmware server location (using scp, i.e. incl login)
 DST="pi@192.168.2.108:~/mupgrade"
@@ -91,10 +99,10 @@ if [[ $VERSION_SUFFIX == "" ]] ; then
     exit;
 fi
     
-echo "======" found ctrl22 version $VERSION_NUMBER i.e. $VERSION_SUFFIX
+echo "======" found ctrl22c version $VERSION_NUMBER i.e. $VERSION_SUFFIX
 
 # copy new binary
-FILE=ctrl22_${VERSION_SUFFIX}.bin
+FILE=ctrl22c_${VERSION_SUFFIX}.bin
 echo scp $BIN $DST/$FILE
 scp -q $BIN $DST/$FILE 
 

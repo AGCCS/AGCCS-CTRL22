@@ -6,14 +6,16 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta http-equiv="X-UA-Compatible" content="ie=edge" />
 
-<!-- 
-     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
-     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-eOJMYsd53ii+scO/bJGFsiCZc+5NDVN2yr8+0RDqr0Ql0h+rP48ckxlpbzKgwra6" crossorigin="anonymous">
-     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta3/dist/js/bootstrap.bundle.min.js" integrity="sha384-JEW9xMcG8R+pH31jmWH6WWP0WintQrMb4s7ZOdauHnUtxwoG2vI5DkLtS3qm9Ekf" crossorigin="anonymous"></script>
+  <!-- source external JavaScript/CCS libraries
+  <!-- 
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-eOJMYsd53ii+scO/bJGFsiCZc+5NDVN2yr8+0RDqr0Ql0h+rP48ckxlpbzKgwra6" crossorigin="anonymous">
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta3/dist/js/bootstrap.bundle.min.js" integrity="sha384-JEW9xMcG8R+pH31jmWH6WWP0WintQrMb4s7ZOdauHnUtxwoG2vI5DkLtS3qm9Ekf" crossorigin="anonymous"></script>
      <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-slider/11.0.2/bootstrap-slider.min.js" integrity="sha512-f0VlzJbcEB6KiW8ZVtL+5HWPDyW1+nJEjguZ5IVnSQkvZbwBt2RfCBY0CBO1PsMAqxxrG4Di6TfsCPP3ZRwKpA==" crossorigin="anonymous"></script>
-     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-slider/11.0.2/css/bootstrap-slider.css" integrity="sha512-SZgE3m1he0aEF3tIxxnz/3mXu/u/wlMNxQSnE0Cni9j/O8Gs+TjM9tm1NX34nRQ7GiLwUEzwuE3Wv2FLz2667w==" crossorigin="anonymous"> 
--->
-
+   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-slider/11.0.2/css/bootstrap-slider.css" integrity="sha512-SZgE3m1he0aEF3tIxxnz/3mXu/u/wlMNxQSnE0Cni9j/O8Gs+TjM9tm1NX34nRQ7GiLwUEzwuE3Wv2FLz2667w==" crossorigin="anonymous"> 
+   -->
+   
+  <!-- use local distribution bundles for JavaSript/CSS libraries -->
   <script defer src="jquery.min.js"></script> 
   <link rel="stylesheet" href="bootstrap.min.css" />
   <script defer src="bootstrap.bundle.min.js"></script>
@@ -22,9 +24,14 @@
   <link rel="stylesheet" href="style.css" /> 
   <title>CTRL22ONE</title>
 
+  <!-- our payload JavaScript -->
   <script type="text/javascript">
 
-
+   
+    // ================================
+    // global state 
+    // ================================
+       
     // target configuration
     var cfg = {
       "brkxen":1,
@@ -38,26 +45,31 @@
       "stapwd" :"???"
     }
 
-    // target state, display only
+    // target state
     var cur1=-1, cur2=-1, cur3=-1;
-    var phases=-1, ccss=-1;
+    var phases=-1, ccss=-1; smaxcur=-1;
+    
+    // target control on/off
+    var onoffste=false; // last confirmed status
+    var onoffprg=false; // command in progress
+    var onoffcmd=false; // requested status
 
-    // target state on/off, controllable
-    var onoffcmd=false;
-    var onoffste=false;
-    var onoffprg=false;
+    // target control max power
+    var smaxprg=false;  // command in progress
+    var smaxcmd=-1;     // request sent
+    var smaxrec=false;  // recorded recent value 
 
-    // target state smaxcur, controllable, 
-    var smaxcur=-1;
-    var smaxprg=false;
-    var smaxrec=false;
-    var sliderbsy=false;
+    // ui element power slider
     var pwrsld; 
+    var pwrsldbsy=false;
 
     // websocket    
-    var ws;
+    var wbsck;
 
-    // diagnosis
+
+    // ================================
+    // diagnosis/warning to the DOM
+    // ================================
 
     var concnt=0;
     var conbuf="";
@@ -74,7 +86,27 @@
       ce.scrollTop=ce.scrollHeight;
     }
 
-    // configuration
+    function warning(msg) {
+      var warntxt=document.getElementById("warntxt");
+      var warncon=document.getElementById("warncon");
+      warntxt.innerText=msg;
+      warncon.classList.remove("collapse");
+    }
+
+    // ================================
+    // reset target
+    // ================================
+
+    function reset() {
+      window.console.log("reset request");
+      var msg={"cmd":"reset"};
+      $.extend(msg, scr);       
+      wbsck.send(JSON.stringify(msg));
+    }
+
+    // ================================
+    // get/set configuration from/to UI
+    // ================================
 
     function cfgset() {
       window.console.log("cfgset: update GUI");
@@ -112,29 +144,25 @@
       $.extend(msg, cfg);
       if((elem.id=="brkxpwd") || (elem.id=="stapwd"))  
         $.extend(msg, scr);
-      ws.send(JSON.stringify(msg));
+      wbsck.send(JSON.stringify(msg));
     }
 
-    function reset() {
-      window.console.log("reset");
-      var msg={"cmd":"reset"};
-      $.extend(msg, scr);       
-      ws.send(JSON.stringify(msg));
-    }
 
-    // smaxcur vs smaxpow  vs slider
+    // ================================
+    // control smaxcur via power slider
+    // ================================
 
     var pwrsldtot;
 
-    function sliderfcs(){
+    function pwrsldfcs(){
       var sldlft = document.getElementById("pwrsld").querySelector("div.slider-selection"); 
       if(sldlft) sldlft.style = "background-color:orange";
-      sliderbsy=true;	
+      pwrsldbsy=true;	
     }
 
-    function sliderblr(){
+    function pwrsldblr(){
       window.console.log("slider lost focus");
-      sliderbsy=false;	
+      pwrsldbsy=false;	
       pwrsldcmd();
     }
 
@@ -143,15 +171,14 @@
       window.console.log("slider at "+p);
       smaxprg=true;
       smaxrec=smaxcur;
+      smaxcmd=10*p;	
       pwrsldtot=setTimeout(function(){ smaxprg=false; pwrsldset();}, 30000);
-      ws.send('{"smaxpow" : '+10*p+'}');
+      wbsck.send('{"smaxpow" : '+10*p+'}');
     }
 
     function pwrsldset() {
-
-     var sldlft = document.getElementById("pwrsld").querySelector("div.slider-selection"); 
- 
-     if(sliderbsy || smaxprg) {
+      var sldlft = document.getElementById("pwrsld").querySelector("div.slider-selection"); 
+      if(pwrsldbsy || smaxprg) {
         if(sldlft) sldlft.style = "background-color:orange";
         return;	
       }
@@ -166,7 +193,9 @@
     }	
     
 
-    // on/off switch
+    // ================================
+    // control CCS state via on/off switch
+    // ================================
 
     var onofftot;
 
@@ -189,15 +218,20 @@
       if(!onoffprg) {
   	onoffcmd= !onoffste;
         if(onoffcmd)    
-          ws.send('{"onoff" : 1}');
+          wbsck.send('{"onoff" : 1}');
         else
-          ws.send('{"onoff" : 0}');
+          wbsck.send('{"onoff" : 0}');
         onoffprg=true;
 	onoffset();
       }    
     }
 
-    // others ... all pure disply, no control
+
+    // ================================
+    // update all other UI elements from
+    // read only states
+    // ================================
+
     function otherset() {
       // cur123
       var cs="---";
@@ -228,7 +262,7 @@
         if(pst == "") pst="none";
       }
       document.getElementById("phs").innerText = pst;
-      // ccss
+      // CCS state
       var cst="---";
       var hlp="current state not available";
       if(ccss>=0) {
@@ -250,139 +284,171 @@
         }
       }
       document.getElementById("ccss").innerText = cst;
-      document.getElementById("ccsshlp").setAttribute('data-content','where is ny mehl?');
+      document.getElementById("ccsshlp").setAttribute('data-bs-title',"CCS state: " + hlp);
+      document.getElementById("ccsshlp").setAttribute('data-bs-original-title',"CCS state: " + hlp);
     }
    
 
-    window.addEventListener('onload', (event) => {
+    // ================================
+    // WebSocket to talk to host aka target ESP32
+    // ================================
+
+    // websocket message callback  
+    function wbsckmsg(msg) {
+      // report message 
+      window.console.log(msg);  
+      // parse JSON data
+      var jsonObject = JSON.parse(msg);
+      // forward diagnosis
+      if("diagln" in jsonObject) {
+          diagln(jsonObject.diagln);
+          return;
+      }
+      // update local copy of target configuration
+      var iscfg=false;
+      if("brkxen"    in jsonObject) { cfg.brkxen=jsonObject.brkxen;    iscfg=true; };	
+      if("brkxurl"   in jsonObject) { cfg.brkxurl=jsonObject.brkxurl;  iscfg=true; };	
+      if("brkxusr"   in jsonObject) { cfg.brkxusr=jsonObject.brkxusr;  iscfg=true; };	
+      if("brkxpwd"   in jsonObject) { cfg.brkxpwd=jsonObject.brkxpwd;  iscfg=true; };	
+      if("brkxtpc"   in jsonObject) { cfg.brkxtpc=jsonObject.brkxtpc;  iscfg=true; };
+      if("stassid"   in jsonObject) { cfg.stassid=jsonObject.stassid;  iscfg=true; };	
+      if("stapwd"    in jsonObject) { cfg.stapwd=jsonObject.stapwd;   iscfg=true; };
+      // update UI
+      if(iscfg) 
+          cfgset();
+      // update local copy of target state  
+      var isste=false;
+      if("cur1"    in jsonObject) { cur1=jsonObject.cur1;       isste=true; };	
+      if("cur2"    in jsonObject) { cur2=jsonObject.cur2;       isste=true; };	
+      if("cur3"    in jsonObject) { cur3=jsonObject.cur3;       isste=true; };
+      if("phases"  in jsonObject) { phases=jsonObject.phases;   isste=true; };
+      if("ccss"    in jsonObject) { ccss=jsonObject.ccss;       isste=true; };
+      if("smaxcur" in jsonObject) { smaxcur=jsonObject.smaxcur; isste=true; };
+      // update UI
+      if(isste) {
+        // display only
+        otherset();
+        // adjust controls: power sllider	
+        if("smaxcur" in jsonObject) {
+          if(!smaxprg) {
+   	    pwrsldset();
+          } else {
+            if(smaxcur!=smaxrec) {
+              smaxprg=false;
+              pwrsldset();
+            }
+          }
+	}    
+        // adjust controls: on/off button	
+        if("ccss" in jsonObject) {
+          var con=false;
+          if((ccss>=10) && (ccss<90)) con=true; 
+          if(!onoffprg) {
+            onoffste=con;
+            onoffset();
+          } else {
+            window.console.log(
+              "updating ccss while on/off in progress -- ccss "+ccss.toString()+", cmd "+onoffcmd.toString());
+            if(con==onoffcmd) {
+              onoffprg=false;
+              onoffste=con;
+              onoffset();
+            }
+          }
+        }
+      }
+    };
+
+    // install websocket
+    function wbskbegin() {
+      // create a web socket
+      wbsck = new WebSocket("ws://" + location.hostname + ":8070");
+
+      // connection established
+      wbsck.onopen = function () {
+        window.console.log("WebSocket connected");  
+        wbsck.send("{'cmd':'cfgget'}");
+      };
+
+      // message received
+      wbsck.onmessage = function (evt) {
+        wbsckmsg(evt.data);
+      };
+
+      // client closes the connection
+      wbsck.onclose = function (evt) {
+        if(evt.wasClean) {
+          window.console.log("WebSocket closed");  
+        } else {
+          warning("Fatal error: no connection to target AGCCS-CTRL22 board.");
+        }
+      };
+	
+      // errors
+      wbsck.onerror = function (error) {
+        warning(`WebSeocket error ${error.message}`);
+      };
+
+    }
+
+
+    // ================================
+    // Application maintenance
+    // ================================
+
+    window.addEventListener('onload', (evt) => {
       window.console.log("window event onload");  
     });
 
-    window.addEventListener('beforeunload', (event) => {
-      ws.close();
-      event.preventDefault();
-      event.returnValue = '';
-      window.console.log("closing down");  
+    window.addEventListener('beforeunload', (evt) => {
+      window.console.log("closing down (beforunload)");  
+      wbsck.close();
+      evt.preventDefault();
+      delete event['returnValue'];
+    });
+
+    window.addEventListener('unload', (evt) => {
+      window.console.log("closing down (unload)");  
     });
 
 
-
-    function wsbegin() {
-      if ("WebSocket" in window) {
-        // create a web socket
-        ws = new WebSocket("ws://" + location.hostname + ":8070");
-
-        // connection established
-        ws.onopen = function () {
-	    window.console.log("Web Socket is connected");  
-            ws.send("{'cmd':'cfgget'}");
-        };
-
-	// websocket message callback  
-        ws.onmessage = function (evt) {
-	  // report  
-	  window.console.log(evt.data);  
-          // parse JSON data
-	  var jsonObject = JSON.parse(evt.data);
-          // forward diagnosis
-          if("diagln" in jsonObject) {
-            diagln(jsonObject.diagln);
-            return;
-          }
-          // update configuration
-          var iscfg=false;
-          if("brkxen"    in jsonObject) { cfg.brkxen=jsonObject.brkxen;    iscfg=true; };	
-          if("brkxurl"   in jsonObject) { cfg.brkxurl=jsonObject.brkxurl;  iscfg=true; };	
-          if("brkxusr"   in jsonObject) { cfg.brkxusr=jsonObject.brkxusr;  iscfg=true; };	
-          if("brkxpwd"   in jsonObject) { cfg.brkxpwd=jsonObject.brkxpwd;  iscfg=true; };	
-          if("brkxtpc"   in jsonObject) { cfg.brkxtpc=jsonObject.brkxtpc;  iscfg=true; };
-          if("stassid"   in jsonObject) { cfg.stassid=jsonObject.stassid;  iscfg=true; };	
-          if("stapwd"    in jsonObject) { cfg.stapwd=jsonObject.stapwd;   iscfg=true; };
-          // update gui
-          if(iscfg) 
-            cfgset();
- 	  // update local copy of target state  
-          var isste=false;
-          if("cur1"    in jsonObject) { cur1=jsonObject.cur1;       isste=true; };	
-          if("cur2"    in jsonObject) { cur2=jsonObject.cur2;       isste=true; };	
-          if("cur3"    in jsonObject) { cur3=jsonObject.cur3;       isste=true; };
-          if("phases"  in jsonObject) { phases=jsonObject.phases;   isste=true; };
-          if("ccss"    in jsonObject) { ccss=jsonObject.ccss;       isste=true; };
-          if("smaxcur" in jsonObject) { smaxcur=jsonObject.smaxcur; isste=true; };
-          // update gui
-          if(isste) {
-            // display only
-            otherset();
-            // adjust controls: power sllider	
-            if("smaxcur" in jsonObject) {
-              if(!smaxprg) {
-   	        pwrsldset();
-              } else {
-                if(smaxcur!=smaxrec) {
-                  smaxprg=false;
-                  pwrsldset();
-                }
-              }
-	    }    
-            // adjust controls: on/off button	
-            if("ccss" in jsonObject) {
-              var con=false;
-              if((ccss>=10) && (ccss<90)) con=true; 
-              if(!onoffprg) {
-                onoffste=con;
-                onoffset();
-              } else {
-                window.console.log("updating ccss while on/off in progress -- ccss "+ccss.toString()+", cmd "+onoffcmd.toString());
-                if(con==onoffcmd) {
-                  onoffprg=false;
-                  onoffste=con;
-                  onoffset();
-                }
-              }
-            }
-          }
-        };
-
-	// websocket close callback  
-        ws.onclose = function (evt) {
-          if (evt.wasClean) {
-            alert(`[close] Connection closed cleanly, code=${evt.code} reason=${evt.reason}`);
-          } else {
-            alert('[close] Connection died');
-          }
-        };
-
-	// websocket error callback  
-        ws.onerror = function (error) {
-          alert(`[error] ${error.message}`);
-        }
-
-
-      } else {
-        // The browser doesn't support WebSocket
-        alert("Sorry, but CTRL22ONE insists in WebSocket.");
-      }
-    }
-
     function OnLoad() {
+      // say hello
       window.console.log("connected to server "+location.hostname);  
-      wsbegin();
+      // start my websocket
+      if ("WebSocket" in window) {
+        wbskbegin();
+      } else {
+        warning(
+          "CTRL22ONE uses WebSockets for network communication." +
+          "This is not suppoted/enabled in your browser, so CTRL22ONE will not be functional." +
+          "We apologize for the inconvenience.");
+      }
+      // have super slider
       pwrsld = new Slider('#pwrsldinp', {
         formatter: function(value) {
 	  return value + ' kW';
 	}
 	});
-      pwrsld.on('slideStart', sliderfcs);  
-      pwrsld.on('slideStop', sliderblr);  
+      pwrsld.on('slideStart', pwrsldfcs);  
+      pwrsld.on('slideStop',  pwrsldblr);  
+      // trigger update UI elements
       cfgset();
       otherset();  
-      $(function () {
-        $('[data-toggle="popover"]').popover()
-      });   
-   }
+      // enable popover
+      //$(function () {
+      //  $('[data-toggle="popover"]').popover()
+      //});
+      // enable tootips   
+      var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
+      var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl)
+      });
+    }
     
   </script>
 </head>
+
 
 <body onLoad="javascript:OnLoad()">
 <!-- header aka main title/headline -->
@@ -396,14 +462,31 @@
     </div>
   </header>
 
-<!-- outer container with one row -->
-  <section class="py-5 bg-white">
+<!-- outer container with two rows -->
+  <section class="py-3 bg-white">
   <div class="container">
+    <div class="row collapse" id="warncon">
+
+<!-- row1 col1 "warning" -->
+      <div class="col-lg-6">	
+        <div class="card bg-light m-2" style="min-height: 1rem;">
+          <div class="card-body bg-dark text-warning">
+            <div class="row">
+              <div class="col" id="warntxt">
+                Something went terribly wrong --- sorry.
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+<!-- move to second row -->
+    </div>
     <div class="row">
 
 <!-- card "status" -->
       <div class="col-lg-6">	
-        <div class="card bg-light m-2" style="min-height: 15rem;">
+        <div class="card bg-light m-2" style="min-height: 11rem;">
           <div class="card-header">Status</div>
           <div class="card-body">
             <div class="row">
@@ -435,10 +518,10 @@
 	        CCS State
               </div>
               <div class="col" style="text-align: right;">
-                <span id="ccss">OFF[0]</span>
-                <button type="button" class="btn btn-outline-secondary btn-sm" id="ccsshlp" style="vertical-align:bottom;position:relative;bottom:+0px" data-toggle="popover" data-placement="bottom" title="CCS State" data-content="All OFF"> 
+                <span id="ccsshlp" data-bs-toggle="tooltip" data-bs-placement="top">
                   <img src="question-circle.svg" alt="what is?" width="16" height="16" style="position:relative;bottom:+2px"> 
-                </button>
+                </span>
+                <span id="ccss">OFF[0]</span>
               </div>
             </div>
           </div>
@@ -447,7 +530,7 @@
 
 <!-- card "control" -->
       <div class="col-lg-6">      	
-        <div class="card bg-light m-2" style="min-height: 15rem;">
+        <div class="card bg-light m-2" style="min-height: 11rem;">
           <div class="card-header">Control</div>
           <div class="card-body">
             <div class="row">
@@ -469,7 +552,7 @@
 	        Max. Power
               </div>
               <div class="col" style="text-align: right;">
-	        <input type="text" id="pwrsldinp" data-slider-id='pwrsld' data-slider-min="0" data-slider-max="22" data-slider-step="1" data-slider-value="0" width="100%" />
+	        <input type="text" id="pwrsldinp" data-slider-id='pwrsld' data-slider-min="0" data-slider-max="22" data-slider-step="1" data-slider-value="0" />
               </div>
             </div>
           </div>
@@ -478,7 +561,7 @@
 
 <!-- card "settings" as accordion of collapsble sub-topics -->
       <div class="col-lg-6">      	
-        <div class="card bg-light m-2" style="min-height: 15rem;">
+        <div class="card bg-light m-2" style="min-height: 11rem;">
           <div class="card-header">Settings</div>
           <div class="card-body">
 	    <div class="accordion accordion-flush" id="cfgacc">
@@ -549,7 +632,7 @@
 		    <div class="row">
 		      <div class="col">
 			<div class="mb-3 form-floating">
-			  <input type="url" class="form-control" id="stassid" onchange="cfgget(this)" placeholder="MyHomwSSID">
+			  <input type="url" class="form-control" id="stassid" onchange="cfgget(this)" placeholder="MyHomSSID">
 			  <label for="stassid" class="form-label">SSID</label>
 			</div>
 		      </div>
