@@ -58,17 +58,9 @@ Thats all to it -- you can now control the AGCCS-CTRL22 board via any browser, i
 
 ## Editing/Testing Static HTML/CCS/JS Content
 
-Static content to be served via HTTP resides in the subdirectory `./websrc/*` in the source tree. Of formats interest are the files `index.html` and `style.css` which define the appearance of the GUI. Next, there are various `*.js`/`*.css` files for our local copy of jQuery/Bootstrap & friends. To Test/Develop the configuration, simply run an HTTP server to publish the entire contents of  `./websrc`. A simple way to do this, is to facilitate the built-in server from Python (any version, no Python-programming at this point):
+Static content to be served via HTTP resides in the subdirectory `./websrc/*` in the source tree. Of formost interest are the files `index.html` and `style.css` which define the appearance of the GUI. Next, there are various `*.js`/`*.css` files for our local copy of jQuery/Bootstrap & friends. To test/develop the HTML/CSS/JS configuration, simply load `index.html` by _Open File_ in your preferred browser --- thats it. Although you'll get a warning because there is no websocket to connect for live data, you can still inspect the GUI incl. the effects of various CSS parameters. Feel free to rearrange the layout, remove/add elements, change colours a.s.o. 
 
-```
-$ cd [WHERE-EVER]/agccs-ctrl22/arduino/ctrl22one
-$ cd ./websrc
-$ python -m http.server
-```
-
-Thats it. Although you'll get a warning because there is no web socket to connect for live data, you can still inspect the GUI with you browser at `127.0.0.1:8000`. Feel free to rearrange the layout, remove/add elements, change colours a.s.o. 
-
-Once happy with the general appearance of the GUI, we need to have the ESP32 effectively to serve the content of `./websrc`. The scalable solution here would be to have a filesystem (e.g. SPIFFS) on the ESP32 and to transfer the files to there. There are two cons to this approach: (a) given the small number of read-only files to serve, a full filesystem is overkill; (b) if we apply changes, we most like do so uniformly to the application program and the GUI. Therefore we opted to embed the text files as PROGMEN strings into the firmware. For this reason, we need to convert all static content files into C-headers which define an equivalent constant C-string. E.g., `index.html` is converted to `index.html.h` reading out
+Once happy with the general appearance of the GUI, we need to have the ESP32 effectively to serve the content of `./websrc`. The scalable solution here would be to have a filesystem (e.g. SPIFFS) on the ESP32 and to transfer the files to that filesystem. There are two cons to this approach: (a) given the small number of read-only files to serve, a full filesystem is overkill; (b) if we apply changes, we most like do so uniformly to the application firmware and the GUI. Therefore we opted to embed the text files as PROGMEN strings into the firmware. For this reason, we need to convert all static content files into C-headers which define an equivalent constant C-string. E.g., `index.html` is converted to `index.html.h` reading out
 
 ```
 PROGMEM const char f_index_html[] = {
@@ -79,7 +71,7 @@ PROGMEM const char f_index_html[] = {
 };   
 ```
 
-Note that although the converted file is considerable larger, the effective memory footprint in the ESP32 obviously remains the same. By convention, each text file in `./websrc` is accompanied by an equivalent C-header in the neighbour directory `./webinc`. When editing the text files, we will need to update the headers. The core conversion is done by the command-line tool `xxd`, available for OSX/Linux/Windows. Except for Windows, we provide the shell script `mkheaders.sh` to facilitate the conversion and to add appropriate decoration (i.e.. C-variables are prefixed `f_` and are of C-type `const char` with the directive `PROGMEM`). When invoked with no arguments, `mkheaders.sh` will convert all files found in `./websrc`and place the result in `./webinc`. Example:
+Note that although the converted file is considerable larger than the original text file, the effective memory footprint in the ESP32 obviously remains the same. By convention, each text file in `./websrc` is accompanied by an equivalent C-header in the neighbour directory `./webinc`. When editing the text files, we will need to update the headers. The core conversion is done by the command-line tool `xxd`, available for OSX/Linux/Windows. Except for Windows, we provide the shell script `mkheaders.sh` to facilitate the conversion and to add appropriate decoration (i.e.. C-variable names are prefixed `f_` and are of C-type `const char` with the directive `PROGMEM`). When invoked with no arguments, `mkheaders.sh` will convert all files found in `./websrc`and place the result in `./webinc`. Example:
 
  ``` 
  $ cd {WHERE-EVER}/agccs-ctrl22/arduino/ctrl22one
@@ -90,7 +82,7 @@ Note that although the converted file is considerable larger, the effective memo
    index.html.h style.css.h jquery.min.js.h [... and so on ...] 
  ```
 
-[Windows users: any hints on how to do this conveniently with Windows? Its a quite common task, perhaps there is a Python script for this purpose?]
+[This type of conversion seems to be a frequently required build step; is there perhaps a Python script to do this in a platform independant manner so we can take the Windows users on board?]
 
  
 
@@ -98,7 +90,7 @@ Note that although the converted file is considerable larger, the effective memo
 
 ## Third Party Components 
 
-We usually prefer for good reasons to code directly on top of the ESP-MDF/IDF SDKs. However, we must admit that within the Arduino environment a functional prototype can be obtained with far less effort. One aspect here is that the ESP32 SoC is considered sufficiently powerful to trade in some resources in favour for a modern C++ coding style (think of string manipulation and/or JSON parsing). But the major share of the experienced convenience is owed to the readily available libraries with their intuitive high-level APIs.  Specifically
+We usually prefer to code directly on top of the ESP-MDF/IDF SDKs and we do so for good reasons. However, we must admit that within the Arduino environment a functional prototype can be obtained with far less effort. One aspect here is that the ESP32 SoC is considered sufficiently powerful to trade in some resources in favour for a modern C++ coding style (think of string manipulation and/or JSON parsing). But the major share of the experienced convenience is owed to the readily available libraries with their intuitive high-level APIs.  Specifically
 
 - [ESP32Core](https://github.com/espressif/arduino-esp32) 1.0.6 (lots of contributors, Espressif)
 - [WiFiWebServer](https://github.com/khoih-prog/WiFiWebServer) 1.1.1 (Khoi Hoang)
