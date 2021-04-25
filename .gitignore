@@ -8,11 +8,9 @@ demesh/build
 *~
 
 # ignore c build
-ctrl22/*.bin
-ctrl22/*.hex
-ctrl22/*.map
-ctrl22/*.elf
-ctrl22/*.o
+ctrl22c/*.map
+ctrl22c/*.elf
+ctrl22c/*.o
 
 # osx irritations
 **/.DS_Store
