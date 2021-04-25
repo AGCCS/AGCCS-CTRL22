@@ -1,5 +1,4 @@
 /*
-
 ESP32 firmware for the control of one stand-alone AGCCS-CTRL22 charging 
 station.
 
@@ -41,8 +40,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 
 // select board
-#define M5STICK
-//#define AGCCS12
+//#define M5STICK
+#define AGCCS12
 
 
 // ctrl22one configuration
@@ -52,8 +51,10 @@ String g_cfg_brkxusr = "???";
 String g_cfg_brkxpwd = "???";
 String g_cfg_brkxtpc = "CTRL22ONE";
 String g_cfg_stassid = "???";
-String g_cfg_stapwd =  "???";
-String g_cfg_sappwd =  "ctrl22one";
+String g_cfg_stapwd  = "???";
+String g_cfg_sappwd  = "ctrl22one";
+String g_cfg_devname = "???";
+int g_cfg_opticnt = 0;
 
 
 // ctrl22one globals 
@@ -72,6 +73,7 @@ static int g_tstate_version=0;    // target uC firmware version
 static int g_tstate_ccss=0;       // state in CCS charging scheme (0<>idle ... 30<> charging, >=50 error)                                      
 static int g_tstate_sphases=0;    // phases allocated by remote server                                                                         
 static int g_tstate_aphases=0;    // actual phases enabled by SSRs (matches sphases in simulation)                                             
+static int g_tstate_imaxcur=160;  // max current by installation
 static int g_tstate_smaxcur=0;    // max current allocated by remote server (per phase, unit 100mA, aka "10" reads "1A")                       
 static int g_tstate_cmaxcur=100;  // max current allowed by charging cable (per phase, unit 100mA)                                             
 static int g_tstate_amaxcur=0;    // actual max current as indicated by CP (unit 100mA, matches min(smaxcur,cmaxcur) in simulation)            
@@ -82,6 +84,7 @@ static int g_tstate_cur3=0;       // current drawn on phase 1 (unit 100mA)
 // global target AVR control variables
 static int g_tcontrol_onoff=-1;   // set to 1/0 for on/off
 static int g_tcontrol_smaxpow=-1; // set to nonnegative desired power (unit 0.1kW)
+static int g_tcontrol_imaxpow=-1; // set to nonnegative max installed power (unit 0.1kW)
 
 // forward: development/testing log via websocket
 void wsck_log(const String&);
@@ -99,19 +102,23 @@ Minimal hardware abstraction layer
 **************************************************************************  
 */
 
-
 #ifdef M5STICK
+// simple setup M5StickC 
+// - LED only, dont use TFT at this stage
+// - could use any ESP32 dev board instead
+
+static const int GPIOLED=10;
 
 // LED on GPIO10, active low
 void led_on(bool on=true) { 
-  digitalWrite(10,on ? LOW : HIGH); 
+  digitalWrite(GPIOLED,on ? LOW : HIGH); 
 }  
 void led_off() { 
-  digitalWrite(10,HIGH); 
+  digitalWrite(GPIOLED,HIGH); 
 }
 void dev_init() {
-  pinMode(10, OUTPUT);
-  digitalWrite(10,LOW);  
+  pinMode(GPIOLED, OUTPUT);
+  digitalWrite(GPIOLED,LOW);  
 }
 
 // simulate target AVR
@@ -121,31 +128,40 @@ void dev_init() {
 #endif
 
 
+
 #ifdef AGCCS12
+// AGCCS CTRL22 board, rev 12
+// - use LED on programming adaptor J5
+// - use serial/rst conection to AVR
+
+static const int GPIOLED=0;
+static const int GPIORST=12;
+static const int GPIORXD=16;
+static const int GPIOTXD=17;
 
 // LED on GPIO0, active low
 void led_on(bool on=true) { 
-  digitalWrite(0,on ? LOW : HIGH); 
+  digitalWrite(GPIOLED,on ? LOW : HIGH); 
 }  
 void led_off() { 
-  digitalWrite(0,HIGH); 
+  digitalWrite(GPIOLED,HIGH); 
 }
 
 // initialize incl serial monitor
 void dev_init() { 
   // LED driver on GPIO0
-  pinMode(0, OUTPUT);
-  digitalWrite(0,LOW);  
-  // disable reset
-  pinMode(12, OUTPUT);
-  digitalWrite(12,HIGH);
+  pinMode(GPIOLED, OUTPUT);
+  digitalWrite(GPIOLED,LOW);  
+  // enable reset line
+  pinMode(GPIORST, OUTPUT);
+  digitalWrite(GPIORST,HIGH);
   // initialise serial (RXD GPIO16, TXD GPIO17)
-  Serial2.begin(115200,SERIAL_8N1,16,17);
-  pinMode(16, INPUT_PULLUP);
-  pinMode(17, OUTPUT);
+  Serial2.begin(115200,SERIAL_8N1,GPIORXD,GPIOTXD);
+  pinMode(GPIORXD, INPUT_PULLUP);
+  pinMode(GPIOTXD, OUTPUT);
 }
 
-// do taklk to attached traget AVR
+// do talk to attached traget AVR
 #define AVRSERIAL
 #undef AVRSIMULATE
 
@@ -243,6 +259,22 @@ public:
 **************************************************************************  
 **************************************************************************  
 
+Utilities
+- conver numeric version to string
+  
+**************************************************************************  
+**************************************************************************  
+*/ 
+
+String verstr(int ver) {
+  if(ver<=0) return String("--");
+  return String(ver/10)+"."+String(ver%10);
+}
+
+/* 
+**************************************************************************  
+**************************************************************************  
+
 Maintain configuration in EEPROM
 - pragmatically use JSON as encoding since we use this later anyway
   and do not want to bother about individial string length and such.
@@ -294,6 +326,14 @@ bool cfg_fromjson(void) {
       if(pwd!="?") g_cfg_stapwd=pwd;
       ret=true;
     }          
+    if(kv.key()=="devname")
+    if(kv.value().is<String>()) {
+      g_cfg_devname=kv.value().as<String>();
+    }          
+    if(kv.key()=="opticnt")
+    if(kv.value().is<int>()) {
+      g_cfg_opticnt=kv.value().as<int>();
+    }          
   }
   return ret;
 }
@@ -309,6 +349,8 @@ void cfg_tojson(void) {
   g_jdocbuf["brkxtpc"] = g_cfg_brkxtpc;
   g_jdocbuf["stassid"] = g_cfg_stassid;
   g_jdocbuf["stapwd"]  = g_cfg_stapwd;
+  g_jdocbuf["devname"] = g_cfg_devname;
+  g_jdocbuf["opticnt"] = g_cfg_opticnt;
 }
 
 // load configuration
@@ -409,15 +451,15 @@ private:
 };
 
 // include actual text from external header files
-#include "webinc/index.html.h"
-#include "webinc/style.css.h"
-#include "webinc/power.svg.h"
-#include "webinc/question-circle.svg.h"
-#include "webinc/bootstrap-slider.min.js.h"
-#include "webinc/bootstrap-slider.min.css.h"
-#include "webinc/bootstrap.bundle.min.js.h"
-#include "webinc/bootstrap.min.css.h"
-#include "webinc/jquery.min.js.h"
+#include "headers/index.html.h"
+#include "headers/style.css.h"
+#include "headers/power.svg.h"
+#include "headers/question-circle.svg.h"
+#include "headers/bootstrap-slider.min.js.h"
+#include "headers/bootstrap-slider.min.css.h"
+#include "headers/bootstrap.bundle.min.js.h"
+#include "headers/bootstrap.min.css.h"
+#include "headers/jquery.min.js.h"
 
 // initialize directory
 ProgmemTextFiles::DirEntry ProgmemTextFiles::directory[] = {
@@ -548,7 +590,11 @@ void websocket_ecb(uint8_t num, WStype_t type, uint8_t * data, size_t len) {
               "\"brkxurl\":\"" + g_cfg_brkxurl        + "\"," +
               "\"brkxusr\":\"" + g_cfg_brkxusr        + "\"," +
               "\"brkxtpc\":\"" + g_cfg_brkxtpc        + "\"," +
-              "\"stassid\":\"" + g_cfg_stassid        + "\"}");
+              "\"stassid\":\"" + g_cfg_stassid        + "\"," +
+              "\"imaxpwr\":"   + String(g_tstate_imaxcur * 3.0 * 230.0 /1000.0,0) + "," +
+              "\"avrver\":\""  + verstr(g_tstate_version)  + "\"," +
+              "\"espver\":\""  + verstr(VERSION)      + "\"," +
+              "\"devname\":\"" + g_devname            + "\"}");
           }         
           if(cmd=="reset") {
             Serial.println("reset request");
@@ -560,6 +606,8 @@ void websocket_ecb(uint8_t num, WStype_t type, uint8_t * data, size_t len) {
       if(cfg_fromjson()) {
         Serial.printf("websocket [%u]: found config parameters\n",num);
         mqtt_config(); 
+        if(g_cfg_devname!="???") 
+          g_devname=g_cfg_devname;
         cfg_save();    
       }
       break;
@@ -579,7 +627,7 @@ void wsck_log(const String& msg) {
   g_wsck_server.broadcastTXT("{\"diagln\":\"" + mgl +"\"}");
 }
 
-// send heartbeat message to all connected client
+// send heartbeat message to all connected clients
 void wsck_send_heartbeat() {
   g_wsck_server.broadcastTXT(
     "{\"aphases\":"+String(g_tstate_aphases)+ ",\"amaxcur\":"+String(g_tstate_amaxcur)+",\"ccss\":"+String(g_tstate_ccss)+"}");
@@ -733,18 +781,27 @@ void  target_lcb() {
   if(tonoff.expired()) {
     g_tstate_ccss=vccss;
   }  
+  // remote set max power, exec in 5 secs
   static Timer tpowset;
   static int vsmaxcur;
-  // remote set max power, exec in 5 secs
   if(g_tcontrol_smaxpow>=0) {
-      tpowset.set(5000);
-      vsmaxcur=g_tcontrol_smaxpow*100.0 / (230.0 * 3) *10 +0.5; 
+    tpowset.set(5000);
+    vsmaxcur=g_tcontrol_smaxpow*100.0 / (230.0 * 3) *10 +0.5; 
   }   
   g_tcontrol_smaxpow=-1;
   if(tpowset.expired()) {
+    if(vsmaxcur>g_tstate_imaxcur) 
+      vsmaxcur = g_tstate_imaxcur;
     g_tstate_smaxcur=vsmaxcur;
     g_tstate_amaxcur=vsmaxcur;
-  }      
+  }   
+  // remote set installed max power, exec instantly
+  if(g_tcontrol_imaxpow>=0) {
+      g_tstate_imaxcur = g_tcontrol_imaxpow*100.0 / (230.0 * 3) *10 +0.5; 
+      if(g_tstate_smaxcur>g_tstate_imaxcur) 
+        g_tstate_smaxcur = g_tstate_imaxcur;
+  }   
+  g_tcontrol_imaxpow=-1;     
   // simulate funny state variables
   g_tstate_update=false;
   static Periodic psim(5000);
@@ -769,7 +826,7 @@ void  target_lcb() {
 
 bool g_tstate_update=false;
 
-#define READLNBUF 60
+#define READLNBUF 128
 
 String g_readln_buf;
 
@@ -838,9 +895,12 @@ void  target_lcb() {
     if(pn="cur1") g_tstate_cur1=pv; else
     if(pn="cur2") g_tstate_cur2=pv; else
     if(pn="cur3") g_tstate_cur3=pv; else
+    if(pn="version") g_tstate_version=pv; else
+    if(pn="imaxcur") g_tstate_imaxcur=pv;
     g_tstate_update=true;
   }
-  // send command
+  // TODO send commands for parameter set (s/imaxpwr/on/off)
+  // send periodic command for state update
   if(Serial2.availableForWrite()>20) {
     static Periodic p0(6000,     0);
     if(p0.expired()) Serial2.println("ccss?");  
@@ -858,6 +918,256 @@ void  target_lcb() {
 }
 #endif
 
+
+/* 
+**************************************************************************  
+**************************************************************************  
+
+Target AVR firmware update
+- update AVR flash from ESP32 PROGMEN, i.e. we get the acrtual target
+  firmware by ESP32 OTA and flash the target AVR it at restart
+- this is very simplistic implementation of an Optiboot counterpart;
+  for principle of operation, see AVRs documentation of the STK500
+  protocol
+- this is sychronous; so dont call from the main loop
+  
+**************************************************************************  
+**************************************************************************  
+*/ 
+
+#ifdef AVRSERIAL
+
+#include "headers/ctrl22c.bin.h"
+
+class OptiFlash {
+public:
+  // construct
+  OptiFlash(void) {}
+  // configure
+  void image(const unsigned char* img, unsigned int cnt)  {fimg=img; fcnt=cnt;}
+  void toffset(unsigned int off=0x200) {toff=off;}
+  void tbyteaddr(bool b=false) {baddr=b;}
+  void tserial(HardwareSerial& ser) {avrser=ser;}
+  // ustils halt/run avr 
+  void avrhalt(void) { digitalWrite(GPIORST,LOW); }
+  void avrrun(void) { digitalWrite(GPIORST,HIGH); }
+private:
+  // conf
+  static const int buflen=128+10;
+  static const int pagelen=128;
+  HardwareSerial& avrser=Serial2;     // serial for flashing the AVR
+  const unsigned char* fimg;          // data src 
+  unsigned int fcnt;                  // data length
+  unsigned int toff;                  // target offset
+  boolean baddr;                      // true for byte address mode (nonstd.)  
+  // state
+  char iobuf[buflen];  // r/w buffer
+  int ioerr=0x0;       // accumulative error flags
+  // utils: send a command incl sync
+  void sndcmd(int scnt, int rcnt) {
+    while(avrser.available()) avrser.read();  // flush UART
+    iobuf[scnt++]=0x20;                       // add opcode "Sync_EOP"
+    rcnt++;                                   // expect reply on "Sync_EOP"
+    //Serial.println("optiflash: sending #"+String(scnt)+ " (0x"+String(iobuf[0],HEX)+")");
+    avrser.write(iobuf,scnt);                // synchronous write
+    delay(2+scnt);
+    memset(iobuf,0,buflen);                   // cosmetic (good for error codes)
+    avrser.setTimeout(100);                   // 100ms timeout
+    if((scnt=avrser.readBytes(iobuf,rcnt))!=rcnt) ioerr|= 0x0001;
+    //Serial.println("optiflash: read #"+String(scnt)+ " ("+String(iobuf[0],HEX)+")");
+    if(iobuf[0]!=0x14) ioerr|=0x0002;         // expect sync reply
+    return;
+  }
+  // utils: sync request
+  void optsync(void) {
+    iobuf[0]=0x30; // op-code "sync request"
+    sndcmd(1,1);
+    if(iobuf[1]!=0x10) ioerr|= 0x0004;
+  }
+  // utils: veryfy presence of Optiboot
+  void optver(void) {
+    int min;
+    int maj;
+    iobuf[0]=0x41;                             // opcode "read parameter"
+    iobuf[1]=0x81;                             // major version
+    sndcmd(2,2);
+    maj=iobuf[1];
+    if(iobuf[2]!=0x10) ioerr|= 0x0008;
+    iobuf[0]=0x41;                             // opcode "read parameter"
+    iobuf[1]=0x82;                             // minor version
+    sndcmd(2,2);
+    min=iobuf[1];
+    if(iobuf[2]!=0x10) ioerr|= 0x0008;
+    if(ioerr==0x0)
+      Serial.println("optiflash: found version " + String(maj) + "." + String(min));
+  }
+  // utils: load target address (nonstd: we use byte address, see "demesh.c")
+  void optaddr(unsigned int addr) {
+    iobuf[0]=0x55;                            // opcode "set address"
+    addr+=toff;                               // target offset
+    if(!baddr) addr /= 2;                     // addressing mode (std is word address)
+    iobuf[1]= (unsigned char) (addr & 0xff);  // low byte of address
+    iobuf[2]= (unsigned char) (addr  >> 8);   // high byte of address
+    sndcmd(3,1);
+    if(iobuf[1]!=0x10) ioerr|=0x0010;
+  }
+  // utils: flash one page
+  void optwrite(unsigned int addr) {
+    iobuf[0]=0x64;            // opcode "write page"
+    iobuf[1]= pagelen >> 8;   // high byte of byte count
+    iobuf[2]= pagelen & 0xff; // low byte of byte count
+    iobuf[3]= 0x46;           // opcode "destination is flash"
+    memcpy(iobuf+4, fimg+addr, pagelen);  
+    sndcmd(pagelen+4,1);     // do send
+    if(iobuf[1]!=0x10) ioerr|=0x0020;
+  }     
+  // utils: verify flash page
+  void optread(unsigned int addr) {
+    iobuf[0]=0x74;                // opcode "read page"
+    iobuf[1]= pagelen >> 8;   // hight byte of byte count
+    iobuf[2]= pagelen & 0xff; // low byte of byte count
+    iobuf[3]= 0x46;               // opcode "source is flash"
+    sndcmd(4,pagelen+1);
+    if(iobuf[pagelen+1]!=0x10) ioerr|=0x0040;
+    if(memcmp(fimg+addr,iobuf+1,pagelen)!=0) ioerr|=0x0080;
+  }
+  // utils: quit to main app
+  void optquit(void) {
+    iobuf[0]=0x51; // opcode "exit to application programm"
+    sndcmd(1,1);
+    if(iobuf[1]!=0x10) ioerr|=0x0100;
+  }
+public:
+  // payload: do login to optioboot
+  int doopti(void) {
+    // reset target
+    Serial.println("optiflash: reset target");
+    avrhalt();
+    delay(500);
+    avrrun();
+    delay(200);
+    // sync with optiboot
+    Serial.println("optiflash: synchronizing");
+    int fail=20;
+    for(; fail>0; fail--) {
+      ioerr=0x0;
+      optsync();
+      if(ioerr==0x0) break;
+      delay(100);
+    }
+    if(ioerr!=0) {
+      Serial.println("optiflash: failed to sync");
+      return -1;
+    }
+    // test for STK500 verion
+    optver();
+    if(ioerr!=0) {
+      Serial.println("optiflash: failed to read STK500 version");
+      return -1;
+    }
+    return 0;
+  }
+  // payload: do flash
+  int doflash(void) {
+    // say hello
+    Serial.println("optiflash: do flash -- cnt " +String(fcnt));
+    // enter optiboot
+    if(doopti()!=0) return -1;
+    // flash
+    int fail=20;
+    for(unsigned int addr=0; addr<fcnt; addr+=pagelen) {
+      Serial.println("optiflash: writing to flash at "+String(addr,HEX));
+      for(; fail>0; fail--) {
+        ioerr=0x0;
+        optaddr(addr);
+        optwrite(addr);
+        if(ioerr==0x0) break;
+        delay(100);
+      }
+      if(ioerr!=0x0) {
+        Serial.println("optiflash: failed writing  at "+String(addr,HEX));
+        return -1;
+      }
+    }
+    // done
+    optquit();
+    if(ioerr!=0x0) {
+      Serial.println("optiflash: failed to restart target");
+      return -1;
+    }
+    return 0;
+  }
+  // payload: do verify
+  int doverify(void) {
+    // say hello
+    Serial.println("optiflash: do verify -- cnt " +String(fcnt));
+    // enter optiboot
+    if(doopti()!=0) return -1;
+    // verify
+    int fail=20;
+    for(unsigned int addr=0; addr< fcnt; addr+=pagelen) {
+      Serial.println("optiflash: reading flash at "+String(addr,HEX));
+      for(; fail>0; fail--) {
+        ioerr=0x0;
+        optaddr(addr);
+        optread(addr);
+        if(ioerr==0x0) break;
+        delay(100);
+      }
+      if(ioerr!=0x0) {
+        Serial.println("optiflash: verification failed at "+String(addr,HEX) + 
+          " with err "+String(ioerr,HEX));
+        if(ioerr==0x0080) return -2;  
+        return -1;
+      }
+    }
+    // quit optiboot
+    optquit();
+    if(ioerr!=0x0) {
+      Serial.println("optiflash: failed to restart target");
+      return -1;
+    }
+    return 0;
+  }
+};
+
+// convenience wrapper for std startup
+void avrflash() {
+  // have OptiFlash configure
+  OptiFlash ofl;
+  ofl.image((const unsigned char*) f_ctrl22c_bin, f_ctrl22c_bin_len);
+  ofl.toffset(0x200);
+  ofl.tbyteaddr(true);
+  ofl.tserial(Serial2);
+  // verify image
+  int res = ofl.doverify();
+  if(res==-1) {
+    Serial.println("optiflash: fatal error, can not verify target avr flash");
+    ofl.avrhalt();
+    return;
+  }
+  if(res==0)  {
+    Serial.println("optiflash: target avr flash ok");
+    if(g_cfg_opticnt!=0) {
+      g_cfg_opticnt=0;
+      cfg_save();
+    }
+    return;
+  }  
+  if(g_cfg_opticnt<3) {
+    Serial.println("optiflash: verification failed, re-flashing target firmware");
+    ofl.doflash();
+    g_cfg_opticnt++;
+    cfg_save();
+    Serial.println("optiflash: re-starting alltogether");
+    ESP.restart();
+  }  
+  Serial.println("optiflash: fatal error, invalid avr flash, max count reached");
+  ofl.avrhalt();    
+}  
+
+
+#endif
 
 /* 
 **************************************************************************  
@@ -881,19 +1191,24 @@ void setup() {
   Serial.println();
   Serial.println("AGCCS-CTRLONE (firmware v"+ String(VERSION/10) +"." + String(VERSION %10)+")");
 
+  // read configuration from EEPROM
+  cfg_load();  
+
   // figure my device name by MAC
   unsigned char mac[6];
   WiFi.macAddress(mac);
   g_devname="agccs-";
   for(int i=0; i<6;++i) 
     g_devname += String(mac[i],HEX); 
-  Serial.println("device name: " +g_devname);
+  Serial.println("factory name: " +g_devname);
+
+  // overwrite by configuration
+  if(g_cfg_devname!="???") 
+    g_devname=g_cfg_devname;
  
   // set our device name as hostname
   WiFi.setHostname(g_devname.c_str());
 
-  // read configuration from EEPROM
-  cfg_load();  
 
  
   // try to connect in station mode (10secs)
@@ -926,6 +1241,8 @@ void setup() {
   wsck_init();
   mqtt_init();
   http_init();
+
+  avrflash();
 
   // enable OTA
   ArduinoOTA.setHostname(g_devname.c_str());

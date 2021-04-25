@@ -5,7 +5,7 @@ In parallel to our main intent to organise a network of charging station, we pla
 - [Ctrl22One](./ctrl22one) is an Arduino sketch to run the ESP32 as a remote control for a single charging station
 - [Ctrl22Ino](./ctrl22ino/) will become an Arduino sketch for drop-in replacement of our Ctrl22C firmware 
 
-**DISCLAIMER**. Obviously, this is a side-track to our original project and we run this at low priority.
+**DISCLAIMER**. Obviously, this is a side-track from our original project and we run this at low priority.
 
 
 

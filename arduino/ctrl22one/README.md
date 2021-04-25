@@ -14,7 +14,7 @@ Web-GIU fo the control of one single AGCCS-CTRL22 board in standalone configurat
 
 - everything built-in, no RasPi required for basic operation;
 
-- convenient over-the-air (OTA) upgrade via the Arduino IDE (at this stage the ESP32 only, not the attached AVR)
+- convenient over-the-air (OTA) upgrade via the Arduino IDE 
 
 - optional forward status reports to an MQTT broker (configurable via the Web GIU)
 
@@ -39,6 +39,8 @@ Load the sketch in the Arduino IDE, compile, download, done. Some considerations
 - the sketch is rather verbose on the serial line, so the serial-monitor can be utilised to locate issues if any;
 
 - for simplicity, we opted to embed the files served via HTTP as PROGEM strings as opposed to a SPIFFS filesystem in a operate partition; on the downside, we need to care about converting the original text files into respective C-header files need; see below; on the first take, you can ignore this step and go with the provided C-headers;
+
+- the target AVR firmware is expected at `./avrfrm/ctrl22c.bin` and is embedded to PROGMEM in the same fashion as the static HTML/CSS/JS files; it has to be compiled to load at 0x0200, i.e., 512 bytes offset to accommodate Optiboot; the Makefile provided with [Ctrl22C](../../ctrl22c/) takes care about this details; to update the AVR firmware, you'll effectively need to re-comipile the ESP32 firmware; this has some relevant practical cons: only one firmware image to distribute.
 
   
 
@@ -71,14 +73,14 @@ PROGMEM const char f_index_html[] = {
 };   
 ```
 
-Note that although the converted file is considerable larger than the original text file, the effective memory footprint in the ESP32 obviously remains the same. By convention, each text file in `./websrc` is accompanied by an equivalent C-header in the neighbour directory `./webinc`. When editing the text files, we will need to update the headers. The core conversion is done by the command-line tool `xxd`, available for OSX/Linux/Windows. Except for Windows, we provide the shell script `mkheaders.sh` to facilitate the conversion and to add appropriate decoration (i.e.. C-variable names are prefixed `f_` and are of C-type `const char` with the directive `PROGMEM`). When invoked with no arguments, `mkheaders.sh` will convert all files found in `./websrc`and place the result in `./webinc`. Example:
+Note that although the converted file is considerable larger than the original text file, the effective memory footprint in the ESP32 obviously remains the same. By convention, each text file in `./websrc` is accompanied by an equivalent C-header in the neighbour directory `./headers`. When editing the text files, we will need to update the headers. The core conversion is done by the command-line tool `xxd`, available for OSX/Linux/Windows. Except for Windows, we provide the shell script `mkheaders.sh` to facilitate the conversion and to add appropriate decoration (i.e.. C-variable names are prefixed `f_` and are of C-type `const char` with the directive `PROGMEM`). When invoked with no arguments, `mkheaders.sh` will convert all files found in `./websrc`and place the result in `./headers`. Example:
 
  ``` 
  $ cd {WHERE-EVER}/agccs-ctrl22/arduino/ctrl22one
  $ ls ./websrc
    index.html style.css jquery.min.js [... and so on ...] 
  $ ./mkheaders.sh 
- $ ls ./webinc
+ $ ls ./headers
    index.html.h style.css.h jquery.min.js.h [... and so on ...] 
  ```
 

@@ -38,7 +38,11 @@
       "brkxurl":"???",
       "brkxusr":"???",
       "brkxtpc":"ctrl22one",
-      "stassid":"???", 
+      "stassid":"???",
+      "imaxpwr": 110,
+      "espver":"1.2",
+      "avrver":"1.7",
+      "devname" :"???" 
     };
     var scr = {
       "brkxpwd":"???", 
@@ -115,8 +119,6 @@
       document.getElementById("brkxusr").value=cfg.brkxusr;
       document.getElementById("brkxpwd").value=scr.brkxpwd;
       document.getElementById("brkxtpc").value=cfg.brkxtpc;
-      document.getElementById("stassid").value=cfg.stassid;
-      document.getElementById("stapwd").value=scr.stapwd;
       if(cfg.brkxen) {
         document.getElementById("brkxurl").removeAttribute('disabled');
         document.getElementById("brkxusr").removeAttribute('disabled');
@@ -127,9 +129,19 @@
         document.getElementById("brkxusr").setAttribute('disabled',true);
         document.getElementById("brkxpwd").setAttribute('disabled',true);
         document.getElementById("brkxtpc").setAttribute('disabled',true);
-       }
+      }
+      document.getElementById("stassid").value=cfg.stassid;
+      document.getElementById("stapwd").value=scr.stapwd;
+      document.getElementById("devname").value=cfg.devname;
+      document.getElementById("frmvrs").value= "ESP32 v"+cfg.espver+"/ AVR v"+cfg.avrver;
+      document.getElementById("frmvrs").setAttribute('disabled',true);
+      document.getElementById("instpwr").value= Math.round(cfg.imaxpwr/10);
+      pwrsld.setAttribute('max',Math.round(cfg.imaxpwr/10).toString());
+      var v=pwrsld.getValue();
+      if(10*v>cfg.imaxpwr) v= Math.round(cfg.imaxpwr/10);
+      pwrsld.setValue(v);      
     }
-
+ 
     function cfgget(elem) {
       window.console.log('sensed config change "' + elem.id + '"');
       cfg.brkxen=document.getElementById("brkxen").checked;
@@ -139,11 +151,17 @@
       scr.brkxpwd=document.getElementById("brkxpwd").value;
       cfg.stassid=document.getElementById("stassid").value;
       scr.stapwd=document.getElementById("stapwd").value;
+      cfg.devname=document.getElementById("devname").value;
+      cfg.imaxpwr= Math.round(parseFloat(document.getElementById("instpwr").value) *10);
+      if(cfg.imaxpwr>220) cfg.imaxpwr=220;
+      if(cfg.imaxpwr<40)  cfg.imaxpwr=40;
       cfgset();
       var msg={"cmd":"cfgset"};
       $.extend(msg, cfg);
-      if((elem.id=="brkxpwd") || (elem.id=="stapwd"))  
-        $.extend(msg, scr);
+      if(elem.id=="brkxpwd")  
+        msg.brkxpwd=scr.brkxpwd;
+      if(elem.id=="stapwd")  
+       msg.stapwd=scr.stapwd;
       wbsck.send(JSON.stringify(msg));
     }
 
@@ -312,7 +330,11 @@
       if("brkxpwd"   in jsonObject) { cfg.brkxpwd=jsonObject.brkxpwd;  iscfg=true; };	
       if("brkxtpc"   in jsonObject) { cfg.brkxtpc=jsonObject.brkxtpc;  iscfg=true; };
       if("stassid"   in jsonObject) { cfg.stassid=jsonObject.stassid;  iscfg=true; };	
-      if("stapwd"    in jsonObject) { cfg.stapwd=jsonObject.stapwd;   iscfg=true; };
+      if("stapwd"    in jsonObject) { cfg.stapwd=jsonObject.stapwd;    iscfg=true; };
+      if("devname"   in jsonObject) { cfg.devname=jsonObject.devname;  iscfg=true; };
+      if("espver"    in jsonObject) { cfg.espver=jsonObject.espver;    iscfg=true; };
+      if("avrver"    in jsonObject) { cfg.avrver=jsonObject.avrver;    iscfg=true; };
+      if("imaxpwr"   in jsonObject) { cfg.imaxpwr=jsonObject.imaxpwr;  iscfg=true; };
       // update UI
       if(iscfg) 
           cfgset();
@@ -655,6 +677,51 @@
                         </button>
                       </div>
                     </div>
+		  </div>
+                </div>
+              </div>
+
+<!-- collapsable "System" -->
+	      <div class="accordion-item">
+		<h2 class="accordion-header" id="syssethd">
+		  <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#sysset" aria-expanded="true" aria-controls="sysset">
+		    System Settings
+		  </button>
+		</h2>
+		<div id="sysset" class="accordion-collapse collapse" aria-labelledby="syssethd" data-bs-parent="#cfgacc">
+		  <div class="accordion-body">
+		    <div class="row">
+		      <div class="col">
+			<div class="mb-3 form-floating">
+			  <input type="text" class="form-control" id="devname" onchange="cfgget(this)" placeholder="Ctrl22One">
+			  <label for="devname" class="form-label">device name</label>
+			</div>
+		      </div>
+		    </div>
+		    <div class="row">
+		      <div class="col">
+			<div class="mb-3 form-floating">
+			  <input type="number" class="form-control" id="instpwr" onchange="cfgget(this)" placeholder="32">
+			  <label for="instpwr" class="form-label">inst. power (kW)</label>
+			</div>
+		      </div>
+		    </div>
+		    <div class="row">
+		      <div class="col">
+			<div class="mb-3 form-floating">
+                          <input class="form-control" type="file" id="avrfrm">
+                          <label for="arfm" class="form-label">AVR firmware file</label>
+			</div>
+		      </div>
+		    </div>
+		    <div class="row">
+		      <div class="col">
+			<div class="mb-3 form-floating">
+			  <input type="text" class="form-control" id="frmvrs" onchange="cfgget(this)" placeholder="Ctrl22One">
+			  <label for="frmvrs" class="form-label">version</label>
+			</div>
+		      </div>
+		    </div>
 		  </div>
                 </div>
               </div>
