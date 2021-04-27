@@ -27,7 +27,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
 // AGCCS version (one digit major, one digit minor)
-#define VERSION 10
+#define VERSION 11
  
 #include <WiFi.h>
 #include <WebServer.h>
@@ -69,22 +69,25 @@ char g_jstrbuf[JSONBUF];
 
 
 // local copy of target AVR state
-static int g_tstate_version=0;    // target uC firmware version                                                                                
-static int g_tstate_ccss=0;       // state in CCS charging scheme (0<>idle ... 30<> charging, >=50 error)                                      
-static int g_tstate_sphases=0;    // phases allocated by remote server                                                                         
-static int g_tstate_aphases=0;    // actual phases enabled by SSRs (matches sphases in simulation)                                             
-static int g_tstate_imaxcur=160;  // max current by installation
-static int g_tstate_smaxcur=0;    // max current allocated by remote server (per phase, unit 100mA, aka "10" reads "1A")                       
-static int g_tstate_cmaxcur=100;  // max current allowed by charging cable (per phase, unit 100mA)                                             
-static int g_tstate_amaxcur=0;    // actual max current as indicated by CP (unit 100mA, matches min(smaxcur,cmaxcur) in simulation)            
-static int g_tstate_cur1=0;       // current drawn on phase 1 (unit 100mA)                                                                     
-static int g_tstate_cur2=0;       // current drawn on phase 1 (unit 100mA)                                                                     
-static int g_tstate_cur3=0;       // current drawn on phase 1 (unit 100mA)      
+static int g_tstate_version=-1;   // target uC firmware version                                                                                
+static int g_tstate_ccss=-1;      // state in CCS charging scheme (0<>idle ... 30<> charging, >=50 error)                                      
+static int g_tstate_sphases=-1;   // phases allocated by remote server                                                                         
+static int g_tstate_aphases=-1;   // actual phases enabled by SSRs (matches sphases in simulation)                                             
+static int g_tstate_imaxcur=-1;   // max current by installation
+static int g_tstate_smaxcur=-1;   // max current allocated by remote server (per phase, unit 100mA, aka "10" reads "1A")                       
+static int g_tstate_sonoff=1;     // on/off by remote server                       
+static int g_tstate_cmaxcur=-1;   // max current allowed by charging cable (per phase, unit 100mA)                                             
+static int g_tstate_amaxcur=-1;   // actual max current as indicated by CP (unit 100mA, matches min(smaxcur,cmaxcur) in simulation)            
+static int g_tstate_cur1=-1;      // current drawn on phase 1 (unit 100mA)                                                                     
+static int g_tstate_cur2=-1;      // current drawn on phase 1 (unit 100mA)                                                                     
+static int g_tstate_cur3=-1;      // current drawn on phase 1 (unit 100mA)      
 
 // global target AVR control variables
-static int g_tcontrol_onoff=-1;   // set to 1/0 for on/off
-static int g_tcontrol_smaxpow=-1; // set to nonnegative desired power (unit 0.1kW)
 static int g_tcontrol_imaxpow=-1; // set to nonnegative max installed power (unit 0.1kW)
+static int g_tcontrol_sphases=-1; // set to nonnegative for available phases
+static int g_tcontrol_smaxpow=-1; // set to nonnegative desired power (unit 0.1kW)
+static int g_tcontrol_sonoff=-1;  // set to nonnegative on/off i.e. 1/0 
+static String g_tcontrol_vrbcmd=""; // set to nonemty for a verbatim command 
 
 // forward: development/testing log via websocket
 void wsck_log(const String&);
@@ -124,6 +127,7 @@ void dev_init() {
 // simulate target AVR
 #define AVRSIMULATE
 #undef ARVSERIAL
+#undef ARVUPDATE
 
 #endif
 
@@ -163,6 +167,7 @@ void dev_init() {
 
 // do talk to attached traget AVR
 #define AVRSERIAL
+#define AVRUPDATE
 #undef AVRSIMULATE
 
 #endif
@@ -329,10 +334,12 @@ bool cfg_fromjson(void) {
     if(kv.key()=="devname")
     if(kv.value().is<String>()) {
       g_cfg_devname=kv.value().as<String>();
+      ret=true;
     }          
     if(kv.key()=="opticnt")
     if(kv.value().is<int>()) {
       g_cfg_opticnt=kv.value().as<int>();
+      ret=true;
     }          
   }
   return ret;
@@ -579,7 +586,11 @@ void websocket_ecb(uint8_t num, WStype_t type, uint8_t * data, size_t len) {
         }
         if(kv.key()=="onoff")
         if(kv.value().is<int>()) {
-          g_tcontrol_onoff=kv.value().as<int>();
+          g_tcontrol_sonoff=kv.value().as<int>();
+        }        
+        if(kv.key()=="avrcmd")
+        if(kv.value().is<String>()) {
+          g_tcontrol_vrbcmd=kv.value().as<String>();
         }        
         // receive parameter request
         if(kv.key()=="cmd") {
@@ -592,6 +603,7 @@ void websocket_ecb(uint8_t num, WStype_t type, uint8_t * data, size_t len) {
               "\"brkxtpc\":\"" + g_cfg_brkxtpc        + "\"," +
               "\"stassid\":\"" + g_cfg_stassid        + "\"," +
               "\"imaxpwr\":"   + String(g_tstate_imaxcur * 3.0 * 230.0 /1000.0,0) + "," +
+              "\"smaxpwr\":"   + String(g_tstate_smaxcur * 3.0 * 230.0 /1000.0,0) + "," +
               "\"avrver\":\""  + verstr(g_tstate_version)  + "\"," +
               "\"espver\":\""  + verstr(VERSION)      + "\"," +
               "\"devname\":\"" + g_devname            + "\"}");
@@ -627,12 +639,14 @@ void wsck_log(const String& msg) {
   g_wsck_server.broadcastTXT("{\"diagln\":\"" + mgl +"\"}");
 }
 
-// send heartbeat message to all connected clients
+// send heartbeat message to all connected clients: autonomous
 void wsck_send_heartbeat() {
   g_wsck_server.broadcastTXT(
     "{\"aphases\":"+String(g_tstate_aphases)+ ",\"amaxcur\":"+String(g_tstate_amaxcur)+",\"ccss\":"+String(g_tstate_ccss)+"}");
   g_wsck_server.broadcastTXT(
     "{\"cur1\":"+String(g_tstate_cur1)+",\"cur2\":"+String(g_tstate_cur2)+",\"cur3\":"+String(g_tstate_cur3)+"}");
+  g_wsck_server.broadcastTXT(
+    "{\"sphases\":"+String(g_tstate_sphases)+ ",\"smaxcur\":"+String(g_tstate_smaxcur)+",\"sonoff\":"+String(g_tstate_sonoff)+"}");
 }    
   
 
@@ -765,6 +779,9 @@ Target AVR Control
 
 bool  g_tstate_update=false;
 
+
+void target_init();
+
 void  target_lcb() {
   // remote on/off command, exec in 5 secs
   static Timer tonoff;
@@ -810,7 +827,7 @@ void  target_lcb() {
     g_tstate_cur1+=7;
     g_tstate_cur2+=23;
     g_tstate_cur3+=34;
-    if(g_tstate_ccss>105) g_tstate_ccss=-7;    
+    if(g_tstate_ccss>105) g_tstate_ccss=-3;    
     if(g_tstate_cur1>g_tstate_amaxcur) g_tstate_cur1=-1;    
     if(g_tstate_cur2>g_tstate_amaxcur) g_tstate_cur2=0;    
     if(g_tstate_cur3>g_tstate_amaxcur) g_tstate_cur3=0; 
@@ -828,13 +845,24 @@ bool g_tstate_update=false;
 
 #define READLNBUF 128
 
-String g_readln_buf;
+static String g_readln_buf;
+
+void target_init(void) {
+  while(Serial2.available()>0) Serial2.read();
+}
 
 void  target_lcb() {  
-  // assemble line rom serial
+  // line status
+  static boolean lnbsy=(Serial2.availableForWrite()<20);
+  static boolean wtrply=false;
+  // sense power on
+  static Timer pot(5000);
+  static bool pon=true;
+  if(pot.expired()) pon=false;
+  // assemble line from serial
   char c=0;
   int  n=0;
-  while((Serial2.available()>0) && (c!='\n') && (n<20)) {
+  while((Serial2.available()>0) && (c!='\n') && (n<64)) {
     c=Serial2.read();
     n++;
     if(g_readln_buf.length()<READLNBUF) 
@@ -846,18 +874,22 @@ void  target_lcb() {
       g_readln_buf.remove(g_readln_buf.length()-1);
     if(g_readln_buf.endsWith("\r")) 
       g_readln_buf.remove(g_readln_buf.length()-1);
-    wsck_log(g_readln_buf);
-    //Serial.println(String("serial (raw): ")+g_readln_buf);
+  }
+  // sense eol: swallow comments
+  if(c=='\n') {
+    if(g_readln_buf.startsWith("%")) {
+      wsck_log(g_readln_buf);
+      c=0;
+      g_readln_buf="";      
+    }
   }
   // sense eol: figure position of name and value
   int bg=-1;
   int nm=-1;
   int sg=1;
   if(c=='\n') {
-    if(!g_readln_buf.startsWith("%")) {
-      for(bg=0; bg<g_readln_buf.length(); ++bg)
-        if(g_readln_buf.charAt(bg) != '[') break;
-    }
+    for(bg=0; bg<g_readln_buf.length(); ++bg)
+      if(g_readln_buf.charAt(bg) != '[') break;
     if(bg>=g_readln_buf.length()) bg=-1;
   }
   if(bg>=0) {    
@@ -883,37 +915,95 @@ void  target_lcb() {
   }   
   // clear buffer
   if(c=='\n') {
-    Serial.println("serial (prs): [" + pn + "=" + pv + "] @(" + bg +","+nm+")");
+    String msg;
+    if(pn!="")
+      msg="serial (prs): [" + pn + "=" + pv + "] @(" + bg +","+nm+")";
+    else 
+      msg="serial (prs): [parse error] @(" + g_readln_buf +")";
+    Serial.println(msg);
+    //wsck_log(msg);
     g_readln_buf="";
+    wtrply=false;
   }  
   // update local copy of state
   g_tstate_update=false;
   if(pn!="") {
-    if(pn="ccss") g_tstate_ccss=pv; else
-    if(pn="aphases") g_tstate_aphases=pv; else
-    if(pn="amaxcur") g_tstate_amaxcur=pv; else
-    if(pn="cur1") g_tstate_cur1=pv; else
-    if(pn="cur2") g_tstate_cur2=pv; else
-    if(pn="cur3") g_tstate_cur3=pv; else
-    if(pn="version") g_tstate_version=pv; else
-    if(pn="imaxcur") g_tstate_imaxcur=pv;
+    if(pn=="ver") g_tstate_version=pv; else
+    if(pn=="ccss") g_tstate_ccss=pv; else
+    if(pn=="sphases") g_tstate_sphases=pv; else
+    if(pn=="aphases") g_tstate_aphases=pv; else
+    if(pn=="imaxcur") g_tstate_imaxcur=pv; else
+    if(pn=="smaxcur") g_tstate_smaxcur=pv; else
+    if(pn=="amaxcur") g_tstate_amaxcur=pv; else
+    if(pn=="cmaxcur") g_tstate_cmaxcur=pv; else
+    if(pn=="cur1") g_tstate_cur1=pv; else
+    if(pn=="cur2") g_tstate_cur2=pv; else
+    if(pn=="cur3") g_tstate_cur3=pv; else
+    wsck_log(pn+"="+pv); 
     g_tstate_update=true;
   }
-  // TODO send commands for parameter set (s/imaxpwr/on/off)
-  // send periodic command for state update
-  if(Serial2.availableForWrite()>20) {
-    static Periodic p0(6000,     0);
-    if(p0.expired()) Serial2.println("ccss?");  
-    static Periodic p1(6000,  1000);
-    if(p1.expired()) Serial2.println("phases?");  
-    static Periodic p2(6000,  2000);
-    if(p2.expired()) Serial2.println("amaxcur?");  
-    static Periodic p3(6000,  3000);
-    if(p3.expired()) Serial2.println("cur1?");  
-    static Periodic p4(6000,  4000);
-    if(p4.expired()) Serial2.println("cur2?");  
-    static Periodic p5(6000,  5000);
-    if(p5.expired()) Serial2.println("cur3?");  
+  // send power-on requests
+  if(pon && (!lnbsy) && (!wtrply)) {  
+    static Periodic b0(1000,     0);
+    if(b0.expired()) { Serial2.println("ver?"); wtrply=true;} 
+    static Periodic b1(1000,  500);
+    if(b1.expired()) { Serial2.println("imaxcur?"); wtrply=true;}  
+  }
+  // clear on/off
+  if(g_tstate_ccss<10) {
+    if(g_tstate_sonoff==0) g_tcontrol_sonoff=1;
+  }
+  // forward commands
+  if((g_tcontrol_sphases>=0) && (!lnbsy) && (!wtrply)) {  
+    Serial2.println("sphases="+String(g_tcontrol_sphases));
+    g_tcontrol_sphases=-1;
+    wtrply=true;
+  }
+  if((g_tcontrol_smaxpow>=0) && (!lnbsy) && (!wtrply)) {  
+    g_tstate_smaxcur= (int) (g_tcontrol_smaxpow*100.0 / (230.0 * 3) *10 +0.5);
+    if(g_tstate_sonoff) 
+       Serial2.println("smaxcur="+String(g_tstate_smaxcur));
+     else  
+       Serial2.println("smaxcur=0");      
+    g_tcontrol_smaxpow=-1;
+    wtrply=true;
+  }
+  if((g_tcontrol_sonoff>=0) && (!lnbsy) && (!wtrply)) {  
+    if((g_tcontrol_sonoff==0) && (g_tstate_ccss >=10) && (g_tstate_ccss <50))
+      g_tstate_sonoff=g_tcontrol_sonoff;
+    if((g_tcontrol_sonoff==1) && (g_tstate_ccss >=50) && (g_tstate_ccss <60))
+      g_tstate_sonoff=g_tcontrol_sonoff;
+    if(g_tstate_sonoff) 
+       Serial2.println("smaxcur="+String(g_tstate_smaxcur));
+     else  
+       Serial2.println("smaxcur=0");      
+    g_tcontrol_sonoff=-1;
+    wtrply=true;
+  }
+  if((g_tcontrol_imaxpow>=0) && (!lnbsy) && (!wtrply)) {  
+    Serial2.println("imaxcur="+String((int) (g_tcontrol_imaxpow*100.0 / (230.0 * 3) *10 +0.5) ));
+    g_tcontrol_imaxpow=-1;
+    wtrply=true;
+  }
+  if((g_tcontrol_vrbcmd!="") && (!lnbsy) && (!wtrply)) {   
+    Serial2.println(g_tcontrol_vrbcmd);
+    g_tcontrol_vrbcmd="";
+    wtrply=true;
+  }
+  // send periodic state update
+  if( (!pon) && (!lnbsy) && (!wtrply)) {  
+    static Periodic p0(1000,     0);
+    if(p0.expired()) { Serial2.println("ccss?"); wtrply=true;} 
+    static Periodic p1(5000,  500);
+    if(p1.expired()) { Serial2.println("aphases?"); wtrply=true;}  
+    static Periodic p2(5000,  1500);
+    if(p2.expired()) { Serial2.println("amaxcur?"); wtrply=true;} 
+    static Periodic p3(5000,  2500);
+    if(p3.expired()) { Serial2.println("cur1?"); wtrply=true;} 
+    static Periodic p4(5000,  3500);
+    if(p4.expired()) { Serial2.println("cur2?"); wtrply=true;}  
+    static Periodic p5(5000,  4500);
+    if(p5.expired()) { Serial2.println("cur3?"); wtrply=true;} 
   }
 }
 #endif
@@ -935,8 +1025,7 @@ Target AVR firmware update
 **************************************************************************  
 */ 
 
-#ifdef AVRSERIAL
-
+#ifdef AVRUPDATE
 #include "headers/ctrl22c.bin.h"
 
 class OptiFlash {
@@ -1209,8 +1298,6 @@ void setup() {
   // set our device name as hostname
   WiFi.setHostname(g_devname.c_str());
 
-
- 
   // try to connect in station mode (10secs)
   g_stamode=false;
   WiFi.mode(WIFI_STA);
@@ -1225,7 +1312,7 @@ void setup() {
   if(g_stamode) Serial.println("ok"); 
   else Serial.println("fail");
 
-  // provide AP
+  // fal back to provide AP
   if(!g_stamode) {
     WiFi.mode(WIFI_AP);
     Serial.println("starting AP "+g_devname+ " (pwd: \"" + g_cfg_sappwd +"\")");
@@ -1242,12 +1329,17 @@ void setup() {
   mqtt_init();
   http_init();
 
+#ifdef AVRUPDATE
   avrflash();
+#endif
 
   // enable OTA
   ArduinoOTA.setHostname(g_devname.c_str());
   ArduinoOTA.setPassword("ctrl22one");
   ArduinoOTA.begin();
+
+  // prepare serial connection to tagert
+  target_init();
 }
 
 

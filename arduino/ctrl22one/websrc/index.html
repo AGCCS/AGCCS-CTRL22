@@ -32,36 +32,36 @@
     // global state 
     // ================================
        
-    // target configuration
-    var cfg = {
+    // target configuration 
+    var cfgmqtt = {
       "brkxen":1,
       "brkxurl":"???",
       "brkxusr":"???",
-      "brkxtpc":"ctrl22one",
+      "brkxpwd":"???", 
+      "brkxtpc":"ctrl22one"
+    }
+    var cfgwlan = {
       "stassid":"???",
+      "stapwd" :"???"
+    }
+    var cfgsys = {
       "imaxpwr": 110,
       "espver":"1.2",
       "avrver":"1.7",
       "devname" :"???" 
-    };
-    var scr = {
-      "brkxpwd":"???", 
-      "stapwd" :"???"
     }
-
+ 
     // target state
     var cur1=-1, cur2=-1, cur3=-1;
-    var phases=-1, ccss=-1; smaxcur=-1;
+    var phases=-1, ccss=-1; smaxcur=-1; sonoff=-1;
     
     // target control on/off
-    var onoffste=false; // last confirmed status
     var onoffprg=false; // command in progress
     var onoffcmd=false; // requested status
 
     // target control max power
     var smaxprg=false;  // command in progress
     var smaxcmd=-1;     // request sent
-    var smaxrec=false;  // recorded recent value 
 
     // ui element power slider
     var pwrsld; 
@@ -103,23 +103,32 @@
 
     function reset() {
       window.console.log("reset request");
-      var msg={"cmd":"reset"};
-      $.extend(msg, scr);       
-      wbsck.send(JSON.stringify(msg));
+      $("#restartmdl").modal("show");
+      wbsck.send('{"cmd":"reset"}');
+      setTimeout(function(){wbsck.close();},1000);
+      setTimeout(function(){location.reload();},10000);
+      //$(" .accordion-collapse" ).removeClass('show');
+      //$(" .arcordion-collapse" ).addClass('hide');
+      //$("#payload").remove();
+      //window.onbeforeunload = function() {
+      //  window.console.log("closing down (beforunload) A"); 
+      //  return ''
+      //};
     }
 
+  
     // ================================
     // get/set configuration from/to UI
     // ================================
 
     function cfgset() {
       window.console.log("cfgset: update GUI");
-      document.getElementById("brkxen").checked=cfg.brkxen;
-      document.getElementById("brkxurl").value=cfg.brkxurl;
-      document.getElementById("brkxusr").value=cfg.brkxusr;
-      document.getElementById("brkxpwd").value=scr.brkxpwd;
-      document.getElementById("brkxtpc").value=cfg.brkxtpc;
-      if(cfg.brkxen) {
+      document.getElementById("brkxen").checked=cfgmqtt.brkxen;
+      document.getElementById("brkxurl").value=cfgmqtt.brkxurl;
+      document.getElementById("brkxusr").value=cfgmqtt.brkxusr;
+      document.getElementById("brkxpwd").value=cfgmqtt.brkxpwd;
+      document.getElementById("brkxtpc").value=cfgmqtt.brkxtpc;
+      if(cfgmqtt.brkxen) {
         document.getElementById("brkxurl").removeAttribute('disabled');
         document.getElementById("brkxusr").removeAttribute('disabled');
         document.getElementById("brkxpwd").removeAttribute('disabled');
@@ -130,41 +139,56 @@
         document.getElementById("brkxpwd").setAttribute('disabled',true);
         document.getElementById("brkxtpc").setAttribute('disabled',true);
       }
-      document.getElementById("stassid").value=cfg.stassid;
-      document.getElementById("stapwd").value=scr.stapwd;
-      document.getElementById("devname").value=cfg.devname;
-      document.getElementById("frmvrs").value= "ESP32 v"+cfg.espver+"/ AVR v"+cfg.avrver;
+      document.getElementById("stassid").value=cfgwlan.stassid;
+      document.getElementById("stapwd").value=cfgwlan.stapwd;
+      document.getElementById("devname").value=cfgsys.devname;
+      document.getElementById("frmvrs").value= "ESP32 v"+cfgsys.espver+"/ AVR v"+cfgsys.avrver;
       document.getElementById("frmvrs").setAttribute('disabled',true);
-      document.getElementById("instpwr").value= Math.round(cfg.imaxpwr/10);
-      pwrsld.setAttribute('max',Math.round(cfg.imaxpwr/10).toString());
+      document.getElementById("instpwr").value= Math.round(cfgsys.imaxpwr/10);
+      pwrsld.setAttribute('max',Math.round(cfgsys.imaxpwr/10).toString());
       var v=pwrsld.getValue();
-      if(10*v>cfg.imaxpwr) v= Math.round(cfg.imaxpwr/10);
+      if(10*v>cfgsys.imaxpwr) v= Math.round(cfgsys.imaxpwr/10);
       pwrsld.setValue(v);      
     }
  
     function cfgget(elem) {
       window.console.log('sensed config change "' + elem.id + '"');
-      cfg.brkxen=document.getElementById("brkxen").checked;
-      cfg.brkxurl=document.getElementById("brkxurl").value;
-      cfg.brkxusr=document.getElementById("brkxusr").value;
-      cfg.brkxtpc=document.getElementById("brkxtpc").value;
-      scr.brkxpwd=document.getElementById("brkxpwd").value;
-      cfg.stassid=document.getElementById("stassid").value;
-      scr.stapwd=document.getElementById("stapwd").value;
-      cfg.devname=document.getElementById("devname").value;
-      cfg.imaxpwr= Math.round(parseFloat(document.getElementById("instpwr").value) *10);
-      if(cfg.imaxpwr>220) cfg.imaxpwr=220;
-      if(cfg.imaxpwr<40)  cfg.imaxpwr=40;
-      cfgset();
-      var msg={"cmd":"cfgset"};
-      $.extend(msg, cfg);
+      cfgmqtt.brkxen=document.getElementById("brkxen").checked;
+      cfgmqtt.brkxurl=document.getElementById("brkxurl").value;
+      cfgmqtt.brkxusr=document.getElementById("brkxusr").value;
+      cfgmqtt.brkxtpc=document.getElementById("brkxtpc").value;
       if(elem.id=="brkxpwd")  
-        msg.brkxpwd=scr.brkxpwd;
+        cfgmqtt.brkxpwd=document.getElementById("brkxpwd").value;
+      cfgwlan.stassid=document.getElementById("stassid").value;
       if(elem.id=="stapwd")  
-       msg.stapwd=scr.stapwd;
+        cfgwlan.stapwd=document.getElementById("stapwd").value;
+      cfgsys.devname=document.getElementById("devname").value;
+      cfgsys.imaxpwr= Math.round(parseFloat(document.getElementById("instpwr").value) *10);
+      if(cfgsys.imaxpwr>220) cfgsys.imaxpwr=220;
+      if(cfgsys.imaxpwr<40)  cfgsys.imaxpwr=40;
+      cfgset();
+    }
+
+    function mqttget() {
+      var msg={"cmd":"cfgset"};
+      $.extend(msg, cfgmqtt);
       wbsck.send(JSON.stringify(msg));
     }
 
+    function wlanget() {
+      var msg={"cmd":"cfgset"};
+      $.extend(msg, cfgwlan);
+      wbsck.send(JSON.stringify(msg));
+      reset();
+    }
+
+    function sysget() {
+      var msg={"cmd":"cfgset"};
+      $.extend(msg, cfgsys);
+      window.console.log(msg);
+      wbsck.send(JSON.stringify(msg));
+      reset();
+    }
 
     // ================================
     // control smaxcur via power slider
@@ -175,20 +199,20 @@
     function pwrsldfcs(){
       var sldlft = document.getElementById("pwrsld").querySelector("div.slider-selection"); 
       if(sldlft) sldlft.style = "background-color:orange";
+      window.console.log("slider gained focus");
       pwrsldbsy=true;	
     }
 
     function pwrsldblr(){
       window.console.log("slider lost focus");
       pwrsldbsy=false;	
-      pwrsldcmd();
+      pwrsldget();
     }
 
-    function pwrsldcmd() {
+    function pwrsldget() {
       var p = pwrsld.getValue();
       window.console.log("slider at "+p);
       smaxprg=true;
-      smaxrec=smaxcur;
       smaxcmd=10*p;	
       pwrsldtot=setTimeout(function(){ smaxprg=false; pwrsldset();}, 30000);
       wbsck.send('{"smaxpow" : '+10*p+'}');
@@ -196,18 +220,22 @@
 
     function pwrsldset() {
       var sldlft = document.getElementById("pwrsld").querySelector("div.slider-selection"); 
-      if(pwrsldbsy || smaxprg) {
+      if(pwrsldbsy) {
         if(sldlft) sldlft.style = "background-color:orange";
         return;	
       }
-      if(sldlft) sldlft.style = "background-color:#007bff";
-      clearTimeout(pwrsldtot);
       var c=smaxcur;
       if(c<0) c=0;
-      window.console.log("set slider according to smaxcur "+c);
-      var p=Math.round(230.0*3*c/(10.0)/1000.0); // TODO:phases
-      if(p>22) p=22;
-      pwrsld.setValue(p);
+      var p=Math.round(230.0*3*c/1000.0); // TODO:phases
+      if(p>220) p=220;
+      if(smaxprg && (Math.abs(smaxcmd-p)<5)) 
+         smaxprg=false;
+      if(smaxprg)
+        return; 
+      clearTimeout(pwrsldtot);
+      window.console.log("set slider according to smaxcur "+c);  
+      if(sldlft) sldlft.style = "background-color:#007bff";
+      pwrsld.setValue(Math.round(p/10.0));
     }	
     
 
@@ -218,14 +246,13 @@
     var onofftot;
 
     function onoffset() {
-      if(onoffprg) {
-        document.getElementById("onoff").style = "color:orange";
-        onofftot=setTimeout(function(){ onoffprg=false; onoffset();}, 30000);
-        return;
-      }
+      var ccsson=  (ccss>=10) && (ccss<50); 
+      if(onoffprg && (ccsson==onoffcmf))
+        onoffprg=false;
+      if(onoffprg) return;
       clearTimeout(onofftot);
-      if(onoffste) {
-	document.getElementById("onoff").style = "color:#007bff";
+      if(ccsson)  { 
+ 	document.getElementById("onoff").style = "color:#007bff";
         return;
       }
       document.getElementById("onoff").style = "color:currentColor";
@@ -234,14 +261,20 @@
     function onoffget() {
       window.console.log("sensed operator buttor");
       if(!onoffprg) {
-  	onoffcmd= !onoffste;
-        if(onoffcmd)    
-          wbsck.send('{"onoff" : 1}');
-        else
-          wbsck.send('{"onoff" : 0}');
-        onoffprg=true;
-	onoffset();
-      }    
+        if( (ccss>=10) && (ccss<50) )  { 
+          onoffcmd=0;
+          onoffprg=true;
+        }
+        if( (ccss>=50) && (ccss<60) )  { 
+          onoffcmd=1;
+          onoffprg=true;
+        }
+        if(onoffprg) {   
+          wbsck.send('{"onoff":' + onoffcmd.toString() +'}');
+          document.getElementById("onoff").style = "color:orange";
+          onofftot=setTimeout(function(){ onoffprg=false; onoffset();}, 30000);
+        }
+      }
     }
 
 
@@ -306,6 +339,16 @@
       document.getElementById("ccsshlp").setAttribute('data-bs-original-title',"CCS state: " + hlp);
     }
    
+    // ================================
+    // WebSocket to talk to host aka target ESP32
+    // ================================
+
+    function avrcmd() {
+      var cmd=document.getElementById("avrcmd").value;
+      if( cmd == "" ) return;
+      window.console.log("sending avr command "+ cmd);
+      wbsck.send('{"avrcmd":"'+cmd+'"}');
+    }	
 
     // ================================
     // WebSocket to talk to host aka target ESP32
@@ -313,8 +356,6 @@
 
     // websocket message callback  
     function wbsckmsg(msg) {
-      // report message 
-      window.console.log(msg);  
       // parse JSON data
       var jsonObject = JSON.parse(msg);
       // forward diagnosis
@@ -322,19 +363,21 @@
           diagln(jsonObject.diagln);
           return;
       }
+      // report message 
+      window.console.log(msg);  
       // update local copy of target configuration
       var iscfg=false;
-      if("brkxen"    in jsonObject) { cfg.brkxen=jsonObject.brkxen;    iscfg=true; };	
-      if("brkxurl"   in jsonObject) { cfg.brkxurl=jsonObject.brkxurl;  iscfg=true; };	
-      if("brkxusr"   in jsonObject) { cfg.brkxusr=jsonObject.brkxusr;  iscfg=true; };	
-      if("brkxpwd"   in jsonObject) { cfg.brkxpwd=jsonObject.brkxpwd;  iscfg=true; };	
-      if("brkxtpc"   in jsonObject) { cfg.brkxtpc=jsonObject.brkxtpc;  iscfg=true; };
-      if("stassid"   in jsonObject) { cfg.stassid=jsonObject.stassid;  iscfg=true; };	
-      if("stapwd"    in jsonObject) { cfg.stapwd=jsonObject.stapwd;    iscfg=true; };
-      if("devname"   in jsonObject) { cfg.devname=jsonObject.devname;  iscfg=true; };
-      if("espver"    in jsonObject) { cfg.espver=jsonObject.espver;    iscfg=true; };
-      if("avrver"    in jsonObject) { cfg.avrver=jsonObject.avrver;    iscfg=true; };
-      if("imaxpwr"   in jsonObject) { cfg.imaxpwr=jsonObject.imaxpwr;  iscfg=true; };
+      if("brkxen"    in jsonObject) { cfgmqtt.brkxen=jsonObject.brkxen;    iscfg=true; };	
+      if("brkxurl"   in jsonObject) { cfgmqtt.brkxurl=jsonObject.brkxurl;  iscfg=true; };	
+      if("brkxusr"   in jsonObject) { cfgmqtt.brkxusr=jsonObject.brkxusr;  iscfg=true; };	
+      if("brkxpwd"   in jsonObject) { cfgmqtt.brkxpwd=jsonObject.brkxpwd;  iscfg=true; };	
+      if("brkxtpc"   in jsonObject) { cfgmqtt.brkxtpc=jsonObject.brkxtpc;  iscfg=true; };
+      if("stassid"   in jsonObject) { cfgwlan.stassid=jsonObject.stassid;  iscfg=true; };	
+      if("stapwd"    in jsonObject) { cfgwlan.stapwd=jsonObject.stapwd;    iscfg=true; };
+      if("devname"   in jsonObject) { cfgsys.devname=jsonObject.devname;  iscfg=true; };
+      if("espver"    in jsonObject) { cfgsys.espver=jsonObject.espver;    iscfg=true; };
+      if("avrver"    in jsonObject) { cfgsys.avrver=jsonObject.avrver;    iscfg=true; };
+      if("imaxpwr"   in jsonObject) { cfgsys.imaxpwr=jsonObject.imaxpwr;  iscfg=true; };
       // update UI
       if(iscfg) 
           cfgset();
@@ -352,31 +395,11 @@
         otherset();
         // adjust controls: power sllider	
         if("smaxcur" in jsonObject) {
-          if(!smaxprg) {
-   	    pwrsldset();
-          } else {
-            if(smaxcur!=smaxrec) {
-              smaxprg=false;
-              pwrsldset();
-            }
-          }
+   	  pwrsldset();
 	}    
         // adjust controls: on/off button	
         if("ccss" in jsonObject) {
-          var con=false;
-          if((ccss>=10) && (ccss<90)) con=true; 
-          if(!onoffprg) {
-            onoffste=con;
-            onoffset();
-          } else {
-            window.console.log(
-              "updating ccss while on/off in progress -- ccss "+ccss.toString()+", cmd "+onoffcmd.toString());
-            if(con==onoffcmd) {
-              onoffprg=false;
-              onoffste=con;
-              onoffset();
-            }
-          }
+          onoffset();
         }
       }
     };
@@ -425,8 +448,6 @@
     window.addEventListener('beforeunload', (evt) => {
       window.console.log("closing down (beforunload)");  
       wbsck.close();
-      evt.preventDefault();
-      delete event['returnValue'];
     });
 
     window.addEventListener('unload', (evt) => {
@@ -467,7 +488,7 @@
         return new bootstrap.Tooltip(tooltipTriggerEl)
       });
     }
-    
+
   </script>
 </head>
 
@@ -485,7 +506,7 @@
   </header>
 
 <!-- outer container with two rows -->
-  <section class="py-3 bg-white">
+  <section class="py-3 bg-white" id="payload">
   <div class="container">
     <div class="row collapse" id="warncon">
 
@@ -638,6 +659,16 @@
 			</div>
 		      </div>
 		    </div>
+  	            <div class="row">
+                      <div class="col">
+	                Take on settings
+                      </div>
+                      <div class="col" style="text-align: right;">
+                        <button type="button" class="btn btn-outline-secondary btn-sm" title="Restart" onclick="mqttget()"> 
+                          Save
+                        </button>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -672,7 +703,7 @@
 	                Take on credentials 
                       </div>
                       <div class="col" style="text-align: right;">
-                        <button type="button" class="btn btn-outline-secondary btn-sm" id="restart" title="Restart" onclick="reset()"> 
+                        <button type="button" class="btn btn-outline-secondary btn-sm" title="Restart" onclick="wlanget()"> 
                           Restart
                         </button>
                       </div>
@@ -701,7 +732,7 @@
 		    <div class="row">
 		      <div class="col">
 			<div class="mb-3 form-floating">
-			  <input type="number" class="form-control" id="instpwr" onchange="cfgget(this)" placeholder="32">
+			  <input type="number" class="form-control" id="instpwr" onchange="cfgget(this)" placeholder="11">
 			  <label for="instpwr" class="form-label">inst. power (kW)</label>
 			</div>
 		      </div>
@@ -709,19 +740,21 @@
 		    <div class="row">
 		      <div class="col">
 			<div class="mb-3 form-floating">
-                          <input class="form-control" type="file" id="avrfrm">
-                          <label for="arfm" class="form-label">AVR firmware file</label>
-			</div>
-		      </div>
-		    </div>
-		    <div class="row">
-		      <div class="col">
-			<div class="mb-3 form-floating">
-			  <input type="text" class="form-control" id="frmvrs" onchange="cfgget(this)" placeholder="Ctrl22One">
+			  <input type="text" class="form-control" id="frmvrs" onchange="cfgget(this)" placeholder="---">
 			  <label for="frmvrs" class="form-label">version</label>
 			</div>
 		      </div>
 		    </div>
+  	            <div class="row">
+                      <div class="col">
+	                Take on settings
+                      </div>
+                      <div class="col" style="text-align: right;">
+                        <button type="button" class="btn btn-outline-secondary btn-sm" title="Restart" onclick="sysget()"> 
+                          Restart
+                        </button>
+                      </div>
+                    </div>
 		  </div>
                 </div>
               </div>
@@ -737,11 +770,20 @@
 		  <div class="accordion-body">
 		    <div class="row">
 		      <div class="col">
-                        <div id="console" style='max-height:15rem;overflow-y: scroll;tabindex="0"'>
+                        <div id="console" style='max-height:15rem;min-height:6rem;overflow-y:scroll;tabindex="0"'>
                           [[waiting for messages]]<br/>
                         </div>
                       </div>
                     </div>
+		    <div class="row">
+		      <div class="col">
+			<div class="input-group mb-3 form-floating">
+			  <input type="text" class="form-control" id="avrcmd" onchange="avrcmd()" placeholder="cmd. via serial" aria-describedby="avrcmdbtn">
+			  <label for="avrcmd" class="form-label">AVR command</label>
+                          <button class="btn btn-outline-secondary" type="button" id="avrcmdbtn" onclick="avrcmd()">Send</button>
+			</div>
+		      </div>
+		    </div>
                   </div>	
                 </div>
               </div>
@@ -752,11 +794,32 @@
           </div>
         </div>	
       </div>
-
 <!-- close outer section of columns -->
     </div>
   </div>
   </section>
+
+<!-- Modal -->
+  <div class="modal fade" id="restartmdl" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-labelledby="staticBackdropLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title .bg-secondary" id="staticBackdropLabel">Restarting ...</h5>
+        </div>
+        <div class="modal-body">
+          <ul class="text-danger">
+           <li>Restarting the device will take a couple of seconds.</li>
+           <li>You will need to re-load this page to start a new session.</li>
+           <li>If you have changed the hostname and/or WLAN credentials, the URL (address) will change.</li>
+          </ul>
+        </div>
+        <div class="modal-footer .bg-secondary text-end h5">
+          ... in 10 Seconds! 
+        </div>
+      </div>
+    </div>
+ </div>
+
 </body>
 
 </html>

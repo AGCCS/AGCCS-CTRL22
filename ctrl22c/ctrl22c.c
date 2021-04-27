@@ -177,12 +177,12 @@ char g_adc0_bsy=false;
 
 // forward declaration of ccs charging state; see ccs_cb()
 typedef enum {
-  OFF0=0,OFF1=1,OFF2=2,OFF3,OFF9=9,  // OFF (nominal: wait for operator)
-  A0=10,A1=11,                       // A   (nominal: wait for EV detect)
-  B0=20,B1=21,                       // B   (nominal: wait for EV ready to charge)
-  C0=30,C1=31,C2=32,C3=33,           // C   (nominal: do charge)
-  P0=40,P1=41,                       // P   (initiate pause)
-  W0=50,W6=56,W7=57,W8=58,W9=59,     // W   (wait for change of power allocation, resume with A)
+  OFF0=0,OFF1=1,OFF2=2,OFF3,OFF9=9,    // OFF (nominal: wait for operator)
+  A0=10,A1=11,                         // A   (nominal: wait for EV detect)
+  B0=20,B1=21,                         // B   (nominal: wait for EV ready to charge)
+  C0=30,C1=31,C2=32,C3=33,             // C   (nominal: do charge)
+  P0=40,P1=41,                         // P   (initiate pause)
+  W0=50,W6=56,W7=57,W8=58,W9=59,       // W   (wait for change of power allocation, resume with A)
   ERR0=90
 } ccs_state_t;
 ccs_state_t g_ccs_st=OFF0;
@@ -1901,7 +1901,6 @@ Playload: CCS state machine
 int16_t g_smaxcur=0;  // max current allowed by remote site 
 int16_t g_sphases=0;  // phases allocated by remote site
 
-
 // monitor CCS state od serial line
 void write_ccss(const char* pstr) {
   if(!p_ccsdmp) return;
@@ -2049,7 +2048,7 @@ void ccs_cb(void) {
       }
     }
   }
-  // state B1 (EV present and locked): wait for vehicle ready to charge, i.e., CP falls to 6V --> state C (or timeout --> state OFF)
+  // state B1 (EV present and locked): wait for vehicle ready to charge, i.e., CP falls to 6V --> state C (or timeout --> state Wait)
   if(g_ccs_st==B1) {
     amaxcur=g_smaxcur;
     if(amaxcur>g_ppilot) amaxcur=g_ppilot;
@@ -2160,7 +2159,7 @@ void ccs_cb(void) {
   // state P1 (EV prepare to pause charging): pause charging
   if(g_ccs_st==P1) {
     if(g_button) {
-      WRITE_CCSS("% W0 -> OFF");
+      WRITE_CCSS("% P1 -> OFF0");
       g_ccs_st=OFF0;
     }  
     if((TRIGGER_SCHEDULE(toutP)) || (g_cpilot!=6)) {
@@ -2191,7 +2190,7 @@ void ccs_cb(void) {
       if((amaxcur!=0) && (aphases!=0)) g_ccs_st=W9;
     }
   }
-  // state W6/7/8/9: abort via operator buttion
+  // state 6/7/8/9: abort via operator buttion
   if((g_ccs_st>=W6) && (g_ccs_st<=W9)) {
     if(g_button) {
       WRITE_CCSS("% W6/7/8/9 -> OFF");
