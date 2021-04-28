@@ -53,7 +53,7 @@
  
     // target state
     var cur1=-1, cur2=-1, cur3=-1;
-    var phases=-1, ccss=-1; smaxcur=-1; sonoff=-1;
+    var aphases=-1, ccss=-1; smaxcur=-1; sonoff=-1;
     
     // target control on/off
     var onoffprg=false; // command in progress
@@ -298,9 +298,10 @@
         ps=(23.0/1000*(cur1+cur2+cur3)).toFixed(1).toString()+" kW";
       document.getElementById("pwr").innerText = ps;
       // phases	
-      var psn = phases.toString();
+      var psn = aphases.toString();
       var pst = "---";
-      if(phases>0) {
+      if(aphases>0) {
+        pst="";
         if (psn.indexOf("1")>=0 ) pst+= "L1"
         if (psn.indexOf("2")>=0 ) {
           if(pst != "") pst+="/";
@@ -386,7 +387,7 @@
       if("cur1"    in jsonObject) { cur1=jsonObject.cur1;       isste=true; };	
       if("cur2"    in jsonObject) { cur2=jsonObject.cur2;       isste=true; };	
       if("cur3"    in jsonObject) { cur3=jsonObject.cur3;       isste=true; };
-      if("phases"  in jsonObject) { phases=jsonObject.phases;   isste=true; };
+      if("aphases" in jsonObject) { aphases=jsonObject.aphases; isste=true; };
       if("ccss"    in jsonObject) { ccss=jsonObject.ccss;       isste=true; };
       if("smaxcur" in jsonObject) { smaxcur=jsonObject.smaxcur; isste=true; };
       // update UI

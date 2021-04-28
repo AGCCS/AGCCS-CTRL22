@@ -1944,7 +1944,6 @@ void ccs_cb(void) {
   
   // state OFF0: power down, wait if so required 
   if(g_ccs_st==OFF0) {
-    g_button=false;
     if(g_cpcurrent!=0) {
       g_ccs_st=OFF1;
       WRITE_CCSS("% OFF0 -> OFF1");
@@ -1970,7 +1969,6 @@ void ccs_cb(void) {
     pilots(0);
     sigrel(0);
     lock(0);
-    g_button=false;
     aphases=0;
     tphases=0;
     amaxcur=0;
@@ -1983,6 +1981,7 @@ void ccs_cb(void) {
   if(g_ccs_st==OFF3) {
     if(g_button) {
       WRITE_CCSS("% OFF1 -> A0");
+      g_button=false;
       g_ccs_st=A0;
     }
   }
@@ -1995,6 +1994,7 @@ void ccs_cb(void) {
     sigrel(0);
     if(g_button) {
       WRITE_CCSS("% OFF9 -> OFF0");
+      g_button=false;
       g_ccs_st=OFF0;
     }
   }  
@@ -2005,7 +2005,6 @@ void ccs_cb(void) {
     pilots(1);
     cpcurrent(0);
     sigrel(1);
-    g_button=false;
     aphases=0;
     amaxcur=0;
     toutA=g_systicks+30000;
@@ -2024,6 +2023,7 @@ void ccs_cb(void) {
     }
     if(g_button) {
       WRITE_CCSS("% A1 -> OFF0 (button)");
+      g_button=false;
       g_ccs_st=OFF0;
     }
   }  
@@ -2034,7 +2034,6 @@ void ccs_cb(void) {
     pilots(1);
     sigrel(1);
     lock(1);
-    g_button=false;
     aphases=0;
     amaxcur=0;
     if(g_lock_st==closed) {
@@ -2059,6 +2058,7 @@ void ccs_cb(void) {
     }
     if(g_button) {
       WRITE_CCSS("% B1 -> OFF0 (button)");
+      g_button=false;
       g_ccs_st=OFF0;
     }
     if(TRIGGER_SCHEDULE(toutB)) {
@@ -2068,7 +2068,6 @@ void ccs_cb(void) {
   }
   // state C0 (EV about to charge): sanity checks
   if(g_ccs_st==C0) {
-    g_button=false;
     if( (amaxcur<60) || (g_sphases==0) || (g_lock_st!=closed) ) {
       WRITE_CCSS("% C0 -> ERR");
       g_ccs_st=ERR0;
@@ -2108,6 +2107,7 @@ void ccs_cb(void) {
     }
     if(g_button) {
       WRITE_CCSS("% C2 -> OFF0 (button)");
+      g_button=false;
       g_ccs_st=OFF0;
     }    
     if(TRIGGER_SCHEDULE(toutC)) {
@@ -2128,6 +2128,7 @@ void ccs_cb(void) {
     }
     if(g_button) {
       WRITE_CCSS("% C3 -> OFF0 (button)");
+      g_button=false;
       g_ccs_st=OFF0;
     }
     // update configuration: low power
@@ -2151,7 +2152,6 @@ void ccs_cb(void) {
   // state P0 (EV prepare to pause charging): set timer to pause charging in 10sec
   if(g_ccs_st==P0) {
     cpcurrent(0);
-    g_button=false;
     toutP=g_systicks+10000;
     WRITE_CCSS("% P0 -> P1");
     g_ccs_st=P1;
@@ -2160,6 +2160,7 @@ void ccs_cb(void) {
   if(g_ccs_st==P1) {
     if(g_button) {
       WRITE_CCSS("% P1 -> OFF0");
+      g_button=false;
       g_ccs_st=OFF0;
     }  
     if((TRIGGER_SCHEDULE(toutP)) || (g_cpilot!=6)) {
@@ -2173,9 +2174,9 @@ void ccs_cb(void) {
     ssr(0);  
     sigrel(0);
     rms(0);
-    g_button=false;
     if(g_button) {
       WRITE_CCSS("% W0 -> OFF");
+      g_button=false;
       g_ccs_st=OFF0;
     }  
     if(TRIGGER_SCHEDULE(toutW)) {
@@ -2194,6 +2195,7 @@ void ccs_cb(void) {
   if((g_ccs_st>=W6) && (g_ccs_st<=W9)) {
     if(g_button) {
       WRITE_CCSS("% W6/7/8/9 -> OFF");
+      g_button=false;
       g_ccs_st=OFF0;
     }
   }  
@@ -2321,6 +2323,7 @@ const char h_error[]    PROGMEM = "read error flags, see declaration \"g_error\"
 const char h_save[]     PROGMEM = "use \"save!\" to save configuration to EEPROM";
 const char h_imaxcur[]  PROGMEM = "read/write installed max. current[100mA]";
 const char h_iphases[]  PROGMEM = "read/write installed phases [decimal encoding]"; 
+const char h_brdrev[]   PROGMEM = "set/get board revision";
 const char h_ccsdmp[]   PROGMEM = "use \"ccsdmp!\" to track CCS state progress";
 const char h_sigrel[]   PROGMEM = "use \"sigrel!\"/\"sigrel~\" to en/disable the signal relay";
 const char h_pilots[]   PROGMEM = "use \"pilots!\"/\"piloys~\" to en/disable periodic pilot reading";
@@ -2377,17 +2380,18 @@ const partable_t partable[]={
   {"cur1",    &g_cur1,      NULL,        NULL,        h_cur1},    // read current phase L1
   {"cur2",    &g_cur2,      NULL,        NULL,        h_cur2},    // read current phase L2
   {"cur3",    &g_cur3,      NULL,        NULL,        h_cur3},    // read current phase L3
-  {"sphases", &g_sphases,   &g_sphases,  NULL,        h_sphases}, // set dyn. enabled mains supply phases (decimal encoded)
-  {"smaxcur", &g_smaxcur,   &g_smaxcur,  NULL,        h_smaxcur}, // set dyn. max supply mains current 
   {"error",   &g_error,     NULL,        NULL,        h_error},   // g_error can be read from memory
   // configure
 #ifdef MODE_CONFIGURE  
   {"save",    NULL,         NULL,        &conf_save,  h_save},    // save parameters to eeprom
   {"iphases", &p_iphases,   &p_iphases,  NULL,        h_iphases}, // set installed phases (decimal encoded)
   {"imaxcur", &p_imaxcur,   &p_imaxcur,  NULL,        h_imaxcur}, // set installed max supply mains current 
+  {"sphases", &g_sphases,   &g_sphases,  NULL,        h_sphases}, // set dyn. enabled mains supply phases (decimal encoded)
+  {"smaxcur", &g_smaxcur,   &g_smaxcur,  NULL,        h_smaxcur}, // set dyn. max supply mains current 
 #endif  
   // first installation
 #ifdef MODE_INSTALL  
+  {"brdrev",  &p_boardrev,  &p_boardrev, NULL,        h_brdrev},  // set board revision 
   {"ccsdmp",  NULL,         &p_ccsdmp,   NULL,        h_ccsdmp},  // "ccsdmp!" enables tracking of the CCS state
   {"sigrel",  NULL,         NULL,        &sigrel,     h_sigrel},  // operate signal rellay
   {"pilots",  &g_pilots,    NULL,        &pilots,     h_pilots},  // en/disable periodic pilot reading
@@ -2614,6 +2618,9 @@ int main(){
 
   // say hello
   serial_write_pln("% AGCCS-Ctrl22C --- enter \"?[CR/LF]\" for more details");
+
+  // initialise ccs fsm
+  ccs_init();
   
   // run forever (target for less than 10ms cycle time)
   while(1){

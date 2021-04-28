@@ -62,4 +62,8 @@ flash: $(PRG).hex
 	$(PATH)avrdude -patmega4808  -carduino -Pnet:192.168.4.1:2323 -U flash:w:$(PRG).hex -D $(DUDECONF)
 
 
+# distribute to ctrl22one
+dist: $(PRG).bin
+	cp $(PRG).bin ../arduino/ctrl22one/avrfrm
+
 
