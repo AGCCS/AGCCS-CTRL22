@@ -158,7 +158,6 @@ Short instructions:
   - set ESP-EN to not-connected (on our adaptor: release the black button)
   - run `make flash`
   - set ESP-IO0 to not-connected (on our adaptor: release all buttons)
-  
 
 This is effectively the same procedure as with common ESP32 dev-boards such as NodeMCU, except that the dev-boards will have convenient key-switches and USB-to-Serial converters built-in while we need to do some external wiring. **One last word of warning: make sure your USB-to-Serial converter is 3.3V.**
 
@@ -210,7 +209,7 @@ The initial revision Rev-1-0 passed our tests conducted with a first-installatio
 
 ## Revision 1.0
 
-- initial release by Pascal Thurnwald
+- initial release by Pascal Thurnherr
 - thoroughly tested on a component level; e.g, accurate generation of CP and reading the imposed load
 - a number of minor hickups, however, with a slightly modded version we actually managed to charge Christophs EV 
 

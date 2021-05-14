@@ -182,7 +182,7 @@ typedef enum {
   B0=20,B1=21,                         // B   (nominal: wait for EV ready to charge)
   C0=30,C1=31,C2=32,C3=33,             // C   (nominal: do charge)
   P0=40,P1=41,                         // P   (initiate pause)
-  W0=50,W6=56,W7=57,W8=58,W9=59,       // W   (wait for change of power allocation, resume with A)
+  W0=50,W1=51,W6=56,W7=57,W8=58,W9=59, // W   (wait for change of power allocation, resume with A)
   ERR0=90
 } ccs_state_t;
 ccs_state_t g_ccs_st=OFF0;
@@ -1937,9 +1937,9 @@ void ccs_cb(void) {
   static int16_t  cur1;
   static int16_t  cur2;
   static int16_t  cur3;
+  static int retry=0;
 
   // shape external control
-  if(g_smaxcur>p_imaxcur) g_smaxcur=p_imaxcur;
   if(g_smaxcur>p_imaxcur) g_smaxcur=p_imaxcur;
   
   // state OFF0: power down, wait if so required 
@@ -1953,7 +1953,7 @@ void ccs_cb(void) {
       WRITE_CCSS("% OFF0 -> OFF2");
     }
   }
-  // state OFF1: wait 10sec to power down
+  // state OFF1: wait 3sec to power down
   if(g_ccs_st==OFF1) {
     cpcurrent(0);
     if(TRIGGER_SCHEDULE(toutP)) {
@@ -1961,7 +1961,7 @@ void ccs_cb(void) {
       g_ccs_st=OFF2;
     }
   }    
-  // state OFF2 (EV idle): open lock
+  // state OFF2: open lock
   if(g_ccs_st==OFF2) {
     ssr(0);
     rms(0);
@@ -1972,6 +1972,7 @@ void ccs_cb(void) {
     aphases=0;
     tphases=0;
     amaxcur=0;
+    retry=0;
     if(g_lock_st==open) {
       WRITE_CCSS("% ccs state: OFF2 -> OFF3");
       g_ccs_st=OFF3;
@@ -2087,7 +2088,7 @@ void ccs_cb(void) {
     WRITE_CCSS("% C1 -> C2");
     g_ccs_st=C2;
     toutC=g_systicks+30000;
-    tphases|=g_ssrphases_bin;;
+    tphases|=g_ssrphases_bin;
     cur1=-1;
     cur2=-1;
     cur3=-1;
@@ -2122,6 +2123,7 @@ void ccs_cb(void) {
   }
   // state C3 (EV charging): sense vehicle can't charge no more, i.e., CP raises to 9V --> state OFF (or button press)
   if(g_ccs_st==C3) {
+    retry=0;
     if(g_cpilot!=6) {
       WRITE_CCSS("% C3 -> OFF9 (cpilot)");
       g_ccs_st=OFF9;
@@ -2164,7 +2166,6 @@ void ccs_cb(void) {
       g_ccs_st=OFF0;
     }  
     if((TRIGGER_SCHEDULE(toutP)) || (g_cpilot!=6)) {
-      toutW=g_systicks+10000;
       WRITE_CCSS("% P1 -> W0");
       g_ccs_st=W0;
     }
@@ -2174,8 +2175,18 @@ void ccs_cb(void) {
     ssr(0);  
     sigrel(0);
     rms(0);
+    retry++;
+    toutW=g_systicks+10000;
+    WRITE_CCSS("% W0 -> W1");
+    g_ccs_st=W1;
+  }
+  if(g_ccs_st==W1) {
+    if(retry==5) {
+      WRITE_CCSS("% W1 -> OFF (rtry)");
+      g_ccs_st=OFF9;
+    }
     if(g_button) {
-      WRITE_CCSS("% W0 -> OFF");
+      WRITE_CCSS("% W1 -> OFF (btn)");
       g_button=false;
       g_ccs_st=OFF0;
     }  
@@ -2222,7 +2233,7 @@ void ccs_cb(void) {
   }
   // state W9 (EV idle): wait for phase reconfiguratiom unless all phases are exhausted
   if(g_ccs_st==W9) {
-    if((g_smaxcur>=60) && (g_ppilot>=60) && (g_sphases!=0) && (g_sphases!=aphases) && (tphases==0x07)) {
+    if((g_smaxcur>=60) && (g_ppilot>=60) && (g_sphases!=0) && (g_sphases!=aphases) && (tphases!=0x07)) {
       WRITE_CCSS("% W9 -> A0");
       g_ccs_st=A0;
     }

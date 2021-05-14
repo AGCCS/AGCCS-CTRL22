@@ -53,7 +53,7 @@
  
     // target state
     var cur1=-1, cur2=-1, cur3=-1;
-    var aphases=-1, ccss=-1; smaxcur=-1; sonoff=-1;
+    var sphases=-1, aphases=-1, ccss=-1, smaxcur=-1, sonoff=-1;
     
     // target control on/off
     var onoffprg=false; // command in progress
@@ -225,8 +225,13 @@
         return;	
       }
       var c=smaxcur;
+      var n=0;
+      var pstr=sphases.toString();
+      if(pstr.indexOf("1")>=0 ) n+=1;
+      if(pstr.indexOf("2")>=0 ) n+=1;
+      if(pstr.indexOf("3")>=0 ) n+=1;
       if(c<0) c=0;
-      var p=Math.round(230.0*3*c/1000.0); // TODO:phases
+      var p=Math.round(230.0*n*c/1000.0); 
       if(p>220) p=220;
       if(smaxprg && (Math.abs(smaxcmd-p)<5)) 
          smaxprg=false;
@@ -247,7 +252,7 @@
 
     function onoffset() {
       var ccsson=  (ccss>=10) && (ccss<50); 
-      if(onoffprg && (ccsson==onoffcmf))
+      if(onoffprg && (ccsson==onoffcmd))
         onoffprg=false;
       if(onoffprg) return;
       clearTimeout(onofftot);
@@ -388,6 +393,7 @@
       if("cur2"    in jsonObject) { cur2=jsonObject.cur2;       isste=true; };	
       if("cur3"    in jsonObject) { cur3=jsonObject.cur3;       isste=true; };
       if("aphases" in jsonObject) { aphases=jsonObject.aphases; isste=true; };
+      if("sphases" in jsonObject) { sphases=jsonObject.sphases; isste=true; };
       if("ccss"    in jsonObject) { ccss=jsonObject.ccss;       isste=true; };
       if("smaxcur" in jsonObject) { smaxcur=jsonObject.smaxcur; isste=true; };
       // update UI
@@ -395,7 +401,7 @@
         // display only
         otherset();
         // adjust controls: power sllider	
-        if("smaxcur" in jsonObject) {
+        if( ("smaxcur" in jsonObject) ||  ("sphases" in jsonObject) ) {
    	  pwrsldset();
 	}    
         // adjust controls: on/off button	
@@ -407,8 +413,17 @@
 
     // install websocket
     function wbskbegin() {
-      // create a web socket
-      wbsck = new WebSocket("ws://" + location.hostname + ":8070");
+      // create alternative  web socket
+
+      window.console.log("WebSocket for protocol "+location.protocol);
+      if(location.protocol=="http:")
+        wbsck = new WebSocket("ws://" + location.hostname + ":8070");
+      else if(location.protocol=="https:")
+        wbsck = new WebSocket("wss://" + location.hostname + "/wss");
+      else {
+        warning(`unknown protocol `+location.hostname);
+        return;
+      }
 
       // connection established
       wbsck.onopen = function () {
