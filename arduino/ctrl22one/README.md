@@ -2,7 +2,7 @@
 
 Web-GUI for the control of a single AGCCS-CTRL22 board in standalone configuration, i.e., no wifi-mesh, no load balancing. The motivation here is to have a convenient basis to fine-tune the AVR firmware [Ctrl22C](../../ctrl22c/) to cope with a variety of different EVs with different sleep/wake-up behaviour and such. We do log to a configurable MQTT broker and accept dynamic power allocation. This could be interesting for charging at home from solar power when available.
 
-**DISCLAIMER.** Although in generally in a good shape, this is still work in progress.
+**DISCLAIMER.** Although generally in a good shape, this is still work in progress.
 
 
 
@@ -50,8 +50,8 @@ Load the sketch in the Arduino IDE, compile, download, done. Some considerations
 
 Assuming that you have compiled an downloaded the Arduino sketch on either an M5StickC, some other ESP32 dev. board, or the actual AGCCS-CTRL22 board, the ESP32 will attempt to connect with your wireless network --- and fail, how should it know the secret credentials? Therefore, the ESP will turn to access-point mode and span its own WLAN with SSID `agccs-^XYZ^` with `^XYZ^` derived from the MAC address and with password _ctrl22one_. You should be able to join this network with a laptop or mobile device. In this mode, the Web GUI can be accessed at address 192.168.4.1, i.e., type http://192.168.4.1 in the address bar of you browser. To configure the device observe the collapsibles 
 
-- _System Settings_ to set a device name and the installed power;
-- _WLAN credentials_ to set the SSID and the WPA2 password of your wireless network.
+- _System Settings_ to set the installed power the device name; the latter overwrites the default `agccs-^XYZ^` used as SSID when in access point mode;
+- _WLAN credentials_ to set the SSID and the WPA2 password of your wireless network; note the ESP32 can only join 2.4GHz networks.
 
 To take on the new configuration press `Restart`. 
 
@@ -59,7 +59,7 @@ To take on the new configuration press `Restart`.
 
 
 
-Once restarted, the ESP32 will succeed in joining your wireless network. Its hostname defaults to  `agccs-^XYZ^` with `^XYZ^` derived from the MAC address. This default is overwritten by the device name specified in _System Settings_. Depending on your router, you can access the ESP32 via a symbolic address derived from the hostname (e.g. our AGCCS-CTRL22 board is accessible by the address http://ctrl22one.local when connected via a FritzBox; other routers may require manual configuration).
+Once restarted, the ESP32 will succeed in joining your wireless network. Depending on your router, you can access the ESP32 via a symbolic address derived from the device name chosen above (e.g. our AGCCS-CTRL22 board is accessible by the address http://ctrl22one.local when connected via a FritzBox; other routers may require manual configuration).
 
 Thats all to it -- you can now control the AGCCS-CTRL22 board via any browser, incl. your favourite mobile device. If you still have the Arduino IDE open and the J5-adapter connected, you can observe the verbose output via the serial monitor. Alternatively, any status reports from the AVR serial line are forwarded to the _Diagnostics_ collapsible in the Web GUI. So there is plenty of internal monitoring to provide a comfortable basis for you further development so that you can indeed tailor the device to your very needs and preferences.
 
