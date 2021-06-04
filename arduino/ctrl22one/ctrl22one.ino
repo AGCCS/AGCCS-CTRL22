@@ -27,14 +27,14 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
 // AGCCS version (one digit major, one digit minor)
-#define VERSION 11
+#define VERSION 15
 
 // select board
-#define M5STICK
-//#define AGCCS12
+//#define M5STICK
+#define AGCCS12
 
 // define to use HTTPS
-#define USETSL
+//#define USETSL
 
 
 // libraries for this project 
@@ -60,8 +60,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 
 // ctrl22one configuration
-bool   g_cfg_brkxen  = true;
-String g_cfg_brkxurl = "mqtt://192.168.2.108:1884";
+boolean g_cfg_brkxen  = false;
+String g_cfg_brkxurl = "mqtt://192.168.2.108:1883";
 String g_cfg_brkxusr = "???";
 String g_cfg_brkxpwd = "???";
 String g_cfg_brkxtpc = "CTRL22ONE";
@@ -96,7 +96,8 @@ static int g_tstate_cmaxcur=-1;   // max current allowed by charging cable (per 
 static int g_tstate_amaxcur=-1;   // actual max current as indicated by CP (unit 100mA, matches min(smaxcur,cmaxcur) in simulation)            
 static int g_tstate_cur1=-1;      // current drawn on phase 1 (unit 100mA)                                                                     
 static int g_tstate_cur2=-1;      // current drawn on phase 1 (unit 100mA)                                                                     
-static int g_tstate_cur3=-1;      // current drawn on phase 1 (unit 100mA)      
+static int g_tstate_cur3=-1;      // current drawn on phase 1 (unit 100mA)    
+  
 
 // global target AVR control variables
 static int g_tcontrol_imaxpow=-1; // set to nonnegative max installed power (unit 100W)
@@ -336,8 +337,8 @@ bool cfg_fromjson(void) {
   bool ret=false;
   for(JsonPair kv : jobj) {
     if(kv.key()=="brkxen")
-    if(kv.value().is<int>()) {
-      g_cfg_brkxen=kv.value().as<int>();
+    if(kv.value().is<boolean>()) {
+      g_cfg_brkxen=kv.value().as<boolean>();
       ret=true;
     }
     if(kv.key()=="brkxurl")
@@ -680,7 +681,7 @@ void wsck_onmessage(const char* msg) {
     if(kv.value().is<int>()) {
       g_tcontrol_smaxpow=kv.value().as<int>();
     }
-    if(kv.key()=="onoff")
+    if(kv.key()=="sonoff")
     if(kv.value().is<int>()) {
       g_tcontrol_sonoff=kv.value().as<int>();
     }        
@@ -728,14 +729,9 @@ void wsck_log(const String& msg) {
 }
 
 // send heartbeat message 
-void wsck_heartbeat() {
+void wsck_heartbeat(String& msg) {
   Serial.println("sending hearbeat to WebSocket");
-  wsck_broadcast(
-    "{\"aphases\":"+String(g_tstate_aphases)+ ",\"amaxcur\":"+String(g_tstate_amaxcur)+",\"ccss\":"+String(g_tstate_ccss)+"}");
-  wsck_broadcast(
-    "{\"cur1\":"+String(g_tstate_cur1)+",\"cur2\":"+String(g_tstate_cur2)+",\"cur3\":"+String(g_tstate_cur3)+"}");
-  wsck_broadcast(
-    "{\"sphases\":"+String(g_tstate_sphases)+ ",\"smaxcur\":"+String(g_tstate_smaxcur)+",\"sonoff\":"+String(g_tstate_sonoff)+"}");
+  wsck_broadcast(msg);
 }    
 
 
@@ -796,7 +792,7 @@ class WssHandler : public WebsocketHandler {
 public:
   // instantiate handler  
   static WebsocketHandler* create(void) { 
-    Serial.println("websocket: new wsshandler");
+    Serial.println("websocket: open");
     WssHandler* handler= new WssHandler();
     for(int i = 0; i < MAX_CLIENTS; i++) {
       if(clients[i] == NULL) {
@@ -808,7 +804,8 @@ public:
   };
   // track disconnect
   void onClose() {
-    for(int i = 0; i < MAX_CLIENTS; i++) {
+     Serial.println("websocket: close");
+     for(int i = 0; i < MAX_CLIENTS; i++) {
       if(clients[i] == this) 
         clients[i] = nullptr;
     }
@@ -872,6 +869,27 @@ Timer            g_mqtt_tcon;
 // handler on measage receive
 void mqtt_recv_cb(String &topic, String &payload) {
   Serial.println("mqttrecv: " + topic + " - " + payload);
+  wsck_log("mqttrecv: " + topic);
+  if(topic!=g_cfg_brkxtpc+"/control") return;
+  wsck_log("mqttrecv: " + payload);
+  DynamicJsonDocument jdoc(128);
+  JsonObject jobj;
+  if(deserializeJson(g_jdocbuf, payload)) return;
+  jobj=g_jdocbuf.as<JsonObject>();
+  for(JsonPair kv : jobj) {
+    if(kv.key()=="smaxcur")
+    if(kv.value().is<int>()) {
+      g_tcontrol_smaxcur=kv.value().as<int>();
+    }
+    if(kv.key()=="sphases")
+    if(kv.value().is<int>()) {
+      g_tcontrol_sphases=kv.value().as<int>();
+    }
+    if(kv.key()=="avrcmd")
+    if(kv.value().is<String>()) {
+      g_tcontrol_vrbcmd=kv.value().as<String>();
+    }        
+  }  
 }
 
 
@@ -930,27 +948,31 @@ void mqtt_init() {
 // manage connection in loop call back
 void mqtt_lcb(void) {
   if(!g_stamode) return;
-  // maintain mqqt libraray
+  // maintain mqtt libraray
   g_mqtt_client.loop();
   // manage connection to broker 
   if((!g_mqtt_client.connected()) && (g_cfg_brkxen) && (!g_mqtt_tcon.running())) { 
     Serial.println("MQTT client trying to connect to broker");
     g_mqtt_client.connect(g_devname.c_str());
-    g_mqtt_tcon.set(5000); 
+    g_mqtt_tcon.set(60000); 
+    if(!g_mqtt_client.connected()) 
+      Serial.println("MQTT client failed to connect to broker");  
+    else {
+      g_mqtt_client.subscribe(g_cfg_brkxtpc+"/control");    
+    }
   }  
   if(g_mqtt_client.connected()) 
     g_mqtt_tcon.clear();     
-  // publish heartbeat
-  static Periodic phb(5000,100);
-  if(g_mqtt_client.connected() && phb.expired()) {
-    Serial.println("MQTT client publishing heartbeat");
-    g_mqtt_client.publish(g_cfg_brkxtpc+"/heartbeat",  String("{") +
-        "\"cur1\":"   +String(g_tstate_cur1)   +","+
-        "\"cur2\":"   +String(g_tstate_cur2)   +","+
-        "\"cur3\":"   +String(g_tstate_cur3)   +","+
-        "\"amaxcur\":"+String(g_tstate_amaxcur)+"}");
-  }
 }
+
+
+// publish heartbeat message 
+void mqtt_heartbeat(const String& msg) {
+  if(!g_mqtt_client.connected()) return;
+  Serial.println("publishing hearbeat to MQTT broker");
+  g_mqtt_client.publish(g_cfg_brkxtpc+"/heartbeat", msg);
+}    
+
 
 
 /* 
@@ -966,12 +988,12 @@ Target AVR Control
 **************************************************************************  
 */ 
 
-// if no target is present, we simulate some random behaviour for 
+// if no target is present, we simulate relevant aspekts of the CCS charging fsm 
 // testing/development e.g. on an M5StickC
 #ifdef AVRSIMULATE
 
 bool  g_tstate_update=false;
-
+String g_tstate_json="{}";
 
 void target_init() {
   g_tstate_imaxcur=320;
@@ -1105,6 +1127,16 @@ void  target_lcb() {
       }
     }  
   }
+  if(g_tstate_update) g_tstate_json=String("{") +
+    "\"aphases\":"+String(g_tstate_aphases) +","+
+    "\"amaxcur\":"+String(g_tstate_amaxcur) +","+
+    "\"ccss\":"   +String(g_tstate_ccss)    +","+    
+    "\"cur1\":"   +String(g_tstate_cur1)    +","+
+    "\"cur2\":"   +String(g_tstate_cur2)    +","+
+    "\"cur3\":"   +String(g_tstate_cur3)    +","+
+    "\"sphases\":"+String(g_tstate_sphases) + ","+
+    "\"smaxcur\":"+String(g_tstate_smaxcur) +","+
+    "\"sonoff\":" +String(g_tstate_sonoff)+"}");
 }
 
 #endif
@@ -1114,6 +1146,7 @@ void  target_lcb() {
 #ifdef AVRSERIAL
 
 bool g_tstate_update=false;
+String g_tstate_json="{}";
 
 #define READLNBUF 128
 
@@ -1213,23 +1246,35 @@ void  target_lcb() {
   if(pn!="") {
     if(pn=="ver") g_tstate_version=pv; else
     if(pn=="ccss") g_tstate_ccss=pv; else
+    if(pn=="imaxcur") g_tstate_imaxcur=pv; else
+    if(pn=="cmaxcur") g_tstate_cmaxcur=pv; else
     if(pn=="sphases") g_tstate_sphases=pv; else
     if(pn=="aphases") g_tstate_aphases=pv; else
-    if(pn=="imaxcur") g_tstate_imaxcur=pv; else
     if(pn=="smaxcur") g_tstate_smaxcur=pv; else
     if(pn=="amaxcur") g_tstate_amaxcur=pv; else
-    if(pn=="cmaxcur") g_tstate_cmaxcur=pv; else
     if(pn=="cur1") g_tstate_cur1=pv; else
     if(pn=="cur2") g_tstate_cur2=pv; else
     if(pn=="cur3") g_tstate_cur3=pv;
-    g_tstate_update=true;
+    // trigger heartbeat
+    if(pn=="ccss") g_tstate_update=true;
+    // update fake state
+    if(g_tstate_sphases>100)
+      g_tstate_smaxpow=(int) (g_tstate_smaxcur / 10.0 * (230.0 *3) / 100.0 + 0.5); 
+    else if(g_tstate_sphases>10)
+      g_tstate_smaxpow=(int) (g_tstate_smaxcur / 10.0 * (230.0 *2) / 100.0 + 0.5); 
+    else  
+      g_tstate_smaxpow=(int) (g_tstate_smaxcur / 10.0 * (230.0 *1) / 100.0 + 0.5); 
   }
   // send power-on requests
   if(pon && (!lnbsy) && (!wtrply.running())) {  
-    static Periodic b0(1000,     0);
+    static Periodic b0(2000,    0);
     if(b0.expired()) { Serial2.println("ver?"); wtrply.set(500);} 
-    static Periodic b1(1000,  500);
+    static Periodic b1(2000,  500);
     if(b1.expired()) { Serial2.println("imaxcur?"); wtrply.set(500);}  
+    static Periodic b2(2000, 1000);
+    if(b2.expired()) { Serial2.println("smaxcur?"); wtrply.set(500);}  
+    static Periodic b3(2000, 1500);
+    if(b3.expired()) { Serial2.println("sphases?"); wtrply.set(500);}  
   }
   // clear on/off
   if(g_tstate_ccss<10) {
@@ -1296,6 +1341,17 @@ void  target_lcb() {
     static Periodic p5(5000,  4500);
     if(p5.expired()) { Serial2.println("cur3?"); wtrply.set(500);} 
   }
+  // have JSON encoded state
+  if(g_tstate_update) g_tstate_json=String("{") +
+    "\"aphases\":"+String(g_tstate_aphases) +","+
+    "\"amaxcur\":"+String(g_tstate_amaxcur) +","+
+    "\"ccss\":"   +String(g_tstate_ccss)    +","+    
+    "\"cur1\":"   +String(g_tstate_cur1)    +","+
+    "\"cur2\":"   +String(g_tstate_cur2)    +","+
+    "\"cur3\":"   +String(g_tstate_cur3)    +","+
+    "\"sphases\":"+String(g_tstate_sphases) + ","+
+    "\"smaxcur\":"+String(g_tstate_smaxcur) +","+
+    "\"sonoff\":" +String(g_tstate_sonoff)+"}";
 }
 #endif
 
@@ -1648,12 +1704,15 @@ void loop() {
 
   // maintaine systime
   systime_lcb();
-
+ 
   // development heartbeat
+  static uint32_t recent=0;
   static Periodic phb(10000);
   if(phb.expired()) 
-    Serial.println("systime: "+String(g_systime/1000)+" [sec]");
+    Serial.println("systime: "+String(g_systime/1000)+" [sec] cycle time " + String(g_systime-recent) +" [ms]");
+  recent=g_systime;  
 
+ 
   // re-connect in station mode 
   if(g_stamode && (WiFi.status() != WL_CONNECTED)) {
     WiFi.mode(WIFI_STA);
@@ -1671,23 +1730,26 @@ void loop() {
       Serial.println("fail");
   }
     
-
+ 
   // blink
   static Periodic pon(2000,   0);
   if(pon.expired()) led_on();
   static Periodic poff(2000, 50);
   if(poff.expired()) led_off();
 
+ 
   // excercise target AVR control 
   target_lcb();
 
   // forward local copy of AVR state to websocket client aka browser       
-  if(g_tstate_update) 
-    wsck_heartbeat();
-    
+  if(g_tstate_update) {
+    wsck_heartbeat(g_tstate_json);
+    mqtt_heartbeat(g_tstate_json);
+  }  
+     
   // loop maintenance
   http_lcb();
-  wsck_lcb();
+  wsck_lcb(); 
   mqtt_lcb();  
   ArduinoOTA.handle();
 

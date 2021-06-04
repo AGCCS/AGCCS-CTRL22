@@ -13,7 +13,8 @@
 #
 
 # firmware server location (using scp, i.e. incl login)
-DST="pi@192.168.2.108:~/mupgrade"
+#DST="pi@192.168.2.108:~/mupgrade"
+DST="pi@192.168.5.1:~/mupgrade"
 
 
 # try to figure where we are

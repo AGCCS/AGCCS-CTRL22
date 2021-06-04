@@ -6,22 +6,23 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta http-equiv="X-UA-Compatible" content="ie=edge" />
 
-  <!-- source external JavaScript/CCS libraries
-  <!-- 
+  <!-- source external JavaScript/CCS libraries -->
+  <!--
   <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-eOJMYsd53ii+scO/bJGFsiCZc+5NDVN2yr8+0RDqr0Ql0h+rP48ckxlpbzKgwra6" crossorigin="anonymous">
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta3/dist/js/bootstrap.bundle.min.js" integrity="sha384-JEW9xMcG8R+pH31jmWH6WWP0WintQrMb4s7ZOdauHnUtxwoG2vI5DkLtS3qm9Ekf" crossorigin="anonymous"></script>
      <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-slider/11.0.2/bootstrap-slider.min.js" integrity="sha512-f0VlzJbcEB6KiW8ZVtL+5HWPDyW1+nJEjguZ5IVnSQkvZbwBt2RfCBY0CBO1PsMAqxxrG4Di6TfsCPP3ZRwKpA==" crossorigin="anonymous"></script>
    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-slider/11.0.2/css/bootstrap-slider.css" integrity="sha512-SZgE3m1he0aEF3tIxxnz/3mXu/u/wlMNxQSnE0Cni9j/O8Gs+TjM9tm1NX34nRQ7GiLwUEzwuE3Wv2FLz2667w==" crossorigin="anonymous"> 
-   -->
-   
+  -->
+
   <!-- use local distribution bundles for JavaSript/CSS libraries -->
-  <script defer src="jquery.min.js"></script> 
+  <script src="jquery.min.js"></script> 
   <link rel="stylesheet" href="bootstrap.min.css" />
-  <script defer src="bootstrap.bundle.min.js"></script>
+  <script src="bootstrap.bundle.min.js"></script>
   <link rel="stylesheet" href="bootstrap-slider.min.css" />
-  <script defer src="bootstrap-slider.min.js"></script>
+  <script src="bootstrap-slider.min.js"></script>
   <link rel="stylesheet" href="style.css" /> 
+
   <title>CTRL22ONE</title>
 
   <!-- our payload JavaScript -->
@@ -34,7 +35,7 @@
        
     // target configuration 
     var cfgmqtt = {
-      "brkxen":1,
+      "brkxen": false,
       "brkxurl":"???",
       "brkxusr":"???",
       "brkxpwd":"???", 
@@ -46,8 +47,8 @@
     }
     var cfgsys = {
       "imaxpwr": 110,
-      "espver":"1.2",
-      "avrver":"1.7",
+      "espver":"?.?",
+      "avrver":"?.?",
       "devname" :"???" 
     }
  
@@ -104,16 +105,9 @@
     function reset() {
       window.console.log("reset request");
       $("#restartmdl").modal("show");
-      wbsck.send('{"cmd":"reset"}');
-      setTimeout(function(){wbsck.close();},1000);
-      setTimeout(function(){location.reload();},10000);
-      //$(" .accordion-collapse" ).removeClass('show');
-      //$(" .arcordion-collapse" ).addClass('hide');
-      //$("#payload").remove();
-      //window.onbeforeunload = function() {
-      //  window.console.log("closing down (beforunload) A"); 
-      //  return ''
-      //};
+      if(wbsck) wbsck.send('{"cmd":"reset"}');
+      setTimeout(function(){if(wbsck) wbsck.close();},1000);
+      setTimeout(function(){location.reload();},10000);      
     }
 
   
@@ -172,13 +166,13 @@
     function mqttget() {
       var msg={"cmd":"cfgset"};
       $.extend(msg, cfgmqtt);
-      wbsck.send(JSON.stringify(msg));
+      if(wbsck) wbsck.send(JSON.stringify(msg));
     }
 
     function wlanget() {
       var msg={"cmd":"cfgset"};
       $.extend(msg, cfgwlan);
-      wbsck.send(JSON.stringify(msg));
+      if(wbsck) wbsck.send(JSON.stringify(msg));
       reset();
     }
 
@@ -186,7 +180,7 @@
       var msg={"cmd":"cfgset"};
       $.extend(msg, cfgsys);
       window.console.log(msg);
-      wbsck.send(JSON.stringify(msg));
+      if(wbsck) wbsck.send(JSON.stringify(msg));
       reset();
     }
 
@@ -215,7 +209,7 @@
       smaxprg=true;
       smaxcmd=10*p;	
       pwrsldtot=setTimeout(function(){ smaxprg=false; pwrsldset();}, 30000);
-      wbsck.send('{"smaxpow" : '+10*p+'}');
+      if(wbsck) wbsck.send('{"smaxpow" : '+10*p+'}');
     }
 
     function pwrsldset() {
@@ -238,7 +232,7 @@
       if(smaxprg)
         return; 
       clearTimeout(pwrsldtot);
-      window.console.log("set slider according to smaxcur "+c);  
+      //window.console.log("set slider according to smaxcur "+c);  
       if(sldlft) sldlft.style = "background-color:#007bff";
       pwrsld.setValue(Math.round(p/10.0));
     }	
@@ -275,7 +269,7 @@
           onoffprg=true;
         }
         if(onoffprg) {   
-          wbsck.send('{"onoff":' + onoffcmd.toString() +'}');
+          if(wbsck) wbsck.send('{"sonoff":' + onoffcmd.toString() +'}');
           document.getElementById("onoff").style = "color:orange";
           onofftot=setTimeout(function(){ onoffprg=false; onoffset();}, 30000);
         }
@@ -353,7 +347,7 @@
       var cmd=document.getElementById("avrcmd").value;
       if( cmd == "" ) return;
       window.console.log("sending avr command "+ cmd);
-      wbsck.send('{"avrcmd":"'+cmd+'"}');
+      if(wbsck) wbsck.send('{"avrcmd":"'+cmd+'"}');
     }	
 
     // ================================
@@ -400,7 +394,7 @@
       if(isste) {
         // display only
         otherset();
-        // adjust controls: power sllider	
+        // adjust controls: power slider	
         if( ("smaxcur" in jsonObject) ||  ("sphases" in jsonObject) ) {
    	  pwrsldset();
 	}    
@@ -457,23 +451,17 @@
     // Application maintenance
     // ================================
 
-    window.addEventListener('onload', (evt) => {
-      window.console.log("window event onload");  
-    });
-
-    window.addEventListener('beforeunload', (evt) => {
-      window.console.log("closing down (beforunload)");  
-      wbsck.close();
-    });
-
-    window.addEventListener('unload', (evt) => {
-      window.console.log("closing down (unload)");  
-    });
-
-
     function OnLoad() {
       // say hello
       window.console.log("connected to server "+location.hostname);  
+      // have super slider
+      pwrsld = new Slider('#pwrsldinp', {
+        formatter: function(value) {
+	  return value + ' kW';
+	}
+	});
+      pwrsld.on('slideStart', pwrsldfcs);  
+      pwrsld.on('slideStop',  pwrsldblr);  
       // start my websocket
       if ("WebSocket" in window) {
         wbskbegin();
@@ -483,14 +471,6 @@
           "This is not suppoted/enabled in your browser, so CTRL22ONE will not be functional." +
           "We apologize for the inconvenience.");
       }
-      // have super slider
-      pwrsld = new Slider('#pwrsldinp', {
-        formatter: function(value) {
-	  return value + ' kW';
-	}
-	});
-      pwrsld.on('slideStart', pwrsldfcs);  
-      pwrsld.on('slideStop',  pwrsldblr);  
       // trigger update UI elements
       cfgset();
       otherset();  
@@ -504,6 +484,20 @@
         return new bootstrap.Tooltip(tooltipTriggerEl)
       });
     }
+
+
+    window.addEventListener('onload', (evt) => {
+      window.console.log("window event onload");  
+    });
+
+    window.addEventListener('beforeunload', (evt) => {
+      window.console.log("closing down (beforunload)");  
+      if(wbsck) wbsck.close();
+    });
+
+    window.addEventListener('unload', (evt) => {
+      window.console.log("closing down (unload)");  
+    });
 
   </script>
 </head>
@@ -611,7 +605,7 @@
 	        Max. Power
               </div>
               <div class="col" style="text-align: right;">
-	        <input type="text" id="pwrsldinp" data-slider-id='pwrsld' data-slider-min="0" data-slider-max="22" data-slider-step="1" data-slider-value="0" />
+	        <input type="text" id="pwrsldinp" data-slider-id="pwrsld" data-slider-min="0" data-slider-max="22" data-slider-step="1" data-slider-value="0" />
               </div>
             </div>
           </div>

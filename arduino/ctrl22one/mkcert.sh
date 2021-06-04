@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-# this script is from the ESP32_HTTPS_Server library, authored by "fhessel"
+# this script is adapted from the ESP32_HTTPS_Server library, authored by "fhessel"
 # see also https://github.com/fhessel/esp32_https_server
 
 # test for target directory
