@@ -76,8 +76,7 @@ $ mosquitto_sub -h lrt -p 1883 -t /^TOPIC^/heartbeat
 where the the broker running on the host _lrt101_ at the default port 1883. Messages received have the format
 
 ```{"aphases":0,"amaxcur":0,"ccss":3,"cur1":-1,"cur2":-1,"cur3":-1,"sphases":1,"smaxcur":174,"sonoff":1}```
-{"aphases":123,"amaxcur":160,"ccss":33,"cur1":158,"cur2":0,"cur3":0,"sphases":1,"smaxcur":174,"sonoff":1}
-```
+
 
 where
 
