@@ -97,8 +97,8 @@ int16_t p_iphases=123;    // enstalled phases
 int16_t p_lclsms=100;     // ms to close lock (set to 0 for no lock)
 int16_t p_lopnms=100;     // ms to open lock  (set to 0 for no lock)
 int16_t p_caldmp=0;       // set to 1 to turn on calibration output
-int16_t p_cala=19019;     // calibration parameter a
-int16_t p_calb=0;         // calibration parameter b
+int16_t p_cala=1130;      // calibration parameter a (scale)
+int16_t p_calb=-212;      // calibration parameter b (offset)
 int16_t p_ccsdmp=0;       // set to 1 to turn on ccs state progress
 
 
@@ -1475,7 +1475,7 @@ void rms_process(void) {
   static unsigned long int sum=0;
   static uint16_t rms=0;
   uint16_t sns=0;
-  uint16_t cur=0;
+  int16_t cur=0;
   // do slice -1: figure zero by mean
   if(spos<0) {
     sum=0;
@@ -1515,9 +1515,9 @@ void rms_process(void) {
 #else
     sns = ((uint32_t) rms * 3300 + (1023*2)/2)/(1023*2); //  by the books ;-)
 #endif
-    // first calibration: 1mV * 0.95 <> 100mA ==> cal_A= (0.95*Vref/2046)*2^14=19019
-    cur = ((uint32_t) rms * p_cala + (1L<<13)) >> 14;
-    cur+= p_calb;
+    // calibrate by affine transformation, i.e. mutiply by p_cala then add offset p_calb
+    // both calibration parameters are given in mutiples of 1/2^10)
+    cur = ((int32_t) rms * p_cala + p_calb + (1L<<9)) >> 10;
     // anihilate low-level noise and negative cal_B
     if(cur<10) cur=0;
     // store to global parameter

@@ -93,9 +93,11 @@ cur3=0      [R/-] % --- dito for L3
 error=0     [R/-] % read error flags, see declaration "g_error"
 save        [-/W] % use "save!" to save configuration to EEPROM
 smaxcur=160 [R/W] % read/write max. current available from source [100mA]
+brdrev=12   [R/W] % set/get board revision
+ccsdmp      [-/W] % use "ccsdmp!" to track CCS state progress
 phases=123  [R/W] % read/write available phases [decimal encoding]
 sigrel      [-/W] % use "sigrel!"/"sigrel~" to en/disable the signal relay
-pilots=1    [R/W] % use "pilots!"/"piloys~" to en/disable periodic pilot reading
+pilots=1    [R/W] % use "pilots!"/"pilots~" to en/disable periodic pilot reading
 cpilot=6    [R/-] % read CP [V]
 cpdtest=12  [R/-] % read CP on  nagativ halfwave [-V]
 ppilot=320  [R/-] % read PP (same as cmaxcur)[100mA]
@@ -106,8 +108,8 @@ rms2=3      [R/W] % --- dito for CT2
 rms3=3      [R/W] % --- dito for CT3
 rmsdmp      [-/W] % dump most recent rms record
 caldmp      [-/W] % use "caldmp!" for periodic dumps of RMS counts (req. "rms!")
-cala=19019  [R/W] % read/write calibration parameter cA
-calb=0      [R/W] % read/write calibration parameter cB
+cala=1126   [R/W] % read/write calibration parameter cA
+calb=271    [R/W] % read/write calibration parameter cB
 lock        [-/W] % use "lock!"/"lock~" to operate the lock
 lopnms=100  [R/W] % read/write pulse length to open lock [ms]
 lclsms=100  [R/W] % read/write pulse length to close lock [ms]
@@ -138,9 +140,31 @@ The firmware supports some commands via the serial line that are specifically me
 
 **Lock.** The lock terminals W and R should be at 12V when passive. When closing the lock by  `lock!\r\n` the W terminal drops to 0V for about 100ms. If no lock is connected, this will result in a lock-error. Use   `reset!\r\n` to reset the device if you want to repeat the test. Before connecting a lock, figure the wiring (color codes differ from lock to lock). For opening the lock, use  `lock~\r\n`.
 
-**Current Reading.** Use `caldmp!\r\n` to from now on forward RMS readings incl. the ADC count to the serial line. Use  `rms1!\r\n` to trigger a single reading of the RMS value for mains phase 1. The respective terminals are CT-L1 and CT-K1. Here, CT-K1 is a 1.65V bias (check with a meter) and CT-L1 is the AC signal induced by the current transformer. If nothing is connected we expect to read zero modulo noise, typical values observed are no more than 3 ADC counts.  For further testing, you may attach a signal generator with a 50Hz sine and e.g. 100mV amplitude, and check for `rms1?\r\n` to read 71 (i.e. 71mV). There are two cases for consideration. If the signal generator is not grounded, you may connect directly to the CT-L1 and CT-K1 terminals. If, on the other hand, the generator is grounded, you should connect live to CT-L1 and the generators ground to GND. For this situation, you need to configure the generator to produce a 1.65V offset --- otherwise, the negative half-wave may damage the ADC in the AVR. Note that built-in signal-generators in scopes for usual are grounded. Double check the wiring and use serial resistors when connecting a signal generator to the device.   
+**Current Reading (A).** Use `caldmp!\r\n` to from now on forward RMS readings incl. the ADC count to the serial line. Use  `rms1!\r\n` to trigger a single reading of the RMS value for mains phase 1. The respective terminals are CT-L1 and CT-K1. Here, CT-K1 is a 1.65V bias (check with a meter) and CT-L1 is the AC signal induced by the current transformer. If nothing is connected we expect to read zero modulo noise, typical values observed are no more than 3 ADC counts.  For further testing, you may attach a signal generator with a 50Hz sine and e.g. 100mV amplitude, and check for `rms1?\r\n` to read 71 (i.e. 71mV RMS). There are two cases for consideration. If the signal generator is not grounded, you may connect directly to the CT-L1 and CT-K1 terminals. If, on the other hand, the generator is grounded, you should connect live to CT-L1 and the generators ground to GND. For this situation, you need to configure the generator to produce a 1.65V offset --- otherwise, the negative half-wave may damage the ADC in the AVR. Recall that built-in signal-generators in scopes are usually grounded. Double check the wiring and use serial resistors when connecting a signal generator to the device. 
+
+**Current Reading (B).** The conversion from RMS in ADC counts to RMS in mV is done by the books with no calibration and we expect this to be slightly off --- the mV reading is for informative purposes only anyway. For our application, the conversion from RMS in ADC counts to RMS in multiples of 100mA is the only concern. This is implemented as an affine transformation "current [100mA]= counts x A + B".   Simple example: when reading 147 in ADC counts at an actual current of 16.2 A we may set "A=10 x 16.2 / 147" and "B=0". More advanced: reading Count1 for Current1 and Count2 for Current2, we solve "10 x Current1 = Count1 x A + B" and "10 x Current2 = Count2 x A + B" to obtain A and B. Using binary fixed point representation, the parameters A and B are specified as p_cala and p_calb in multiples of 1/1024, i.e., we finally set "p_cala=1024 x A" and "p_calb=1024 x B". For calibration you will need a full setup including the current transformers, an external current meter, and an actual load; see also [calibration](../doc/current_reading_calibration_2021_05.pdf).  
 
 **SSRs.** To test the SSRs you will need to run the device on mains (caution!). `ssr=1\r\n` should turn on the SSR for phase 1, `ssr=123\r\n` should turn on all SSRs, `ssr~` should turn all off.   When contactors are  connected to the respective terminals Cx-N and Cx-L, they should be operated accordingly. This part of the circuitry is fairly simple and should need no further attention. We recommend not to test the SSRs beforehand and to defer this step until the entire unit is safely placed within an enclosure and contactors are attached.
+
+**Simulating a Charging Cycle.** For a minimum setup to simulate a charging cycle, you need to install at least one contactor and one current transformer and wire this to drive some load. Since this is all on mains, installation in a proper enclosure is mandatory, incl. a CEE plug for power supply and a CCS outlet. Most conveniently, you will setup an adaptor with a CCS plug on the one end such that the active phase is forwarded to an household mains outlet so you can attach a load (e.g. an electric heater). Furthermore, the adaptor should let you manually mimic the EV state via the CP line (see also above _CP reading_). Our overall setup is as follows:
+
+```
+                 external current meter  
+============+                V                                           +=====
+AGCCS board,|-> CCS L1 >-----O------------------> hourhold outlet L1 --->|   
+contactor,  |-> CCS N  >------------------------> hourhold outlet N  --->| load
+fuses,      |-> CCS PE >-----------------+------> hourhold outlet PE --->|
+CEE supply, |                            |                               +=====
+installed   |-> CCS CP >--+--[/]--[2K7]--+ 
+in a proper |             |              |
+enclosure   |             +--[/]--[1K3]--+
+============+             |
+                          V
+                    attach scope here
+
+```
+
+There is professional gear available for this purpose, however, at a substantial cost. At this stage it is highly recommended to connect with telnet via the ESP32 in target debug mode to access the serial line of the AVR wirelessly. Use `ccsdmp!\r\n` to observe the progress through the CCS states. Optionally, attach a scope as indicated to observe the PWM signal on the CP line. To calibrate the internal current reading, use  `caldmp!\r\n` (see also above) and compare with an external meter. 
 
 
 

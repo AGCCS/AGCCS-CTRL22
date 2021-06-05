@@ -1,8 +1,8 @@
 # CTRL22ONE
 
-Web-GUI for the control of a single AGCCS-CTRL22 board in standalone configuration, i.e., no wifi-mesh, no load balancing. The motivation here is to have a convenient basis to fine-tune the AVR firmware [Ctrl22C](../../ctrl22c/) to cope with a variety of different EVs with different sleep/wake-up behaviour and such. We do log to a configurable MQTT broker and accept dynamic power allocation. This could be interesting for charging at home from solar power when available.
+Web-GUI for the control of a single AGCCS-CTRL22 board in standalone configuration, i.e., no wifi-mesh, no load balancing. The motivation here is to have a convenient basis to fine-tune the AVR firmware [Ctrl22C](../../ctrl22c/) to cope with a variety of different EVs with different sleep/wake-up behaviour and such. We do log to a configurable MQTT broker and accept dynamic power allocation. This could be interesting for charging at home from solar power when available and/or to otherwise integrate the device with existing home automation infrastructure.
 
-**DISCLAIMER.** Although generally in a good shape, this is still work in progress.
+**DISCLAIMER.** Although generally in a good shape, this is still work in progress. Specifically, there are a number of diagnostic features that should be disabled in a production set up.
 
 
 
@@ -10,11 +10,11 @@ Web-GUI for the control of a single AGCCS-CTRL22 board in standalone configurati
 
 - simple Web GUI to start/stop charging, limit the maximal available power and to monitor the actual current drawn;
 
-- maintain WLAN credentials in EEPROM; alternatively, provide an WLAN access-point and ask the operator to provide valid credentials via the Web GUI
+- maintain WLAN credentials in EEPROM; alternatively, provide an WLAN access-point and ask the operator to provide valid credentials via the Web GUI;
 
 - everything built-in, no RasPi required for basic operation;
 
-- convenient over-the-air (OTA) upgrade via the Arduino IDE 
+- convenient over-the-air (OTA) upgrade via the Arduino IDE; 
 
 - optionally forward status reports to an MQTT broker (configurable via the Web GUI)
 
@@ -34,7 +34,7 @@ Load the sketch in the Arduino IDE, compile, download, done. Some considerations
 
 - you can conduct first tests with an M5StickC or an ESP32 dev board; observe the respective  `#define`directives the beginning of the sketch;  you will need a *J5-Programming-Adaptor* to program the AGCCS rev 1.2 board (see [circuit](../../circuit)); regarding the Arduino IDE, the AGCCS board can be configured as "ESP32 dev board";
 
-- TSL can be activated as a compile-time option via ``#define USETSL``; this has both a memory and performance impact, so you may want to begin tests without TSL enabled; if you take TSL serious, you will want to generate you specific keys; this can be done by the script `mkcert.sh`;
+- TSL can be activated as a compile-time option via ``#define USETSL``; this has both a memory and a performance impact, so you may want to begin tests without TSL enabled; if you take TSL serious, you will want to generate you specific keys; this can be done by the script `mkcert.sh`;
 
 - before flashing via the Arduino IDE be sure to choose "large APP, minimal SPIFS, with OTA" as partition table (_Tools_-menu); on a common 4MByte ESP32 this gives us about 1.9MByte for our application and we should be fine with that; if not, we can get ESP32s with up to 16MByte;
 
@@ -62,6 +62,48 @@ To take on the new configuration press `Restart`.
 Once restarted, the ESP32 will succeed in joining your wireless network. Depending on your router, you can access the ESP32 via a symbolic address derived from the device name chosen above (e.g. our AGCCS-CTRL22 board is accessible by the address http://ctrl22one.local when connected via a FritzBox; other routers may require manual configuration).
 
 Thats all to it -- you can now control the AGCCS-CTRL22 board via any browser, incl. your favourite mobile device. If you still have the Arduino IDE open and the J5-adapter connected, you can observe the verbose output via the serial monitor. Alternatively, any status reports from the AVR serial line are forwarded to the _Diagnostics_ collapsible in the Web GUI. So there is plenty of internal monitoring to provide a comfortable basis for you further development so that you can indeed tailor the device to your very needs and preferences.
+
+
+
+## Remote Control via MQTT 
+
+To configure the details of the external broker and a root topic `^TOPIC^`, use the"External MQTT Broker" collapsible from the Web GUI. The device will then periodically publish its state to `/^TOPIC^/heartbeat` . The message is JSON encoded and follows the same scheme as our main. To inspect the heartbeat, subscribe to the same broker, e.g., using mosquitto 
+
+```
+$ mosquitto_sub -h lrt -p 1883 -t /^TOPIC^/heartbeat 
+```
+
+where the the broker running on the host _lrt101_ at the default port 1883. Messages received have the format
+
+```{"aphases":0,"amaxcur":0,"ccss":3,"cur1":-1,"cur2":-1,"cur3":-1,"sphases":1,"smaxcur":174,"sonoff":1}```
+{"aphases":123,"amaxcur":160,"ccss":33,"cur1":158,"cur2":0,"cur3":0,"sphases":1,"smaxcur":174,"sonoff":1}
+```
+
+where
+
+| Parameter        |                                                              |
+| ---------------- | ------------------------------------------------------------ |
+| aphases          | actually enabled phases in decimal encoding, e.g. 123 for all three phases |
+| amaxcur          | actually maximum current allocated to the EV in the unit [100mA]; e.g. `"amaxcur":160`for 16[A] |
+| ccss             | CCS state, 0-9 for OFF, 10-19 for A (wait for car), 20-29 for B (wait for car ready to charge), 30-39 for C (do charge),  40-49 for P (pause), 50-59 for W (wait); see [Ctrl22C](../../ctrl22c/) for details |
+| cur1, cur2, cur3 | actual current drawn from either phase L1, L2 and L3 in [100mA]; i.e. `"cur1":10`for 1[A] on L1; when no valid measurement is available, the parameters real `-1` |
+| sphases          | phases allocated by a remote host in decimal encoding; this may differ from `aphases` for several reasons, e.g., a remote host may enable phases which are physically not installed |
+| smaxcur          | current allocated by a remote host in the unit [100mA]; this may differ from `amaxcur`, e.g., because the cable has less capacity or because the physical installation limits the power available; |
+| sonoff           | reads `1` for normal operation or `0` if charging is paused by an external host; |
+
+
+
+Likewise, the unit subscribes to  `/^TOPIC^/control` and expects JSON encoded messages in order to remotely control the device. Currently, you write to the parameters `sphases` and `smaxcur` by messages in the format `{"sphases":^X^,"smaxcur":^Y^}` where `^X^` are the phases to be enabled and `^Y^` is the allocated current.
+
+
+
+**Note.** The MQTT library we use blocks for about 20 seconds when it connects to an MQTT broker which is unavailable and it will retry every 60 seconds. When using MQTT as the only means of interaction, this is not an issue. However, the Web GUI will be inaccessible during this period of time. This issue has been reported with a number of MQTT libraries. The proper way to fix this is to run a separate task for MQTT or to resort to a fully asynchronous MQTT library. For the time being, we wanted to keep things as simple as possible.
+
+
+
+**Note.** At the current stage, our implementation runs MQTT without any encryption. You should hence only use this feature in a dedicated local network. 
+
+
 
 
 
@@ -94,8 +136,6 @@ Note that although the converted file is considerable larger than the original t
 [This type of conversion seems to be a frequently required build step; is there perhaps a Python script to do this in a platform independant manner so we can take the Windows users on board?]
 
  
-
-
 
 ## Third Party Components 
 
