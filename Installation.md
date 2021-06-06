@@ -4,7 +4,7 @@ Each AGCCS-CTRL22 unit shall be safely installed in an appropriate enclosing. Do
 
 - a CEE plug for power supply with three phases L1, L2 and L3; although operation is possible with one phase only, this will increase charging time considerably and is not considered a viable option in this document; the unit can be configured to run up to 3x32A, however, restrictions apply and you may need to notify/ask your electricity provider; for permanent installation, you may obit the CEE plug and directly wire the unit to the mains supply;
 
-- a three phase ground fault circuit interrupter (GFCI) of adequat rating; local regulations may insist in a Type B device to detect DV faults, which are considerably more expensive than the common Type A modules;
+- a three phase ground fault circuit interrupter (GFCI) of adequat rating; local regulations may insist in a Type B device to detect DC leakage, which are considerably more expensive than the common Type A modules;
 
 - a house installation over current circuit interrupter (aka fuse) to power the AGCCS board; although the board has an internal fuse, it is very convenient to be able to manually power cycle the system;
 
