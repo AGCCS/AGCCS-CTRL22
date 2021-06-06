@@ -24,7 +24,7 @@ For our basic test rigs, we the wiring is according to the below diagram. Config
 
 
 
-![installation](/Users/tmoor/current/code/agccs-ctrl22/images/installation.png)
+![installation](./images/installation.png)
 
  We are currently assembling a slightly larger unit that additionally holds a power-meter with RS485 interface and a Raspberry Pi. 
 
