@@ -1,6 +1,6 @@
 # Installation
 
-Each AGCCS-CTRL22 unit shall be safely installed in an appropriate enclosing. Do not consider installation unless you possess adequate skills. The following components are recommended.
+Each AGCCS-CTRL22 unit shall be safely installed in an appropriate enclosing. Do not consider installation unless you possess adequate skills. The following external components are recommended.
 
 - a CEE plug for power supply with three phases L1, L2 and L3; although operation is possible with one phase only, this will increase charging time considerably and is not considered a viable option in this document; the unit can be configured to run up to 3x32A, however, restrictions apply and you may need to notify/ask your electricity provider; for permanent installation, you may obit the CEE plug and directly wire the unit to the mains supply;
 
@@ -16,17 +16,17 @@ Each AGCCS-CTRL22 unit shall be safely installed in an appropriate enclosing. Do
 
 - an operator button, preferably with a built-in LED incl. an appropriate resistor for 12V operation;
 
-- for the wiring the maximal target current needs to be observed; commissioning for max  3x16A is much easier than for max 3x32A and both the contactors and the GFCI come at a lower price when rated for a 3x16A configuration. 
+- for the wiring the maximal target current needs to be observed; commissioning for max  3x16A is much easier than for max 3x32A and both the contactors and the GFCI come at a lower price when rated for less current. 
 
   
 
-For our basic test rigs, the wiring is according to the below diagram. Configured for 3x32A, all wires in red colour are 6 square-mm. A photo of the unit is given on the main page of this repository.
+For our basic test rigs, the wiring is according to the below diagram. Configured for 3x32A, relevant wires are 6 square-mm. A photo of one such unit is given on the main page of this repository.
 
 
 
 ![installation](./images/installation.png)
 
- We are currently in the process of assembling a slightly larger unit that additionally holds a power-meter with RS485 interface and a Raspberry Pi, and that forwards the CEE supply to a CEE/CE outlet. 
+ We are currently in the process of assembling a slightly larger unit that additionally holds a power-meter with RS485 interface and a Raspberry Pi, and that forwards the CEE supply to a CEE/CE outlet. The placement of the meter in this proposal is a compromise between (a) running in stand-alone mode an calibrating the internal current reading and (b) attaching additional units via the CEE outlet and monitoring the overall load. 
 
 
 
