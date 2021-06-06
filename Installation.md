@@ -20,11 +20,11 @@ Each AGCCS-CTRL22 unit shall be safely installed in an appropriate enclosing. Do
 
   
 
-For our basic test rigs, we the wiring is according to the below diagram. Configured for 3x32A, all wires in red colour are 6 square-mm. A photo of the unit is give on the main page of this repository.
+For our basic test rigs, the wiring is according to the below diagram. Configured for 3x32A, all wires in red colour are 6 square-mm. A photo of the unit is given on the main page of this repository.
 
 
 
 ![installation](./images/installation.png)
 
- We are currently assembling a slightly larger unit that additionally holds a power-meter with RS485 interface and a Raspberry Pi. 
+ We are currently in the process of assembling a slightly larger unit that additionally holds a power-meter with RS485 interface and a Raspberry Pi, and that forwards the CEE supply to a CEE outlet. 
 

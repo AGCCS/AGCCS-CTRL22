@@ -9,7 +9,7 @@ The [schematics](agccs-ctrl22-schematics.pdf ) proposed here have been derived f
 - have an ESP32 for networked wireless communications;
 - enable/disable any of the three supply phases separately for improved load balancing;
 - integrate power monitoring for improved load balancing;
-- have a signal realy to virtually unplug/plug the EV to wake it from "sleep"; 
+- have a signal relay to virtually unplug/plug the EV to wake it from "sleep"; 
 - layout with hand soldering in mind so we can build our own.
 
 When we started AGCCS, we thought of modding SmartEVSE units to our specific needs. However, it soon became clear that this is not vialable, so we decided to design our own board.  
@@ -249,12 +249,13 @@ The initial revision Rev-1-0 passed our tests conducted with a first-installatio
 ## Revision 1.x
 
 - minor flaws in 1.2 PCB layout  (weak fill on backside layer, not so nice front silk screen)
+- although functional in practice, we are not quite happy with the lock driving circuitry and plan on improvements on that end  
 
 
 
 ## Photos (Rev.1.2)
 
-Front (in terms of PCB design; in the enclosure, this becomes the backside)
+Front (in terms of PCB design; in the enclosure, this actually becomes the backside)
 
 <img src="../images/hardware_1_2_front.jpeg" style="zoom:50%;"/>
 
