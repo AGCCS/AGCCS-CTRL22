@@ -16,7 +16,7 @@ Web-GUI for the control of a single AGCCS-CTRL22 board in standalone configurati
 
 - convenient over-the-air (OTA) upgrade via the Arduino IDE; 
 
-- optionally forward status reports to an MQTT broker (configurable via the Web GUI)
+- optionally forward status reports and accept control via MQTT.
 
   
 
@@ -67,13 +67,13 @@ Thats all to it -- you can now control the AGCCS-CTRL22 board via any browser, i
 
 ## Remote Control via MQTT 
 
-To configure the details of the external broker and a root topic `^TOPIC^`, use the"External MQTT Broker" collapsible from the Web GUI. The device will then periodically publish its state to `/^TOPIC^/heartbeat` . The message is JSON encoded and follows the same scheme as our main. To inspect the heartbeat, subscribe to the same broker, e.g., using mosquitto 
+To configure the details of the external broker and a root topic `^TOPIC^`, use the"External MQTT Broker" collapsible from the Web GUI. The device will then periodically publish its state to `/^TOPIC^/heartbeat` . The message is JSON encoded and follows the same scheme as our main firmware [demesh](../../demesh/). To inspect the heartbeat, subscribe to the same broker, e.g., using mosquitto 
 
 ```
 $ mosquitto_sub -h lrt -p 1883 -t /^TOPIC^/heartbeat 
 ```
 
-where the the broker running on the host _lrt101_ at the default port 1883. Messages received have the format
+where the broker is running on the host _lrt101_ at the default port 1883. Messages received have the format
 
 ```{"aphases":0,"amaxcur":0,"ccss":3,"cur1":-1,"cur2":-1,"cur3":-1,"sphases":1,"smaxcur":174,"sonoff":1}```
 
@@ -82,25 +82,17 @@ where
 
 | Parameter        |                                                              |
 | ---------------- | ------------------------------------------------------------ |
-| aphases          | actually enabled phases in decimal encoding, e.g. 123 for all three phases |
-| amaxcur          | actually maximum current allocated to the EV in the unit [100mA]; e.g. `"amaxcur":160`for 16[A] |
+| aphases, amaxcur | actually enabled phases in decimal encoding, e.g. 123 for all three phases; actually maximum current allocated to the EV in the unit [100mA]; e.g. `"amaxcur":160`for 16[A] |
 | ccss             | CCS state, 0-9 for OFF, 10-19 for A (wait for car), 20-29 for B (wait for car ready to charge), 30-39 for C (do charge),  40-49 for P (pause), 50-59 for W (wait); see [Ctrl22C](../../ctrl22c/) for details |
 | cur1, cur2, cur3 | actual current drawn from either phase L1, L2 and L3 in [100mA]; i.e. `"cur1":10`for 1[A] on L1; when no valid measurement is available, the parameters real `-1` |
-| sphases          | phases allocated by a remote host in decimal encoding; this may differ from `aphases` for several reasons, e.g., a remote host may enable phases which are physically not installed |
-| smaxcur          | current allocated by a remote host in the unit [100mA]; this may differ from `amaxcur`, e.g., because the cable has less capacity or because the physical installation limits the power available; |
+| sphases, smaxcur | phases allocated by a remote host in decimal encoding; current allocated by a remote host in the unit [100mA]; this may differ from `aphases` and `amaxcur`, respectively; e.g., because the cable has less capacity, because the physical installation limits the power, or because the remote host has enabled phases which are physically not installed |
 | sonoff           | reads `1` for normal operation or `0` if charging is paused by an external host; |
 
-
-
-Likewise, the unit subscribes to  `/^TOPIC^/control` and expects JSON encoded messages in order to remotely control the device. Currently, you write to the parameters `sphases` and `smaxcur` by messages in the format `{"sphases":^X^,"smaxcur":^Y^}` where `^X^` are the phases to be enabled and `^Y^` is the allocated current.
-
-
+Likewise, the unit subscribes to  `/^TOPIC^/control` and expects JSON encoded messages in order to remotely control the device by writing to specific parameters. Currently, write access to  `sphases` and  `smaxcur` is implemented, and messages are in the format `{"sphases":^X^,"smaxcur":^Y^}` where `^X^` are the phases to be enabled and `^Y^` is the current to be allocated, both in the same format/unit as he heartbeat messages.
 
 **Note.** The MQTT library we use blocks for about 20 seconds when it connects to an MQTT broker which is unavailable and it will retry every 60 seconds. When using MQTT as the only means of interaction, this is not an issue. However, the Web GUI will be inaccessible during this period of time. This issue has been reported with a number of MQTT libraries. The proper way to fix this is to run a separate task for MQTT or to resort to a fully asynchronous MQTT library. For the time being, we wanted to keep things as simple as possible.
 
-
-
-**Note.** At the current stage, our implementation runs MQTT without any encryption. You should hence only use this feature in a dedicated local network. 
+**Note.** At the current stage, our implementation runs MQTT without any encryption. You should hence only use this feature in a dedicated local network or at least disable remote control via MQTT (compile time option `MQTTCTRL`). 
 
 
 

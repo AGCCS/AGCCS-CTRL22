@@ -33,9 +33,14 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 //#define M5STICK
 #define AGCCS12
 
-// define to use HTTPS
+// define to use HTTPS and WSS
 //#define USETSL
 
+// define to enable remote control via MQTT
+#define MQTTCTRL
+
+// define to enable remote control via WS/WSS
+#define WSCTRL
 
 // libraries for this project 
 #include <WiFi.h>
@@ -676,20 +681,26 @@ void wsck_onmessage(const char* msg) {
   if(deserializeJson(g_jdocbuf, msg)) return;
   jobj=g_jdocbuf.as<JsonObject>();
   for(JsonPair kv : jobj) {
+#ifdef WSCTRL    
     // receive controls
     if(kv.key()=="smaxpow")
     if(kv.value().is<int>()) {
       g_tcontrol_smaxpow=kv.value().as<int>();
     }
+#endif    
+#ifdef WSCTRL    
     if(kv.key()=="sonoff")
     if(kv.value().is<int>()) {
       g_tcontrol_sonoff=kv.value().as<int>();
     }        
+#endif    
+#ifdef WSCTRL    
     if(kv.key()=="avrcmd")
     if(kv.value().is<String>()) {
       g_tcontrol_vrbcmd=kv.value().as<String>();
     }        
-    // receive parameter request
+#endif    
+    // receive command, e.g. parameter request
     if(kv.key()=="cmd") {
       String cmd=kv.value().as<String>();
       if(cmd=="cfgget") {
@@ -705,10 +716,12 @@ void wsck_onmessage(const char* msg) {
           "\"espver\":\""  + verstr(VERSION)      + "\"," +
           "\"devname\":\"" + g_devname            + "\"}");
       }         
+#ifdef WSCTRL    
       if(cmd=="reset") {
         Serial.println("reset request");
         ESP.restart();
-      }                
+      } 
+#endif                     
     }
   } 
   // extract configuration, if any
@@ -870,6 +883,7 @@ Timer            g_mqtt_tcon;
 void mqtt_recv_cb(String &topic, String &payload) {
   Serial.println("mqttrecv: " + topic + " - " + payload);
   wsck_log("mqttrecv: " + topic);
+#ifdef MQTTCTRL  
   if(topic!=g_cfg_brkxtpc+"/control") return;
   wsck_log("mqttrecv: " + payload);
   DynamicJsonDocument jdoc(128);
@@ -885,11 +899,14 @@ void mqtt_recv_cb(String &topic, String &payload) {
     if(kv.value().is<int>()) {
       g_tcontrol_sphases=kv.value().as<int>();
     }
+    /*      
     if(kv.key()=="avrcmd")
     if(kv.value().is<String>()) {
       g_tcontrol_vrbcmd=kv.value().as<String>();
-    }        
-  }  
+    } 
+    */       
+  }
+#endif    
 }
 
 
@@ -952,13 +969,14 @@ void mqtt_lcb(void) {
   g_mqtt_client.loop();
   // manage connection to broker 
   if((!g_mqtt_client.connected()) && (g_cfg_brkxen) && (!g_mqtt_tcon.running())) { 
-    Serial.println("MQTT client trying to connect to broker");
+    Serial.println("MQTT client trying to connect to broker (blocks up to 20sec)");
     g_mqtt_client.connect(g_devname.c_str());
-    g_mqtt_tcon.set(60000); 
-    if(!g_mqtt_client.connected()) 
-      Serial.println("MQTT client failed to connect to broker");  
-    else {
-      g_mqtt_client.subscribe(g_cfg_brkxtpc+"/control");    
+    g_mqtt_tcon.set(120000); 
+    if(g_mqtt_client.connected()) {
+      Serial.println("MQTT client successfully connected to broker");  
+#ifdef MQTTCTRL      
+      g_mqtt_client.subscribe(g_cfg_brkxtpc+"/control"); 
+#endif         
     }
   }  
   if(g_mqtt_client.connected()) 

@@ -67,7 +67,7 @@ very near future --- stay tuned.
 
 ## Prototype
 
-The below photo shows our hardware (rev 1.2) assembled in an enclosure to include mains contactors, residual current detector/protection and current transformers. It is supplied by a three-phases 32A CEE cable on the left, with power forwarded to the CCS 2 outlet on the right. 
+The below photo shows our hardware (rev 1.2) assembled in an enclosure to include mains contactors, residual current detector/protection and current transformers. It is supplied by a three-phases 32A via at the CEE plug on the left, with power forwarded to the CCS 2 outlet on the right; see [Installation](./Installation.md) for details on the external components and the wiring. 
 
 <img src="./images/hardware_1_2_enclosure.jpeg" alt="Rev 1.2" style="zoom:80%;" />
 
@@ -77,7 +77,7 @@ The below photo shows our hardware (rev 1.2) assembled in an enclosure to includ
 
 Well, no turn-key solution ... but perhaps some interesting venues for the enthusiast.
 
-- If you are interested in hardware and want to assemble your very own CCS implementation there are only a view likewise open projects, e.g., [SmartEVSE](https://www.smartevse.nl/) and [OpenEVSE](https://www.openevse.com/). You are invited to inspect our proposal [./circuit](./circuit/), compare the specifications and take your choice.
+- If you are interested in hardware and want to assemble your very own CCS implementation there are only a view likewise open projects, e.g., [SmartEVSE](https://www.smartevse.nl/) and [OpenEVSE](https://www.openevse.com/). You are invited to inspect our proposed [./circuit](./circuit/), compare the specifications and take your choice.
 - If you are interested in ESP32 mesh networking, perhaps for a completely different target application, feel free to run our implementation [./demesh](./demesh/) in stand-alone mode on common ESP32 dev-boards or more conveniently on M5Sticks. Features include OTA firmware update, control via MQTT and/or plain TCP sockets, synchronised system time, Optiboot (STK500) programming of a target AVR uC
 
 
@@ -105,7 +105,6 @@ The Wikipedia articles on the [SAE 1772](https://de.wikipedia.org/wiki/SAE_J1772
 ## Copyright/License
 
 All software compents in this project are _"Copyright by the Authors"_ and have been developed independently and from scratch. We provide them as  _"Open Source"_ under terms of the MIT License, the Apache License, and/or the GPL, as indicated in the respective code headers.  In particular, you are invited to re-cycle whatever you find useful in whatever project you are after. In the case you feel that you gained a relevant benefit, we would appreciate an acknowledgement, e.g., by linking to our GitHub repository. Regarding the hardware circuitry, our work in relevant aspects is a derivative of [SmartEVSE](https://www.smartevse.nl/) distributed as _"Open Source"_ via [GitHub](https://github.com/SmartEVSE) with no specific license stated, and we pass on our contribution to the circuitry likewise. 
-
 
 
 

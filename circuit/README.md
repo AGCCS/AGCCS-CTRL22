@@ -28,7 +28,9 @@ We use an ATmega 4808 AVR uC to control the charging process. Its core tasks are
 
 <img src="../images/circuit.png" alt="Circuit Overview" style="zoom:67%;" />
 
-For the AVR, we provide the firmware [../ctrl22c](../ctrl22c/) which is configured via a human readable protocol on the serial port TX0/RX0, accessible also via J4 for development and testing. **Note that our circuit is 3.3V and you will hence need a 3.3V USB-to-serial converter or a suitable level shifter to access J4.** Once configured, the AVR safely controls the charging process in a stand-alone fashion. The optional ESP32 is utilised to set up a wireless mesh network such that a remote server can re-configure the AVR, e.g. set power limits, enable/disable individual mains phases.  The programming header J5 is used to bootstrap firmware installation (details given below). Once set, further firmware updates can be organised by the remote host, e.g., by the utility `dmctrl.py`; see [../utils](../utils/). 
+For details on the external components and the overall wiring, see  see [../Installation.md](../Installation.md).  
+
+The AVR, runs the firmware [../ctrl22c](../ctrl22c/) which is configured via a human readable protocol on the serial port TX0/RX0, accessible also via J4 for development and testing. **Note that our circuit is 3.3V and you will hence need a 3.3V USB-to-serial converter or a suitable level shifter to access J4.** Once configured, the AVR safely controls the charging process in a stand-alone fashion. The optional ESP32 is utilised to set up a wireless mesh network such that a remote server can re-configure the AVR, e.g. set power limits, enable/disable individual mains phases.  The programming header J5 is used to bootstrap firmware installation (details given below). Once set, further firmware updates can be organised by the remote host, e.g., by the utility `dmctrl.py`; see [../utils](../utils/). 
 
 
 
