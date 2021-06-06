@@ -26,5 +26,9 @@ For our basic test rigs, the wiring is according to the below diagram. Configure
 
 ![installation](./images/installation.png)
 
- We are currently in the process of assembling a slightly larger unit that additionally holds a power-meter with RS485 interface and a Raspberry Pi, and that forwards the CEE supply to a CEE outlet. 
+ We are currently in the process of assembling a slightly larger unit that additionally holds a power-meter with RS485 interface and a Raspberry Pi, and that forwards the CEE supply to a CEE/CE outlet. 
+
+
+
+![installationx](./images/installationx.png)
 
