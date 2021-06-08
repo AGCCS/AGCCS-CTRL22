@@ -75,7 +75,7 @@ The below photo shows our hardware (rev 1.2) assembled in an enclosure to includ
 
 Test run on a single vehicle (Opel Corsa) varying from 3kW to 11kW ... yes, we can control the charge ;-)
 
-![charging opel corse](./images/charging-corsa-2021-june.png)
+<img src="./images/charging-corsa-2021-june.png" alt="charging EV"/>
 
 
 
