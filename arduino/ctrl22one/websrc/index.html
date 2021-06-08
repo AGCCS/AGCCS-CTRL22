@@ -245,35 +245,27 @@
     var onofftot;
 
     function onoffset() {
-      var ccsson=  (ccss>=10) && (ccss<50); 
-      if(onoffprg && (ccsson==onoffcmd))
+      var ccsson= sonoff;
+      if(onoffprg && (sonoff==onoffcmd))
         onoffprg=false;
       if(onoffprg) return;
       clearTimeout(onofftot);
-      if(ccsson)  { 
+      if(sonoff==1)   
  	document.getElementById("onoff").style = "color:#007bff";
-        return;
-      }
-      document.getElementById("onoff").style = "color:currentColor";
+      if(sonoff==0) 
+ 	document.getElementById("onoff").style = "color:currentColor";	  
     }
     	
     function onoffget() {
-      window.console.log("sensed operator buttor");
-      if(!onoffprg) {
-        if( (ccss>=10) && (ccss<50) )  { 
-          onoffcmd=0;
-          onoffprg=true;
-        }
-        if( (ccss>=50) && (ccss<60) )  { 
-          onoffcmd=1;
-          onoffprg=true;
-        }
-        if(onoffprg) {   
-          if(wbsck) wbsck.send('{"sonoff":' + onoffcmd.toString() +'}');
-          document.getElementById("onoff").style = "color:orange";
-          onofftot=setTimeout(function(){ onoffprg=false; onoffset();}, 30000);
-        }
-      }
+      window.console.log("sensed operator button");
+      if(onoffprg) return;	
+      if(sonoff==1) onoffcmd=0;
+      else onoffcmd=1;
+      window.console.log("sending command sonoff " + onoffcmd.toString());
+      onoffprg=1;
+      if(wbsck) wbsck.send('{"sonoff":' + onoffcmd.toString() +'}');
+      document.getElementById("onoff").style = "color:orange";
+      onofftot=setTimeout(function(){ onoffprg=false; onoffset();}, 5000);      
     }
 
 
@@ -390,6 +382,7 @@
       if("sphases" in jsonObject) { sphases=jsonObject.sphases; isste=true; };
       if("ccss"    in jsonObject) { ccss=jsonObject.ccss;       isste=true; };
       if("smaxcur" in jsonObject) { smaxcur=jsonObject.smaxcur; isste=true; };
+      if("sonoff"  in jsonObject) { sonoff=jsonObject.sonoff;   isste=true; };
       // update UI
       if(isste) {
         // display only
@@ -399,7 +392,7 @@
    	  pwrsldset();
 	}    
         // adjust controls: on/off button	
-        if("ccss" in jsonObject) {
+        if("sonoff" in jsonObject) {
           onoffset();
         }
       }

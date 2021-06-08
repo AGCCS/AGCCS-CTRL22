@@ -14,7 +14,7 @@ The [schematics](agccs-ctrl22-schematics.pdf ) proposed here have been derived f
 
 When we started AGCCS, we thought of modding SmartEVSE units to our specific needs. However, it soon became clear that this is not vialable, so we decided to design our own board.  
 
-The original adaption to address our requirements was developed in course of the BA thesis *Entwicklung, Aufbau und Test einer Ladeeinrichtung für Elektrofahrzeuge nach IEC62169* by Pascal Thurnherr at FAU/Erlangen and has been published in [this project](https://github.com/dreadnomad/FGCCS-Ctrl22). The present repository is a strip down to the essentials. You may want to inspect the original sources; in particular the [BA thesis](../doc/Bachelorarbeit_Pascal_Thurnherr.pdf) includes a convenient summary of the electrical specifications from the CCS standard IEC-62196, as far as relevant for the project at hand.
+The original adaption to address our requirements was developed in course of the BA thesis *Entwicklung, Aufbau und Test einer Ladeeinrichtung für Elektrofahrzeuge nach IEC62169* by Pascal Thurnherr at FAU/Erlangen and has been published in [this project](https://github.com/dreadnomad/FGCCS-Ctrl22). This folder of the present repository is a strip down to the essentials. You may want to inspect the original sources; in particular the [BA thesis](../doc/Bachelorarbeit_Pascal_Thurnherr.pdf) includes a convenient summary of the electrical specifications from the CCS standard IEC-62196, as far as relevant for the project at hand.
 
 # Theory of Operation in a Nutshell
 
@@ -78,7 +78,7 @@ To get bootstrapped, we need to install an initial version of firmware for both 
 The ATmega4808 used in our project is a modern incarnation of the ATmega series, and in many aspects more closely related to the Xmega series than to clasical ATmegas. You will need a fairly recent version of `avr-gcc`, `avr-libc` and `avr-binutils` (verified with versions 7.3, 2.0.0 and 2.26, respectively):
 
 - for Linux an appropriate toolchain should be supplied by your distribution (verified for Debian; should be the same for many popular Debian derivates);
-- for Mac OSX and Windows, the most pragmatic way to get a recent toolchain is to borrow it from an up-to-date Arduino installation (look for `_where_ever_Ardiono_is/Java/hardware/tools/avr/bin/` and set your `PATH` environment variable accordingly. 
+- for Mac OSX and Windows, the most pragmatic way to get a recent toolchain is to borrow it from an up-to-date Arduino installation (look for `_where_ever_Ardiono_is/Java/hardware/tools/avr/bin/` and set your `PATH` environment variable accordingly). 
 
 Another speciality of the XMega series inherited by the ATmega4808 is that they are natively programmed via the so called UPDI one-pin interface. The official programmer *Atmel ICE* ($100+) works fine with Windows and Atmel AVR Studio (Version 7 or later) and provides professional grade debugging facilities. However, at the time of writing, *Atmel ICE* is not so well supported by mainstream `avrdude` and may not be accessible via Linux/Mac OSX. Fortunately, the [`pyudpi project`](https://github.com/mraardvark/pyupdi) provides a low-cost alternative which only needs an of the shelf USB-to-serial converter and a single 4.7K resistor --- we used this approach with no problems at all on Mac OSX and Linux. **Again: you will need a 3.3V USB-serial converter - do not trust the labels, use your scope/meter - otherwise you risk to fry your AVR**.
 
@@ -205,7 +205,7 @@ avrdude -patmega4808  -carduino -Pnet:192.168.4.1:2323 -U flash:w:{SOME_HEX_FILE
 
 In this repository we provide the current state of development Rev-1-x and the latest stable version Rev-1-2, both as editable KiCad projects. For documentation purposes, earlier revisions are provided as PDFs for inspection. 
 
-The initial revision Rev-1-0 passed our tests conducted with a first-installation firmware archived in [Pascal Thurnherrs repository](https://github.com/dreadnomad/FGCCS-Ctrl22). Rev-1-1 is an incremental upgrade by the same team, it should be fine too from an electronics perspective. We just have assembled the first prototypes of our intermediate finalist Rev-1-2. All functional units passed basic tests, e.g., we can drive the contactors and generate/read-back the CP signal using the current firmware [Ctrl22C](../ctrl22c/).  Once we have actually charged some EV, we'll tidy up the repository and remove obsolete earlier revisions.
+The initial revision Rev-1-0 passed our tests conducted with a first-installation firmware archived in [Pascal Thurnherrs repository](https://github.com/dreadnomad/FGCCS-Ctrl22). Rev-1-1 is an incremental upgrade by the same team, it should be fine too from an electronics perspective. As of June 2021, we have assembled three prototypes of our intermediate finalist Rev-1-2. All functional units passed basic tests, e.g., we can drive the contactors and generate/read-back the CP signal using the current version of the production firmware [Ctrl22C](../ctrl22c/).  We used this setup to charge an Opel Corsa with no issues whatsoever. Tests included dynamic control of allocated power to a max of 11kW (as limited by our local supply), as well as pause/resume.
 
 
 
@@ -213,7 +213,7 @@ The initial revision Rev-1-0 passed our tests conducted with a first-installatio
 
 - initial release by Pascal Thurnherr
 - thoroughly tested on a component level; e.g, accurate generation of CP and reading the imposed load
-- a number of minor hickups, however, with a slightly modded version we actually managed to charge Christophs EV 
+- a number of minor hickups, however, with a slightly modded version we actually managed to charge Christophs EV with Pascals first-installation firmware 
 
 
 

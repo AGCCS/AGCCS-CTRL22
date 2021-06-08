@@ -67,9 +67,15 @@ very near future --- stay tuned.
 
 ## Prototype
 
-The below photo shows our hardware (rev 1.2) assembled in an enclosure to include mains contactors, residual current detector/protection and current transformers. It is supplied by a three-phases 32A via at the CEE plug on the left, with power forwarded to the CCS 2 outlet on the right; see [Installation](./Installation.md) for details on the external components and the wiring. 
+The below photo shows our hardware (rev 1.2) assembled in an enclosure to include mains contactors, residual current detector/protection and current transformers. It is supplied by a three-phases at 32A via  the CEE plug on the left, with power forwarded to the CCS 2 outlet on the right; see [Installation](./Installation.md) for details on the external components and the wiring. 
 
 <img src="./images/hardware_1_2_enclosure.jpeg" alt="Rev 1.2" style="zoom:80%;" />
+
+
+
+Test run on a single vehicle (Opel Corsa) varying from 3kW to 11kW ... yes, we can control the charge ;-)
+
+![](images/charging-corsa-2021-june.png)
 
 
 

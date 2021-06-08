@@ -1027,11 +1027,11 @@ void  target_lcb() {
   // remote on/off command, exec in 5 secs
   static Timer tonoff;
   static int vccss;
-  if( (g_tcontrol_sonoff==0) && (g_tstate_ccss >= 10) ) { 
+  if(g_tcontrol_sonoff==0) {
     tonoff.set(5000);
     vccss=40;
   }    
-  if( (g_tcontrol_sonoff==1) && (g_tstate_ccss >= 40) ) {
+  if(g_tcontrol_sonoff==1) {
     tonoff.set(5000);
     vccss=10;
   }    
@@ -1275,13 +1275,6 @@ void  target_lcb() {
     if(pn=="cur3") g_tstate_cur3=pv;
     // trigger heartbeat
     if(pn=="ccss") g_tstate_update=true;
-    // update fake state
-    if(g_tstate_sphases>100)
-      g_tstate_smaxpow=(int) (g_tstate_smaxcur / 10.0 * (230.0 *3) / 100.0 + 0.5); 
-    else if(g_tstate_sphases>10)
-      g_tstate_smaxpow=(int) (g_tstate_smaxcur / 10.0 * (230.0 *2) / 100.0 + 0.5); 
-    else  
-      g_tstate_smaxpow=(int) (g_tstate_smaxcur / 10.0 * (230.0 *1) / 100.0 + 0.5); 
   }
   // send power-on requests
   if(pon && (!lnbsy) && (!wtrply.running())) {  
@@ -1294,11 +1287,17 @@ void  target_lcb() {
     static Periodic b3(2000, 1500);
     if(b3.expired()) { Serial2.println("sphases?"); wtrply.set(500);}  
   }
-  // clear on/off
-  if(g_tstate_ccss<10) {
-    if(g_tstate_sonoff==0) g_tcontrol_sonoff=1;
-  }
   // forward commands
+  /*
+  if((g_tcontrol_smaxcur>=0) || (g_tcontrol_sphases>=0)) {
+    if(g_tstate_sphases>100)
+      g_tstate_smaxpow=(int) (g_tstate_smaxcur / 10.0 * (230.0 *3) / 100.0 + 0.5); 
+    else if(g_tstate_sphases>10)
+      g_tstate_smaxpow=(int) (g_tstate_smaxcur / 10.0 * (230.0 *2) / 100.0 + 0.5); 
+    else  
+      g_tstate_smaxpow=(int) (g_tstate_smaxcur / 10.0 * (230.0 *1) / 100.0 + 0.5); 
+  } 
+  */   
   if((g_tcontrol_sphases>=0) && (!lnbsy) && (!wtrply.running())) {  
     Serial2.println("sphases="+String(g_tcontrol_sphases));
     g_tcontrol_sphases=-1;
@@ -1308,7 +1307,7 @@ void  target_lcb() {
     Serial2.println("smaxcur="+String(g_tcontrol_smaxcur));
     g_tcontrol_smaxcur=-1;
     wtrply.set(500);
-  }  
+  } 
   if((g_tcontrol_smaxpow>=0) && (!lnbsy) && (!wtrply.running())) {  
     if(g_tstate_sonoff==0) {
        g_tcontrol_smaxcur=0;       
@@ -1327,10 +1326,7 @@ void  target_lcb() {
     g_tcontrol_smaxpow=-1;
   }
   if((g_tcontrol_sonoff>=0) && (!lnbsy) && (!wtrply.running())) {  
-    if((g_tcontrol_sonoff==0) && (g_tstate_ccss >=10) && (g_tstate_ccss <50))
-      g_tstate_sonoff=g_tcontrol_sonoff;
-    if((g_tcontrol_sonoff==1) && (g_tstate_ccss >=50) && (g_tstate_ccss <60))
-      g_tstate_sonoff=g_tcontrol_sonoff;
+    g_tstate_sonoff=g_tcontrol_sonoff;
     g_tcontrol_smaxpow=g_tstate_smaxpow;
   }
   if((g_tcontrol_imaxpow>=0) && (!lnbsy) && (!wtrply.running())) {  
