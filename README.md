@@ -67,13 +67,13 @@ very near future --- stay tuned.
 
 ## Prototype
 
-The below photo shows our hardware (rev 1.2) assembled in an enclosure to include mains contactors, residual current detector/protection and current transformers. It is supplied by a three-phases at 32A via  the CEE plug on the left, with power forwarded to the CCS 2 outlet on the right; see [Installation](./Installation.md) for details on the external components and the wiring. 
+The below photo shows our hardware (rev 1.2) assembled in an enclosure to include mains contactors, residual current detector/protection and current transformers. It is supplied by three-phases at 32A via the CEE plug on the left, with power forwarded to the CCS 2 outlet on the right; see [Installation](./Installation.md) for details on the external components and the wiring. 
 
 <img src="./images/hardware_1_2_enclosure.jpeg" alt="Rev 1.2" style="zoom:80%;" />
 
 
 
-Test run on a single vehicle (Opel Corsa) varying from 3kW to 11kW ... control the power ;-)
+Test run on a single vehicle (Opel Corsa) varying from 3kW to 11kW ... lets control the power ;-)
 
 <img src="./images/charging-corsa-2021-june.png" alt="charging EV"/>
 
@@ -110,7 +110,7 @@ The Wikipedia articles on the [SAE 1772](https://de.wikipedia.org/wiki/SAE_J1772
 
 ## Copyright/License
 
-All software compents in this project are _"Copyright by the Authors"_ and have been developed independently and from scratch. We provide them as  _"Open Source"_ under terms of the MIT License, the Apache License, and/or the GPL, as indicated in the respective code headers.  In particular, you are invited to re-cycle whatever you find useful in whatever project you are after. In the case you feel that you gained a relevant benefit, we would appreciate an acknowledgement, e.g., by linking to our GitHub repository. Regarding the hardware circuitry, our work in relevant aspects is a derivative of [SmartEVSE](https://www.smartevse.nl/) distributed as _"Open Source"_ via [GitHub](https://github.com/SmartEVSE) with no specific license stated, and we pass on our contribution to the circuitry likewise. 
+All software compents in this project are _"Copyright by the Authors"_ and have been developed independently and from scratch. We provide them as _"Open Source"_ under terms of the MIT License, the Apache License, and/or the GPL, as indicated in the respective code headers.  In particular, you are invited to re-cycle whatever you find useful in whatever project you are after. In the case you feel that you gained a relevant benefit, we would appreciate an acknowledgement, e.g., by linking to our GitHub repository. Regarding the hardware circuitry, our work in relevant aspects is a derivative of [SmartEVSE](https://www.smartevse.nl/) distributed as _"Open Source"_ via [GitHub](https://github.com/SmartEVSE) with no specific license stated, and we pass on our contribution to the circuitry likewise. 
 
 
 
