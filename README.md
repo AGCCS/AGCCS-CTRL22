@@ -11,7 +11,7 @@ We propose a design for a network of EV charging stations compliant to the CCS s
 - [./arduino](./arduino/): Arduino IDE compatible firmware for stand-alone operation (side track)
 - [./doc](./doc/): Thesis and other documents regarding this project
 
-**DISCLAIMER 1.** We do not provide a turn-key solution and do not plan to do so in near future. Rather we invite the enthusiast to actively contribute or to passively make use of our collection of resources and to share their experience. The current project status is **"work in progress"**.
+**DISCLAIMER 1.** We do not provide a turn-key solution and do not plan to do so in near future. Rather we invite the enthusiast to actively contribute or to passively make use of our collection of resources and to share their experience. We started this project in 2019 and are making steady progress. However, there is still a relevant todo-list. 
 
 **DISCLAIMER 2.** All material provided in this repository comes *'as is'* with no explicit or implied warranty. In particular, the installation of equipment that directly connects to mains power should only by considered by individuals with adequate skills and with particular care.
 
@@ -36,6 +36,8 @@ Our implementation consists of three main components
 - a centralised host for dynamic power allocation and **monitoring** 
 
 All three components are open source and can be hence adapted to best fit a variety of application scenarios.
+
+*From the time we started this project, the market changed a lot and, as of 2021, a number wallboxes with similar features are readily available. However, we believe the an open source approach is still valuable.*
 
 
 
@@ -73,7 +75,7 @@ The below photo shows our hardware (rev 1.2) assembled in an enclosure to includ
 
 
 
-Test run on a single vehicle (Opel Corsa) varying from 3kW to 11kW ... lets control the power ;-)
+Test run on an individual vehicle (type Opel Corsa) varying from 3kW to 11kW ... lets control the power ;-)
 
 <img src="./images/charging-corsa-2021-june.png" alt="charging EV"/>
 
@@ -81,10 +83,10 @@ Test run on a single vehicle (Opel Corsa) varying from 3kW to 11kW ... lets cont
 
 ## How/Where/Why to Get Started
 
-Well, no turn-key solution ... but perhaps some interesting venues for the enthusiast.
+Well, no turn-key solution ... but perhaps some interesting venues for the enthusiast:
 
 - If you are interested in hardware and want to assemble your very own CCS implementation there are only a view likewise open projects, e.g., [SmartEVSE](https://www.smartevse.nl/) and [OpenEVSE](https://www.openevse.com/). You are invited to inspect our proposed [./circuit](./circuit/), compare the specifications and take your choice.
-- If you are interested in ESP32 mesh networking, perhaps for a completely different target application, feel free to run our implementation [./demesh](./demesh/) in stand-alone mode on common ESP32 dev-boards or more conveniently on M5Sticks. Features include OTA firmware update, control via MQTT and/or plain TCP sockets, synchronised system time, Optiboot (STK500) programming of a target AVR uC
+- If you are interested in ESP32 mesh networking, perhaps for a completely different target application, feel free to run our implementation [./demesh](./demesh/) in stand-alone mode on common ESP32 dev-boards or more conveniently on M5Sticks. Features include OTA firmware update, control via MQTT and/or plain TCP sockets, synchronised system time, Optiboot (STK500) programming of a target AVR uC.
 
 
 
@@ -104,13 +106,13 @@ This project is an initiative by Christoph Pflaum and Thomas Moor, both with FAU
 
 ## Acknowledgements
 
-The Wikipedia articles on the [SAE 1772](https://de.wikipedia.org/wiki/SAE_J1772nd), the [IEC 62196](https://de.wikipedia.org/wiki/IEC_62196)  and the [IEC 62196 Type 2](https://de.wikipedia.org/wiki/IEC_62196_Typ_2) standards provide an excellent entry point to learn about EV charging technology and we would like to thank the respective authors for their effort. Regarding the electrical engineeering aspects of this project, we hereby acknowledge the projects [SmartEVSE](https://www.smartevse.nl/) and [OpenEVSE](https://www.openevse.com/), which make their circuitry available for us to inspect and re-use. Starting from scratch would have been so much more tedious. On a more general scale, we appreciate the fact that nowerdays relevent software tools are made freely available, such as  the [KiCad EDA](https://kicad.org) , the [Espressif SDKs](https://github.com/espressif), and the [GCC](https://gcc.gnu.org/)-based XTENSA and AVR toolchains, naming only the ones most crucial for our project.
+The Wikipedia articles on the [SAE 1772](https://de.wikipedia.org/wiki/SAE_J1772nd), the [IEC 62196](https://de.wikipedia.org/wiki/IEC_62196)  and the [IEC 62196 Type 2](https://de.wikipedia.org/wiki/IEC_62196_Typ_2) standards provide an excellent entry point to learn about EV charging technology and we would like to thank the respective authors for their effort. Regarding the electrical engineeering aspects of this project, we hereby acknowledge the projects [SmartEVSE](https://www.smartevse.nl/) and [OpenEVSE](https://www.openevse.com/), which make their circuitry available for us to inspect and re-use. Starting from scratch would have been so much more tedious. On a more general scale, we appreciate the fact that nowerdays relevent software tools are made freely available, such as the [KiCad EDA](https://kicad.org) , the [Espressif SDKs](https://github.com/espressif), and the [GCC](https://gcc.gnu.org/)-based XTENSA and AVR toolchains, naming only the ones most crucial for our project.
 
 
 
 ## Copyright/License
 
-All software compents in this project are _"Copyright by the Authors"_ and have been developed independently and from scratch. We provide them as _"Open Source"_ under terms of the MIT License, the Apache License, and/or the GPL, as indicated in the respective code headers.  In particular, you are invited to re-cycle whatever you find useful in whatever project you are after. In the case you feel that you gained a relevant benefit, we would appreciate an acknowledgement, e.g., by linking to our GitHub repository. Regarding the hardware circuitry, our work in relevant aspects is a derivative of [SmartEVSE](https://www.smartevse.nl/) distributed as _"Open Source"_ via [GitHub](https://github.com/SmartEVSE) with no specific license stated, and we pass on our contribution to the circuitry likewise. 
+All software compents in this project are _"Copyright by the Authors"_ and have been developed independently and from scratch. We provide them as _"Open Source"_ under terms of the MIT License, the Apache License, and/or the GPL, as indicated in the respective code headers. In particular, you are invited to re-cycle whatever you find useful in whatever project you are after. In the case you feel that you gained a relevant benefit from our work, we would appreciate an acknowledgement, e.g., by linking to our GitHub repository. Regarding the hardware circuitry, our work in relevant aspects is a derivative of [SmartEVSE](https://www.smartevse.nl/) distributed as _"Open Source"_ via [GitHub](https://github.com/SmartEVSE) with no specific license stated, and we pass on our contributions to the circuitry likewise. 
 
 
 
