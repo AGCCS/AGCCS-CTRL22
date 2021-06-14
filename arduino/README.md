@@ -21,7 +21,7 @@ Easy to use remote control and monitoring Web GUI, all implemented stand-alone b
 
 
 
-## Firmware based on the Arduino XMegaCoreX 
+## Firmware based on the Arduino MegaCoreX 
 
 Nothing ready to share at this point of time --- not sure, how to go with this, in particular the timing of the RMS current measurement does not translate too easily --- for the time being, we will stick our the bare-bone firmware [Ctrl22C](../ctrl22c/).
 
