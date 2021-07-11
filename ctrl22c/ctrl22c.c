@@ -2329,6 +2329,7 @@ const char h_pilots[]   PROGMEM = "use \"pilots!\"/\"piloys~\" to en/disable per
 const char h_cpilot[]   PROGMEM = "read CP [V]";
 const char h_cpnslp[]   PROGMEM = "read CP on  nagativ halfwave [-V]";
 const char h_ppilot[]   PROGMEM = "read PP (same as cmaxcur)[100mA]";
+const char h_adcdmp[]   PROGMEM = "enable ADC count report for pilot reading";
 const char h_cpcur[]    PROGMEM = "read/write max. current indicated to the EV via PWM on CP";
 const char h_rms[]      PROGMEM = "use \"rms!\"/\"rms~\" to en/disable periodic current reading";
 const char h_rms1[]     PROGMEM = "get rms reading of CT1 [mV], use \"rms1!\" to trigger update"; 
@@ -2397,10 +2398,11 @@ const partable_t partable[]={
   {"cpilot",  &g_cpilot,    NULL,        NULL,        h_cpilot},  // ctrl pilot read-back [V]
   {"cpnslp",  &g_cpnslp,    NULL,        NULL,        h_cpnslp},  // ctrl pilot read-back on low slope, aka "diodtest"
   {"ppilot",  &g_ppilot,    NULL,        NULL,        h_ppilot},  // prox pilot read-back [100mA]
+  {"adcdmp",  NULL,         &p_adcdmp,   NULL,        h_adcdmp},  // "adcdmp!" to report ADC counts for pilots 
   {"cpcur",   &g_cpcurrent, NULL,        &cpcurrent,  h_cpcur},   // set PWM via setter, get from memory [100mA]
   {"rms",     &g_rms,       NULL,        &rms,        h_rms},     // en/disable periodic RMS updates
   {"rms1",    &g_rms1,      NULL,        &rms1_start, h_rms1},    // "rms1!" to trigger a single measurement on phase L1
-  {"rms2",    &g_rms2,      NULL,        &rms2_start, h_rms2},    // -- dito L3
+  {"rms2",    &g_rms2,      NULL,        &rms2_start, h_rms2},    // -- dito L2
   {"rms3",    &g_rms3,      NULL,        &rms3_start, h_rms3},    // -- dito L3
   {"rmsdmp",  NULL,         NULL,        &rms_dump,   h_rmsdmp},  // "rmsdmp!" dumps recent RMS record 
   {"caldmp",  NULL,         &p_caldmp,   NULL,        h_caldmp},  // "caldmp!" enables periodic output for rms calibration
