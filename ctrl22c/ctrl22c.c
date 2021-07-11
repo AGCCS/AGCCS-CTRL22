@@ -90,7 +90,7 @@ calibration and configuration (defaults can be saved/loaded to/from eeprom)
 *************************************************************************
 */
 
-#define PARCNT 9          // number of parameters
+#define PARCNT 11         // number of parameters
 int16_t p_boardrev=12;    // board rev 1.2
 int16_t p_imaxcur=160;    // installed max current in [100mA]
 int16_t p_iphases=123;    // enstalled phases
@@ -100,7 +100,8 @@ int16_t p_caldmp=0;       // set to 1 to turn on calibration output
 int16_t p_cala=1130;      // calibration parameter a (scale)
 int16_t p_calb=-212;      // calibration parameter b (offset)
 int16_t p_ccsdmp=0;       // set to 1 to turn on ccs state progress
-
+int16_t p_adcdmp=0;       // set to 1 to turn on for adc dump
+int16_t p_mincur=10;      // mininum current in [100mA]
 
 
 /*
@@ -135,13 +136,6 @@ convenience/debugging macros
 #define DBW_CLI(c)
 #endif
 
-// debug analog reading (pilots, temp, vcc)
-//#define DEBUG_ADC
-#ifdef DEBUG_ADC
-#define DBW_ADC(c)  DEBUG_WRITE(c)
-#else
-#define DBW_ADC(c)
-#endif
 
 // debug nvm access
 //#define DEBUG_NVM
@@ -666,6 +660,8 @@ void conf_load(void){
   p_cala     = nvm_read( 6);
   p_calb     = nvm_read( 7);
   p_ccsdmp   = nvm_read( 8);
+  p_mincur   = nvm_read( 9);
+  p_adcdmp   = nvm_read(10);
 }
 
 // write parameters to eeprom (signature for cli, return 1 on success)
@@ -688,6 +684,8 @@ int16_t conf_save(int16_t val){
   nvm_write( 6,p_cala);
   nvm_write( 7,p_calb);
   nvm_write( 8,p_ccsdmp);
+  nvm_write( 9,p_mincur);
+  nvm_write(10,p_adcdmp);
   nvm_write(PARCNT,g_nvmchk);
   CPU_SREG |= CPU_I_bm;
 #ifdef DEBUG_NVM
@@ -1088,7 +1086,8 @@ bool adc_temp(void) {
   ADC0.CTRLC |= ADC_REFSEL_VDDREF_gc;     // just to be sure ... ref aka 3.3V
   // done
   g_adc0_bsy=false;
-#ifdef DEBUG_ADC
+  // report
+  /*
   serial_writeln_sync();
   serial_write_pstr("% temp ");
   serial_write_int(ctemp);
@@ -1101,7 +1100,7 @@ bool adc_temp(void) {
   serial_write(')');
   serial_write_eol();
   serial_writeln_async();
-#endif  
+  */
   return true;
 }
 
@@ -1143,15 +1142,6 @@ bool adc_vcc(void) {
   ADC0.CTRLC |= ADC_REFSEL_VDDREF_gc;     // just to be sure ... ref aka 3.3V
   // done
   g_adc0_bsy=false;
-#ifdef DEBUG_ADC
-  serial_writeln_sync();
-  serial_write_pstr("% vcc ");
-  serial_write_int(g_vcc);
-  serial_write('@');
-  serial_write_int(vcc);
-  serial_write_eol();
-  serial_writeln_async();
-#endif  
   return true;
 }
 
@@ -1287,11 +1277,10 @@ bool adc_pilots(void) {
   // disable adc
   ADC0.CTRLA &= ~ADC_ENABLE_bm;
   g_adc0_bsy=false;
-  // done
-#ifdef DEBUG_ADC
+  // report
   static char cnt=0;
   cnt++;
-  if(cnt>100) {
+  if((p_adcdmp) && (cnt>100)) {
     cnt=0;
     serial_writeln_sync();
     serial_write_pstr("% pilot update: ");
@@ -1310,7 +1299,6 @@ bool adc_pilots(void) {
     serial_write_eol();
     serial_writeln_async();
   }  
-#endif  
   return true;
 }
 
@@ -2098,7 +2086,7 @@ void ccs_cb(void) {
     if(g_cur1>cur1) cur1=g_cur1;
     if(g_cur2>cur2) cur2=g_cur2;
     if(g_cur3>cur3) cur3=g_cur3;
-    if((g_cpilot==9) && (cur1+cur2+cur3<45) && (g_ssrphases_bin!=0x07)) {
+    if((g_cpilot==9) && (cur1+cur2+cur3<p_mincur) && (g_ssrphases_bin!=0x07)) {
       WRITE_CCSS("% C2 -> P0 (phases rejected)");
       g_ccs_st=P0;
     }
@@ -2112,7 +2100,7 @@ void ccs_cb(void) {
       g_ccs_st=OFF0;
     }    
     if(TRIGGER_SCHEDULE(toutC)) {
-      if((cur1+cur2+cur3<45) && (g_ssrphases_bin!=0x07)) {
+      if((cur1+cur2+cur3<p_mincur) && (g_ssrphases_bin!=0x07)) {
         WRITE_CCSS("% C2 -> P0 (phases rejected)");
         g_ccs_st=P0;
       } else {

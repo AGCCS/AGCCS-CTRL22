@@ -27,7 +27,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
 // AGCCS version (one digit major, one digit minor)
-#define VERSION 15
+#define VERSION 10
 
 // select board
 //#define M5STICK
