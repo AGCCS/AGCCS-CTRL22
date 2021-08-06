@@ -34,7 +34,7 @@ We are currently in the process of assembling a slightly larger unit that additi
 
 
 
-Specific parts used out test rigs. 
+Specific parts used in our test rigs. 
 
 - 2A circuit breaker, 1TE, ABB 2CDS251001R0024, apprx 5Euro
 - 2x20A contactor, 1TE, ABB ESB20-20-230, apprx 18Euro
@@ -45,4 +45,4 @@ Specific parts used out test rigs.
 - 3x40A ground fault circuit interrupter, Type B, ETEK EKL1-63B, apprx 150Euro
 - 32A CCS2 outlet, DUOSIDA, incl. lock, apprx 115Euro
 
-The given prices have been sampled in July 2020 are meant for first orientation and all refer to European suppliers. 
+The given prices have been sampled in July 2020 and are meant for first orientation. They all refer to European suppliers. 

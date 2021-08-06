@@ -119,7 +119,7 @@ echo "PROGMEM const char ${VAR}[] = {" > ${OUT}
 xxd -i < mkheaders_tmp >> ${OUT} 
 echo "};" >> ${OUT}
 echo "unsigned int ${VAR}_len = $(wc -c < ${INP});" >> ${OUT}
-
+rm mkheaders_tmp
 
 # alternative (let xxd doit)
 #echo -ne "PROGMEM const " > ${OUT}

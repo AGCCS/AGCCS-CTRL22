@@ -40,18 +40,19 @@
       "brkxusr":"???",
       "brkxpwd":"???", 
       "brkxtpc":"ctrl22one"
-    }
+    };
     var cfgwlan = {
       "stassid":"???",
       "stapwd" :"???"
-    }
+    };
     var cfgsys = {
       "imaxpwr": 110,
       "espver":"?.?",
       "avrver":"?.?",
       "devname" :"???" 
-    }
- 
+    };
+    var cfglocked=true;
+
     // target state
     var cur1=-1, cur2=-1, cur3=-1;
     var sphases=-1, aphases=-1, ccss=-1, smaxcur=-1, sonoff=-1;
@@ -105,24 +106,36 @@
     function reset() {
       window.console.log("reset request");
       $("#restartmdl").modal("show");
-      if(wbsck) wbsck.send('{"cmd":"reset"}');
-      setTimeout(function(){if(wbsck) wbsck.close();},1000);
-      setTimeout(function(){location.reload();},10000);      
-    }
+      setTimeout(function(){if(wbsck) wbsck.send('{"cmd":"reset"}');},3000);
+      setTimeout(function(){if(wbsck) wbsck.close();},4000);
+      setTimeout(function(){location.reload();},20000);
+    } 
 
-  
+    
     // ================================
     // get/set configuration from/to UI
     // ================================
 
     function cfgset() {
       window.console.log("cfgset: update GUI");
+
       document.getElementById("brkxen").checked=cfgmqtt.brkxen;
       document.getElementById("brkxurl").value=cfgmqtt.brkxurl;
       document.getElementById("brkxusr").value=cfgmqtt.brkxusr;
       document.getElementById("brkxpwd").value=cfgmqtt.brkxpwd;
       document.getElementById("brkxtpc").value=cfgmqtt.brkxtpc;
-      if(cfgmqtt.brkxen) {
+      document.getElementById("stassid").value=cfgwlan.stassid;
+      document.getElementById("stapwd").value=cfgwlan.stapwd;
+      document.getElementById("devname").value=cfgsys.devname;
+      document.getElementById("frmvrs").value= "ESP32 v"+cfgsys.espver+"/ AVR v"+cfgsys.avrver;
+      document.getElementById("frmvrs").setAttribute('disabled',true);
+      document.getElementById("instpwr").value= Math.round(cfgsys.imaxpwr/10);
+      pwrsld.setAttribute('max',Math.round(cfgsys.imaxpwr/10).toString());
+      var v=pwrsld.getValue();
+      if(10*v>cfgsys.imaxpwr) v= Math.round(cfgsys.imaxpwr/10);
+      pwrsld.setValue(v);
+
+      if((cfgmqtt.brkxen) && (!cfglocked)) {
         document.getElementById("brkxurl").removeAttribute('disabled');
         document.getElementById("brkxusr").removeAttribute('disabled');
         document.getElementById("brkxpwd").removeAttribute('disabled');
@@ -133,16 +146,29 @@
         document.getElementById("brkxpwd").setAttribute('disabled',true);
         document.getElementById("brkxtpc").setAttribute('disabled',true);
       }
-      document.getElementById("stassid").value=cfgwlan.stassid;
-      document.getElementById("stapwd").value=cfgwlan.stapwd;
-      document.getElementById("devname").value=cfgsys.devname;
-      document.getElementById("frmvrs").value= "ESP32 v"+cfgsys.espver+"/ AVR v"+cfgsys.avrver;
-      document.getElementById("frmvrs").setAttribute('disabled',true);
-      document.getElementById("instpwr").value= Math.round(cfgsys.imaxpwr/10);
-      pwrsld.setAttribute('max',Math.round(cfgsys.imaxpwr/10).toString());
-      var v=pwrsld.getValue();
-      if(10*v>cfgsys.imaxpwr) v= Math.round(cfgsys.imaxpwr/10);
-      pwrsld.setValue(v);      
+      if(!cfglocked) {
+        document.getElementById("brkxen").removeAttribute('disabled');
+        document.getElementById("brkxcfgbtn").removeAttribute('disabled');
+        document.getElementById("stassid").removeAttribute('disabled');
+        document.getElementById("stapwd").removeAttribute('disabled');
+        document.getElementById("stacfgbtn").removeAttribute('disabled');
+        document.getElementById("devname").removeAttribute('disabled');
+        document.getElementById("instpwr").removeAttribute('disabled');
+        document.getElementById("syscfgbtn").removeAttribute('disabled');
+        document.getElementById("avrcmd").removeAttribute('disabled');
+        document.getElementById("avrcmdbtn").removeAttribute('disabled');
+      } else { 
+        document.getElementById("brkxen").setAttribute('disabled',true);
+        document.getElementById("brkxcfgbtn").setAttribute('disabled',true);
+        document.getElementById("stassid").setAttribute('disabled',true);
+        document.getElementById("stapwd").setAttribute('disabled',true);
+        document.getElementById("stacfgbtn").setAttribute('disabled',true);
+        document.getElementById("devname").setAttribute('disabled',true);
+        document.getElementById("instpwr").setAttribute('disabled',true);
+        document.getElementById("syscfgbtn").setAttribute('disabled',true);
+        document.getElementById("avrcmd").setAttribute('disabled',true);
+        document.getElementById("avrcmdbtn").setAttribute('disabled',true);
+     }	  
     }
  
     function cfgget(elem) {
@@ -179,7 +205,6 @@
     function sysget() {
       var msg={"cmd":"cfgset"};
       $.extend(msg, cfgsys);
-      window.console.log(msg);
       if(wbsck) wbsck.send(JSON.stringify(msg));
       reset();
     }
@@ -208,8 +233,8 @@
       window.console.log("slider at "+p);
       smaxprg=true;
       smaxcmd=10*p;	
-      pwrsldtot=setTimeout(function(){ smaxprg=false; pwrsldset();}, 30000);
-      if(wbsck) wbsck.send('{"smaxpow" : '+10*p+'}');
+      pwrsldtot=setTimeout(function(){ smaxprg=false; pwrsldset();}, 5000);
+      if(wbsck) wbsck.send('{"smaxpwr" : '+10*p+'}');
     }
 
     function pwrsldset() {
@@ -359,6 +384,7 @@
       window.console.log(msg);  
       // update local copy of target configuration
       var iscfg=false;
+      if("locked"    in jsonObject) { cfglocked=jsonObject.locked;         iscfg=true; };	
       if("brkxen"    in jsonObject) { cfgmqtt.brkxen=jsonObject.brkxen;    iscfg=true; };	
       if("brkxurl"   in jsonObject) { cfgmqtt.brkxurl=jsonObject.brkxurl;  iscfg=true; };	
       if("brkxusr"   in jsonObject) { cfgmqtt.brkxusr=jsonObject.brkxusr;  iscfg=true; };	
@@ -366,10 +392,10 @@
       if("brkxtpc"   in jsonObject) { cfgmqtt.brkxtpc=jsonObject.brkxtpc;  iscfg=true; };
       if("stassid"   in jsonObject) { cfgwlan.stassid=jsonObject.stassid;  iscfg=true; };	
       if("stapwd"    in jsonObject) { cfgwlan.stapwd=jsonObject.stapwd;    iscfg=true; };
-      if("devname"   in jsonObject) { cfgsys.devname=jsonObject.devname;  iscfg=true; };
-      if("espver"    in jsonObject) { cfgsys.espver=jsonObject.espver;    iscfg=true; };
-      if("avrver"    in jsonObject) { cfgsys.avrver=jsonObject.avrver;    iscfg=true; };
-      if("imaxpwr"   in jsonObject) { cfgsys.imaxpwr=jsonObject.imaxpwr;  iscfg=true; };
+      if("devname"   in jsonObject) { cfgsys.devname=jsonObject.devname;   iscfg=true; };
+      if("espver"    in jsonObject) { cfgsys.espver=jsonObject.espver;     iscfg=true; };
+      if("avrver"    in jsonObject) { cfgsys.avrver=jsonObject.avrver;     iscfg=true; };
+      if("imaxpwr"   in jsonObject) { cfgsys.imaxpwr=jsonObject.imaxpwr;   iscfg=true; };
       // update UI
       if(iscfg) 
           cfgset();
@@ -667,7 +693,7 @@
 	                Take on settings
                       </div>
                       <div class="col" style="text-align: right;">
-                        <button type="button" class="btn btn-outline-secondary btn-sm" title="Restart" onclick="mqttget()"> 
+                        <button type="button" id="brkxcfgbtn" class="btn btn-outline-secondary btn-sm" title="Restart" onclick="mqttget()"> 
                           Save
                         </button>
                       </div>
@@ -706,7 +732,7 @@
 	                Take on credentials 
                       </div>
                       <div class="col" style="text-align: right;">
-                        <button type="button" class="btn btn-outline-secondary btn-sm" title="Restart" onclick="wlanget()"> 
+                        <button type="button" id="stacfgbtn" class="btn btn-outline-secondary btn-sm" title="Restart" onclick="wlanget()"> 
                           Restart
                         </button>
                       </div>
@@ -753,7 +779,7 @@
 	                Take on settings
                       </div>
                       <div class="col" style="text-align: right;">
-                        <button type="button" class="btn btn-outline-secondary btn-sm" title="Restart" onclick="sysget()"> 
+                        <button type="button" id="syscfgbtn" class="btn btn-outline-secondary btn-sm" title="Restart" onclick="sysget()"> 
                           Restart
                         </button>
                       </div>
@@ -817,7 +843,7 @@
           </ul>
         </div>
         <div class="modal-footer .bg-secondary text-end h5">
-          ... in 10 Seconds! 
+          ... in 20 Seconds! 
         </div>
       </div>
     </div>

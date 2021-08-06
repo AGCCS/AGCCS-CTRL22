@@ -47,10 +47,10 @@ THE SOFTWARE.
 *************************************************************************
 */
 
-// firmware revision 2021-04-25
+// firmware revision 2021-08-06
 
 // firmware version for OTA
-#define CTRL22C_VERSION 13  // XY reads vX.Y, i.e., one digit for major and minor, resp.
+#define CTRL22C_VERSION 14  // XY reads vX.Y, i.e., one digit for major and minor, resp.
 
 
 // 10 MHz clock on fgccs board 
@@ -90,10 +90,11 @@ calibration and configuration (defaults can be saved/loaded to/from eeprom)
 *************************************************************************
 */
 
-#define PARCNT 11         // number of parameters
+#define PARCNT 12         // number of parameters
 int16_t p_boardrev=12;    // board rev 1.2
 int16_t p_imaxcur=160;    // installed max current in [100mA]
-int16_t p_iphases=123;    // enstalled phases
+int16_t p_iphases=123;    // installed phases (1 or 123)
+int16_t p_icntcrs=3;      // installed contactors (1, 2 or 3)
 int16_t p_lclsms=100;     // ms to close lock (set to 0 for no lock)
 int16_t p_lopnms=100;     // ms to open lock  (set to 0 for no lock)
 int16_t p_caldmp=0;       // set to 1 to turn on calibration output
@@ -121,7 +122,7 @@ convenience/debugging macros
 
 
 // code section select switches
-#define MODE_INSTALL                         // enable mode for code/hardware tests
+#define MODE_DEVELOP                         // enable mode for code/hardware tests
 #define MODE_CONFIGURE                       // enable mode for calibration/configuration 
 
 
@@ -654,14 +655,15 @@ void conf_load(void){
   p_boardrev = nvm_read( 0);
   p_imaxcur  = nvm_read( 1);
   p_iphases  = nvm_read( 2);
-  p_lopnms   = nvm_read( 3);
-  p_lclsms   = nvm_read( 4);
-  p_caldmp   = nvm_read( 5);
-  p_cala     = nvm_read( 6);
-  p_calb     = nvm_read( 7);
-  p_ccsdmp   = nvm_read( 8);
-  p_mincur   = nvm_read( 9);
-  p_adcdmp   = nvm_read(10);
+  p_icntcrs  = nvm_read( 3);
+  p_lopnms   = nvm_read( 4);
+  p_lclsms   = nvm_read( 5);
+  p_caldmp   = nvm_read( 6);
+  p_cala     = nvm_read( 7);
+  p_calb     = nvm_read( 8);
+  p_ccsdmp   = nvm_read( 9);
+  p_mincur   = nvm_read(10);
+  p_adcdmp   = nvm_read(11);
 }
 
 // write parameters to eeprom (signature for cli, return 1 on success)
@@ -678,14 +680,15 @@ int16_t conf_save(int16_t val){
   nvm_write( 0,p_boardrev);
   nvm_write( 1,p_imaxcur);
   nvm_write( 2,p_iphases);
-  nvm_write( 3,p_lopnms);
-  nvm_write( 4,p_lclsms);
-  nvm_write( 5,p_caldmp);
-  nvm_write( 6,p_cala);
-  nvm_write( 7,p_calb);
-  nvm_write( 8,p_ccsdmp);
-  nvm_write( 9,p_mincur);
-  nvm_write(10,p_adcdmp);
+  nvm_write( 3,p_icntcrs);
+  nvm_write( 4,p_lopnms);
+  nvm_write( 5,p_lclsms);
+  nvm_write( 6,p_caldmp);
+  nvm_write( 7,p_cala);
+  nvm_write( 8,p_calb);
+  nvm_write( 9,p_ccsdmp);
+  nvm_write(10,p_mincur);
+  nvm_write(11,p_adcdmp);
   nvm_write(PARCNT,g_nvmchk);
   CPU_SREG |= CPU_I_bm;
 #ifdef DEBUG_NVM
@@ -916,8 +919,8 @@ int16_t lock(int16_t val) {
 }  
 
 // record currently enabled phases
-int16_t g_ssrphases=0;
-int16_t g_ssrphases_bin=0;
+int16_t g_aphases=0;
+int16_t g_aphases_bin=0;
 
 // operate SSRs with decimal encoded parameter, e.g "123" all on
 int16_t ssr(int16_t val) {
@@ -925,27 +928,63 @@ int16_t ssr(int16_t val) {
   // turn all off
   if(val==0) {
     PORTA.OUTCLR = (PIN6_bm | PIN5_bm | PIN4_bm);
-    g_ssrphases=0;
-    g_ssrphases_bin=0;
+    g_aphases=0;
+    g_aphases_bin=0;
     return val;
   };
   // turn enabled on i.e. decode parameter
-  g_ssrphases=val;
-  g_ssrphases_bin=0;
-  int dphases=val;
-  unsigned char setporta=0x00;
+  int aphases=val;
+  int aphases_bin=0;
+  int dphases=aphases;
   while(dphases>0) {
     int lsd=dphases % 10;
     switch(lsd) {
-    case 1: {setporta |= PIN6_bm; g_ssrphases_bin|=1; } break;
-    case 2: {setporta |= PIN5_bm; g_ssrphases_bin|=2; } break;
-    case 3: {setporta |= PIN4_bm; g_ssrphases_bin|=3; } break;
+    case 1: aphases_bin|=1; break;
+    case 2: aphases_bin|=2; break;
+    case 3: aphases_bin|=4; break;
     default: break;
     }
     dphases = dphases /10;
   }
+  // operate SSRs ...
+  unsigned char setporta=0x00;
+  // a) only one SSR on terminal L1, drives all installed phases
+  if(p_icntcrs==1) {
+    if(aphases==p_iphases) {
+      setporta |= PIN6_bm;
+    } else {
+      aphases=0;
+      aphases_bin=0;
+    }
+  }  
+  // b) one SSR on terminal L1 for L1, second SSR on L2 for all installed phases
+  if(p_icntcrs==2) {
+    if(aphases==1) {
+      setporta |= PIN6_bm;
+    } else {
+    if(aphases==p_iphases) {
+      setporta |= PIN5_bm;
+    } else {
+      aphases=0;
+      aphases_bin=0;
+    }}
+  }  
+  // c) three SSRs, one for each phase
+  if(p_icntcrs==3) {
+    if(p_iphases>100) {
+      if(aphases_bin & 1) setporta |= PIN6_bm;
+      if(aphases_bin & 2) setporta |= PIN5_bm;
+      if(aphases_bin & 4) setporta |= PIN4_bm;
+    } else {
+      aphases=0;
+      aphases_bin=0;
+    }
+  }  
+  // doit  
   PORTA.OUTSET = setporta;
   PORTA.OUTCLR = (PIN6_bm | PIN5_bm | PIN4_bm) & (~setporta);
+  g_aphases=aphases;
+  g_aphases_bin=aphases_bin;
   return val;
 }  
 
@@ -958,8 +997,6 @@ int16_t sigrel(int16_t val) {
 
 // check brown out (open lock is our last action)
 void bot_cb(void) {
-  // no brown-out detection in early boards
-  if(p_boardrev<1.2) return;
   // read brown-out detector
   bool bot = !(PORTF.IN & PIN0_bm);
   if(!bot) return;
@@ -1186,21 +1223,13 @@ bool adc_pilots(void) {
   while (!(ADC0.INTFLAGS & ADC_RESRDY_bm));
   int16_t cp=ADC0.RES;
   cp >>= 2;  
-  // convert to CP value (changed R13 on board rev1.2)
+  // convert to CP value 
   int16_t cpv;
-  if(p_boardrev<12) {
-    if(cp > 980)  cpv=12;                          //  12V +/- tolerance (tolerances taken from Thurnherr original source)
-    else if((cp >  860) && (cp < 915)) cpv=9;      //   9V +/- tolerance
-    else if((cp >  720) && (cp < 800)) cpv=6;      //   6V +/- tolerance
-    else if((cp > 1024) &&  (cp <  1)) cpv=3;      //   3V +/- tolerance [not implementet >> invalid]
-    else cpv=-1;                                   // invalid reading
-  } else {  
-    if(cp > 861)  cpv=12;                          //  12V +/- tolerance [11V..12V]
-    else if((cp >  779) && (cp < 834)) cpv=9;      //   9V +/- tolerance [8V..10V]
-    else if((cp >  697) && (cp < 752)) cpv=6;      //   6V +/- tolerance [5V..7V]
-    else if((cp > 1024) &&  (cp <  1)) cpv=3;      //   3V +/- tolerance [not implementet >> invalid]
-    else cpv=-1;                                   // invalid reading
-  }  
+  if(cp > 861)  cpv=12;                          //  12V +/- tolerance [11V..12V]
+  else if((cp >  779) && (cp < 834)) cpv=9;      //   9V +/- tolerance [8V..10V]
+  else if((cp >  697) && (cp < 752)) cpv=6;      //   6V +/- tolerance [5V..7V]
+  else if((cp > 1024) &&  (cp <  1)) cpv=3;      //   3V +/- tolerance [not implementet >> invalid]
+  else cpv=-1;                                   // invalid reading
   // filter
   static char ccnt;
   if(g_filter_c==-2) {
@@ -1222,15 +1251,10 @@ bool adc_pilots(void) {
   while (!(ADC0.INTFLAGS & ADC_RESRDY_bm));
   int16_t dt=ADC0.RES;
   dt >>= 2;  
-  // convert to CP value (changed R13 on board rev1.2)
+  // convert to CP value 
   int16_t dtv;
-  if(p_boardrev<12) {
-    if((dt > 25) && (dt < 95))   dtv=12;         // -12V +/- tolerance [taken from Thurnherr original source] 
-    else dtv=-1;                                 // invalid reading
-  } else {
-    if((dt > 221) && (dt < 275)) dtv=12;         // -11.4V +/- tolerance [-12.4V ... -11.4V]
-    else dtv=-1;                                 // invalid reading
-  }
+  if((dt > 221) && (dt < 275)) dtv=12;         // -11.4V +/- tolerance [-12.4V ... -11.4V]
+  else dtv=-1;                                 // invalid reading
   // filter
   static char dcnt;
   if(g_filter_d==-2) {
@@ -2070,23 +2094,27 @@ void ccs_cb(void) {
     aphases=g_sphases;
     cpcurrent(amaxcur);
     sigrel(1);
-    ssr(aphases);
-    rms(1);
     pilots(1);
+    ssr(aphases);
+    if(g_aphases != aphases) {
+      WRITE_CCSS("% C1 -> ERR (illegal phases)");
+      g_ccs_st=ERR0;
+    }  
+    rms(1);
     WRITE_CCSS("% C1 -> C2");
     g_ccs_st=C2;
-    toutC=g_systicks+30000;
-    tphases|=g_ssrphases_bin;
+    toutC=g_systicks+10000;
+    tphases=g_aphases_bin;
     cur1=-1;
     cur2=-1;
     cur3=-1;
   }  
-  // state C2 (EV charging, first 30secs): sense whether current/phases are accepted
+  // state C2 (EV charging, first 10secs): sense whether current/phases are accepted
   if(g_ccs_st==C2) {
     if(g_cur1>cur1) cur1=g_cur1;
     if(g_cur2>cur2) cur2=g_cur2;
     if(g_cur3>cur3) cur3=g_cur3;
-    if((g_cpilot==9) && (cur1+cur2+cur3<p_mincur) && (g_ssrphases_bin!=0x07)) {
+    if((g_cpilot==9) && (cur1+cur2+cur3<p_mincur) && (g_aphases_bin!=0x07)) {
       WRITE_CCSS("% C2 -> P0 (phases rejected)");
       g_ccs_st=P0;
     }
@@ -2100,7 +2128,7 @@ void ccs_cb(void) {
       g_ccs_st=OFF0;
     }    
     if(TRIGGER_SCHEDULE(toutC)) {
-      if((cur1+cur2+cur3<p_mincur) && (g_ssrphases_bin!=0x07)) {
+      if((cur1+cur2+cur3<p_mincur) && (g_aphases_bin!=0x07)) {
         WRITE_CCSS("% C2 -> P0 (phases rejected)");
         g_ccs_st=P0;
       } else {
@@ -2121,7 +2149,7 @@ void ccs_cb(void) {
       g_button=false;
       g_ccs_st=OFF0;
     }
-    // update configuration: low power
+    // update power configuration
     if((g_sphases==0) || (g_smaxcur<60) || (g_ppilot<60)) {
       amaxcur=0;
       aphases=0;
@@ -2136,7 +2164,6 @@ void ccs_cb(void) {
       amaxcur=g_smaxcur;
       if(amaxcur>g_ppilot) amaxcur=g_ppilot;
       cpcurrent(amaxcur);
-      ssr(aphases);
     }}
   }
   // state P0 (EV prepare to pause charging): set timer to pause charging in 10sec
@@ -2322,6 +2349,7 @@ const char h_error[]    PROGMEM = "read error flags, see declaration \"g_error\"
 const char h_save[]     PROGMEM = "use \"save!\" to save configuration to EEPROM";
 const char h_imaxcur[]  PROGMEM = "read/write installed max. current[100mA]";
 const char h_iphases[]  PROGMEM = "read/write installed phases [decimal encoding]"; 
+const char h_icntcrs[]  PROGMEM = "read/write installed contactors [1, 2 or 3]"; 
 const char h_brdrev[]   PROGMEM = "set/get board revision";
 const char h_ccsdmp[]   PROGMEM = "use \"ccsdmp!\" to track CCS state progress";
 const char h_sigrel[]   PROGMEM = "use \"sigrel!\"/\"sigrel~\" to en/disable the signal relay";
@@ -2374,9 +2402,11 @@ const partable_t partable[]={
   {"temp",    &g_temp,      NULL,        NULL,        h_temp},    // g_temp can be read from memory
   {"vcc",     &g_vcc,       NULL,        NULL,        h_vcc},     // g_vcc can be read from memory
   {"ccss",    &g_ccss_cli,  NULL,        NULL,        h_ccss},    // g_ccs_st can be read from memory
+  {"smaxcur", &g_smaxcur,   &g_smaxcur,  NULL,        h_smaxcur}, // set dyn. max supply mains current 
   {"cmaxcur", &g_ppilot,    NULL,        NULL,        h_cmaxcur}, // get cable max current (same as PPilot)
   {"amaxcur", &g_cpcurrent, NULL,        NULL,        h_amaxcur}, // get actual max current as set on PWM
-  {"aphases", &g_ssrphases, NULL,        NULL,        h_aphases}, // get actually enabled phase as set vua SSRs
+  {"sphases", &g_sphases,   &g_sphases,  NULL,        h_sphases}, // set dyn. enabled mains supply phases (decimal encoded)
+  {"aphases", &g_aphases,   NULL,        NULL,        h_aphases}, // get actually enabled phase as set via SSRs
   {"cur1",    &g_cur1,      NULL,        NULL,        h_cur1},    // read current phase L1
   {"cur2",    &g_cur2,      NULL,        NULL,        h_cur2},    // read current phase L2
   {"cur3",    &g_cur3,      NULL,        NULL,        h_cur3},    // read current phase L3
@@ -2385,12 +2415,13 @@ const partable_t partable[]={
 #ifdef MODE_CONFIGURE  
   {"save",    NULL,         NULL,        &conf_save,  h_save},    // save parameters to eeprom
   {"iphases", &p_iphases,   &p_iphases,  NULL,        h_iphases}, // set installed phases (decimal encoded)
+  {"icntcrs", &p_icntcrs,   &p_icntcrs,  NULL,        h_icntcrs}, // set installed contactors
   {"imaxcur", &p_imaxcur,   &p_imaxcur,  NULL,        h_imaxcur}, // set installed max supply mains current 
-  {"sphases", &g_sphases,   &g_sphases,  NULL,        h_sphases}, // set dyn. enabled mains supply phases (decimal encoded)
-  {"smaxcur", &g_smaxcur,   &g_smaxcur,  NULL,        h_smaxcur}, // set dyn. max supply mains current 
+  {"lopnms",  &p_lopnms,    &p_lopnms,   NULL,        h_lopnms},  // time to open lock
+  {"lclsms",  &p_lclsms,    &p_lclsms,   NULL,        h_lclsms},  // time to close lock
 #endif  
-  // first installation
-#ifdef MODE_INSTALL  
+  // development
+#ifdef MODE_DEVELOP  
   {"brdrev",  &p_boardrev,  &p_boardrev, NULL,        h_brdrev},  // set board revision 
   {"ccsdmp",  NULL,         &p_ccsdmp,   NULL,        h_ccsdmp},  // "ccsdmp!" enables tracking of the CCS state
   {"sigrel",  NULL,         NULL,        &sigrel,     h_sigrel},  // operate signal rellay
@@ -2409,8 +2440,6 @@ const partable_t partable[]={
   {"cala",    &p_cala,      &p_cala,     NULL,        h_cala},    // calibration parameter cA
   {"calb",    &p_calb,      &p_calb,     NULL,        h_calb},    // calibration parameter cB  
   {"lock",    NULL,         NULL,        &lock,       h_lock},    // operate lock
-  {"lopnms",  &p_lopnms,    &p_lopnms,   NULL,        h_lopnms},  // time to open lock
-  {"lclsms",  &p_lclsms,    &p_lclsms,   NULL,        h_lclsms},  // time to close lock
   {"ssr",     NULL,         NULL,        &ssr,        h_ssr},     // "ssr=123" to activate all SSRs
   {"usage",   NULL,         NULL,        &usage,      h_usage},   // list all parameters
   {"reset",   NULL,         NULL,        &reset,      h_reset},   // softreset "reset!"

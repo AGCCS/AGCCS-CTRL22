@@ -49,10 +49,10 @@ repository.
 ===========================================================================
 */
 
-// firmware revision 2021-04-13 
+// firmware revision 2021-07-12 
 
 // firmware version string for OTA (hardcoded format "<OneDigit>.<OneDigit>")
-#define DEMESH_VERSION "1.4"
+#define DEMESH_VERSION "1.9"
 
  
 // minimum includes

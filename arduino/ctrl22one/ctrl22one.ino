@@ -27,7 +27,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
 // AGCCS version (one digit major, one digit minor)
-#define VERSION 10
+#define VERSION 14
 
 // select board
 //#define M5STICK
@@ -81,6 +81,7 @@ int g_cfg_opticnt = 0;
 WiFiClient       g_network;
 String           g_devname;
 bool             g_stamode = false;
+bool             g_locked = true;
 
 // all-purpose temp JSON buffer
 #define JSONBUF 256
@@ -94,8 +95,9 @@ static int g_tstate_ccss=-1;      // state in CCS charging scheme (0<>idle ... 3
 static int g_tstate_sphases=-1;   // phases allocated by remote server                                                                         
 static int g_tstate_aphases=-1;   // actual phases enabled by SSRs (matches sphases in simulation)                                             
 static int g_tstate_imaxcur=-1;   // max current by installation
+static int g_tstate_icntcrs=-1;   // number of installed contactor
 static int g_tstate_smaxcur=-1;   // max current allocated by remote server (per phase, unit 100mA, aka "10" reads "1A")                       
-static int g_tstate_smaxpow=-1;   // max power allocated by remote server (unit 100W, aka 10 reads 1kW)
+static int g_tstate_smaxpwr=-1;   // max power allocated by remote server (unit 100W, aka 10 reads 1kW)
 static int g_tstate_sonoff=1;     // on/off by remote server                       
 static int g_tstate_cmaxcur=-1;   // max current allowed by charging cable (per phase, unit 100mA)                                             
 static int g_tstate_amaxcur=-1;   // actual max current as indicated by CP (unit 100mA, matches min(smaxcur,cmaxcur) in simulation)            
@@ -105,10 +107,10 @@ static int g_tstate_cur3=-1;      // current drawn on phase 1 (unit 100mA)
   
 
 // global target AVR control variables
-static int g_tcontrol_imaxpow=-1; // set to nonnegative max installed power (unit 100W)
+static int g_tcontrol_imaxpwr=-1; // set to nonnegative max installed power (unit 100W)
 static int g_tcontrol_sphases=-1; // set to nonnegative for available phases
-static int g_tcontrol_smaxcur=-1; // set to nonnegative desired power (unit 100W)
-static int g_tcontrol_smaxpow=-1; // set to nonnegative desired max current power (unit 100mA)
+static int g_tcontrol_smaxpwr=-1; // set to nonnegative desired power (unit 100W)
+static int g_tcontrol_smaxcur=-1; // set to nonnegative desired max current power (unit 100mA)
 static int g_tcontrol_sonoff=-1;  // set to nonnegative on/off i.e. 1/0 
 static String g_tcontrol_vrbcmd=""; // set to nonemty for a verbatim command 
 
@@ -160,7 +162,8 @@ void dev_init() {
   M5.begin();
   M5.update();
   pinMode(GPIOLED, OUTPUT);
-  digitalWrite(GPIOLED,LOW);  
+  digitalWrite(GPIOLED,LOW); 
+  g_locked=false; 
 }
 
 // simulate target AVR
@@ -181,6 +184,7 @@ static const int GPIOLED=0;
 static const int GPIORST=12;
 static const int GPIORXD=16;
 static const int GPIOTXD=17;
+static const int GPIOLCK=15;
 
 // LED on GPIO0, active low
 void led_on(bool on=true) { 
@@ -202,7 +206,10 @@ void dev_init() {
   Serial2.begin(115200,SERIAL_8N1,GPIORXD,GPIOTXD);
   pinMode(GPIORXD, INPUT_PULLUP);
   pinMode(GPIOTXD, OUTPUT);
-}
+  // enable sfae mode detection
+  pinMode(GPIOLCK, INPUT_PULLDOWN);
+  g_locked=!digitalRead(GPIOLCK);
+ }
 
 // do talk to attached traget AVR
 #define AVRSERIAL
@@ -681,11 +688,17 @@ void wsck_onmessage(const char* msg) {
   if(deserializeJson(g_jdocbuf, msg)) return;
   jobj=g_jdocbuf.as<JsonObject>();
   for(JsonPair kv : jobj) {
-#ifdef WSCTRL    
     // receive controls
-    if(kv.key()=="smaxpow")
+#ifdef WSCTRL    
+    if(kv.key()=="smaxpwr")
     if(kv.value().is<int>()) {
-      g_tcontrol_smaxpow=kv.value().as<int>();
+      g_tcontrol_smaxpwr=kv.value().as<int>();
+    }
+#endif    
+#ifdef WSCTRL    
+    if(kv.key()=="imaxpwr")
+    if(kv.value().is<int>()) {
+      g_tcontrol_imaxpwr=kv.value().as<int>();
     }
 #endif    
 #ifdef WSCTRL    
@@ -705,6 +718,7 @@ void wsck_onmessage(const char* msg) {
       String cmd=kv.value().as<String>();
       if(cmd=="cfgget") {
         wsck_broadcast( String("{") +
+          "\"locked\":"  + String(g_locked) + "," +
           "\"brkxen\":"  + String(g_cfg_brkxen) + "," +
           "\"brkxurl\":\"" + g_cfg_brkxurl        + "\"," +
           "\"brkxusr\":\"" + g_cfg_brkxusr        + "\"," +
@@ -725,7 +739,7 @@ void wsck_onmessage(const char* msg) {
     }
   } 
   // extract configuration, if any
-  if(cfg_fromjson()) {
+  if(cfg_fromjson() && (!g_locked)) {
     Serial.printf("websocket: found config parameters\n");
     mqtt_config(); 
     if(g_cfg_devname!="???") 
@@ -1015,6 +1029,7 @@ String g_tstate_json="{}";
 
 void target_init() {
   g_tstate_imaxcur=320;
+  g_tstate_icntcrs=3;
   g_tstate_version=10;
   g_tstate_ccss=0;
 };
@@ -1043,11 +1058,11 @@ void  target_lcb() {
   // remote set max power, exec in 5 secs
   static Timer tpowset;
   static int vsmaxcur;
-  if(g_tcontrol_smaxpow>=0) {
+  if(g_tcontrol_smaxpwr>=0) {
     tpowset.set(5000);
-    vsmaxcur=g_tcontrol_smaxpow*100.0 / (230.0 * 3) *10 +0.5; 
+    vsmaxcur=g_tcontrol_smaxpwr*100.0 / (230.0 * 3) *10 +0.5; 
   }   
-  g_tcontrol_smaxpow=-1;
+  g_tcontrol_smaxpwr=-1;
   if(tpowset.expired()) {
     if(vsmaxcur>g_tstate_imaxcur) 
       vsmaxcur = g_tstate_imaxcur;
@@ -1056,12 +1071,12 @@ void  target_lcb() {
     g_tstate_update=true;
   }   
   // remote set installed max power, exec instantly
-  if(g_tcontrol_imaxpow>=0) {
-      g_tstate_imaxcur = g_tcontrol_imaxpow*100.0 / (230.0 * 3) *10 +0.5; 
+  if(g_tcontrol_imaxpwr>=0) {
+      g_tstate_imaxcur = g_tcontrol_imaxpwr*100.0 / (230.0 * 3) *10 +0.5; 
       if(g_tstate_smaxcur>g_tstate_imaxcur) 
         g_tstate_smaxcur = g_tstate_imaxcur;
   }   
-  g_tcontrol_imaxpow=-1;     
+  g_tcontrol_imaxpwr=-1;     
   // simulate charging fsm
   static Periodic tsim(1000,0);
   if(g_tstate_ccss==0) {
@@ -1180,9 +1195,11 @@ void  target_lcb() {
   static Timer wtrply;
   static boolean fwdrply=false;
   // sense power on
-  static Timer pot(5000);
+  static Timer pot(6000);
   static bool pon=true;
   if(pot.expired()) pon=false;
+  // autosave
+  static Timer autosave;
   // assemble line from serial
   char c=0;
   int  n=0;
@@ -1265,6 +1282,7 @@ void  target_lcb() {
     if(pn=="ver") g_tstate_version=pv; else
     if(pn=="ccss") g_tstate_ccss=pv; else
     if(pn=="imaxcur") g_tstate_imaxcur=pv; else
+    if(pn=="icntcrs") g_tstate_icntcrs=pv; else
     if(pn=="cmaxcur") g_tstate_cmaxcur=pv; else
     if(pn=="sphases") g_tstate_sphases=pv; else
     if(pn=="aphases") g_tstate_aphases=pv; else
@@ -1278,26 +1296,23 @@ void  target_lcb() {
   }
   // send power-on requests
   if(pon && (!lnbsy) && (!wtrply.running())) {  
-    static Periodic b0(2000,    0);
+    static Periodic b0(3000,    0);
     if(b0.expired()) { Serial2.println("ver?"); wtrply.set(500);} 
-    static Periodic b1(2000,  500);
+    static Periodic b1(3000,  500);
     if(b1.expired()) { Serial2.println("imaxcur?"); wtrply.set(500);}  
-    static Periodic b2(2000, 1000);
-    if(b2.expired()) { Serial2.println("smaxcur?"); wtrply.set(500);}  
-    static Periodic b3(2000, 1500);
-    if(b3.expired()) { Serial2.println("sphases?"); wtrply.set(500);}  
+    static Periodic b2(3000, 1000);
+    if(b2.expired()) { Serial2.println("icntcrs?"); wtrply.set(500);}  
+    static Periodic b3(3000, 1500);
+    if(b3.expired()) { Serial2.println("smaxcur?"); wtrply.set(500);}  
+    static Periodic b4(3000, 2000);
+    if(b4.expired()) { Serial2.println("sphases?"); wtrply.set(500);}  
+  }
+  // cancel locked commands
+  if(g_locked) {
+    g_tcontrol_imaxpwr=-1;
+    g_tcontrol_vrbcmd="";    
   }
   // forward commands
-  /*
-  if((g_tcontrol_smaxcur>=0) || (g_tcontrol_sphases>=0)) {
-    if(g_tstate_sphases>100)
-      g_tstate_smaxpow=(int) (g_tstate_smaxcur / 10.0 * (230.0 *3) / 100.0 + 0.5); 
-    else if(g_tstate_sphases>10)
-      g_tstate_smaxpow=(int) (g_tstate_smaxcur / 10.0 * (230.0 *2) / 100.0 + 0.5); 
-    else  
-      g_tstate_smaxpow=(int) (g_tstate_smaxcur / 10.0 * (230.0 *1) / 100.0 + 0.5); 
-  } 
-  */   
   if((g_tcontrol_sphases>=0) && (!lnbsy) && (!wtrply.running())) {  
     Serial2.println("sphases="+String(g_tcontrol_sphases));
     g_tcontrol_sphases=-1;
@@ -1308,37 +1323,48 @@ void  target_lcb() {
     g_tcontrol_smaxcur=-1;
     wtrply.set(500);
   } 
-  if((g_tcontrol_smaxpow>=0) && (!lnbsy) && (!wtrply.running())) {  
+  if((g_tcontrol_smaxpwr>=0) && (!lnbsy) && (!wtrply.running())) {  
     if(g_tstate_sonoff==0) {
        g_tcontrol_smaxcur=0;       
     } else {      
-      int c3=(int) (g_tcontrol_smaxpow*100.0 / (230.0 * 3) *10 +0.5);
-      int c1=(int) (g_tcontrol_smaxpow*100.0 / (230.0 * 1) *10 +0.5);
+      int c3=(int) (g_tcontrol_smaxpwr*100.0 / (230.0 * 3) *10 +0.5);
+      int c1=(int) (g_tcontrol_smaxpwr*100.0 / (230.0 * 1) *10 +0.5);
       if(c3>=60) {
         g_tcontrol_smaxcur=c3;
         g_tcontrol_sphases=123;
       } else {
-        g_tcontrol_smaxcur=c1;
-        g_tcontrol_sphases=1;
+        if(g_tstate_icntcrs>=2) {
+          g_tcontrol_smaxcur=c1;
+          g_tcontrol_sphases=1;
+        }  
       }
     }
-    g_tstate_smaxpow=g_tcontrol_smaxpow;
-    g_tcontrol_smaxpow=-1;
+    g_tstate_smaxpwr=g_tcontrol_smaxpwr;
+    g_tcontrol_smaxpwr=-1;
   }
   if((g_tcontrol_sonoff>=0) && (!lnbsy) && (!wtrply.running())) {  
     g_tstate_sonoff=g_tcontrol_sonoff;
-    g_tcontrol_smaxpow=g_tstate_smaxpow;
+    g_tcontrol_smaxpwr=g_tstate_smaxpwr;
   }
-  if((g_tcontrol_imaxpow>=0) && (!lnbsy) && (!wtrply.running())) {  
-    Serial2.println("imaxcur="+String((int) (g_tcontrol_imaxpow*100.0 / (230.0 * 3) *10 +0.5) ));
-    g_tcontrol_imaxpow=-1;
+  if((g_tcontrol_imaxpwr>=0) && (!lnbsy) && (!wtrply.running())) {  
+    wsck_log("setting imaxcur"); 
+    Serial2.println("imaxcur="+String((int) (g_tcontrol_imaxpwr*100.0 / (230.0 * 3) *10 +0.5) ));
+    g_tcontrol_imaxpwr=-1;
     wtrply.set(500);
+    autosave.set(1000);
   }
   if((g_tcontrol_vrbcmd!="") && (!lnbsy) && (!wtrply.running())) {   
     Serial2.println(g_tcontrol_vrbcmd);
     g_tcontrol_vrbcmd="";
     wtrply.set(500);
     fwdrply=true;
+  }
+  // autosave
+  if( (!pon) && (!lnbsy) && (!wtrply.running())) { 
+    if(autosave.expired()) {
+      wsck_log("autosave AVR"); 
+      Serial2.println("save=1");
+    }  
   }
   // send periodic state update
   if( (!pon) && (!lnbsy) && (!wtrply.running())) {  
@@ -1682,17 +1708,22 @@ void setup() {
   if(g_stamode) Serial.println("ok"); 
   else Serial.println("fail");
   
-  // fall back to provide AP
-  if(!g_stamode) {
+  // report IP address
+  if(g_stamode) {
+    IPAddress ip= WiFi.localIP();
+    Serial.print("IP address ");  
+    Serial.println(ip);  
+  }  
+
+  // if we are locked, insist in station mode even when connection failed
+  if(g_locked) g_stamode=true;
+
+  // if not locked fall back to provide AP
+  if( (!g_stamode) && (!g_locked) ) {
     WiFi.mode(WIFI_AP);
     Serial.println("starting AP "+g_devname+ " (pwd: \"" + g_cfg_sappwd +"\")");
     WiFi.softAP(g_devname.c_str(), g_cfg_sappwd.c_str());
   }  
-
-  // report IP address
-  IPAddress ip= WiFi.localIP();
-  Serial.print("IP address ");  
-  Serial.println(ip);  
 
   // install my tcp servers/clients
   wsck_init();
@@ -1764,7 +1795,8 @@ void loop() {
   // loop maintenance
   http_lcb();
   wsck_lcb(); 
-  mqtt_lcb();  
-  ArduinoOTA.handle();
+  mqtt_lcb(); 
+  if(!g_locked) 
+    ArduinoOTA.handle();
 
 }
