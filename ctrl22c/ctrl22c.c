@@ -47,14 +47,14 @@ THE SOFTWARE.
 *************************************************************************
 */
 
-// firmware revision 2021-08-06
+// firmware revision 2021-09-27
 
 // firmware version for OTA
-#define CTRL22C_VERSION 14  // XY reads vX.Y, i.e., one digit for major and minor, resp.
+#define CTRL22C_VERSION 15  // XY reads vX.Y, i.e., one digit for major and minor, resp.
 
 
 // 10 MHz clock on fgccs board 
-// (running on different clock requires careful re-examination  of code) 
+// (running on different clock requires careful re-examination of code) 
 #ifndef F_CPU
 #define F_CPU 10000000UL
 #endif
@@ -1754,6 +1754,7 @@ int16_t rms_dump(int16_t val) {
   return 1;
 }
   
+
 /*
 *************************************************************************
 PWM output for CP driven by TCA on PA2
@@ -1807,7 +1808,7 @@ int16_t cpcurrent(int16_t cpcur) {
 /*
 *************************************************************************
 system time driven by xmega TCB
-- provide 1ms systicks as unsigned int (16bit) --- for convenient binary arithmatics
+- provide 1ms systicks as unsigned int (16bit) --- for convenient binary arithmetics
 - provide 1ms systime with 30000 rollover (half a minute) --- for external synchronisation 
 - run short real-time tasks in 100us interupt handler
 *************************************************************************
