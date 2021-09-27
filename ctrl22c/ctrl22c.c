@@ -1250,11 +1250,11 @@ bool adc_pilots(void) {
   g_adccnt_cp >>= 2;  
   // convert to CP value 
   int16_t cpv;
-  if(g_adccnt_cp > 861)  cpv=12;                                  //  12V +/- tolerance [11V..12V]
-  else if((g_adccnt_cp >  779) && (g_adccnt_cp < 834)) cpv=9;      //   9V +/- tolerance [8V..10V]
-  else if((g_adccnt_cp >  697) && (g_adccnt_cp < 752)) cpv=6;      //   6V +/- tolerance [5V..7V]
-  else if((g_adccnt_cp > 1024) &&  (g_adccnt_cp <  1)) cpv=3;      //   3V +/- tolerance [not implementet >> invalid]
-  else cpv=-1;                                                   // invalid reading
+  if(g_adccnt_cp > 861)  cpv=12;                              //  12V +/- tolerance [11V..12V]
+  else if((g_adccnt_cp >  779) && (g_adccnt_cp < 834)) cpv=9; //   9V +/- tolerance [8V..10V]
+  else if((g_adccnt_cp >  697) && (g_adccnt_cp < 752)) cpv=6; //   6V +/- tolerance [5V..7V]
+  else if((g_adccnt_cp > 1024) && (g_adccnt_cp <   1)) cpv=3; //   3V +/- tolerance [not implementet >> invalid]
+  else cpv=-1;                                                // invalid reading
   // filter
   if(cpv==g_filter_cp) {
     g_fltcnt_cp++;
@@ -1276,7 +1276,7 @@ bool adc_pilots(void) {
   g_adccnt_dt >>= 2;  
   // convert to DT value 
   int16_t dtv;
-  if((g_adccnt_dt > 221) && (g_adccnt_dt < 275)) dtv=12;   // -11.4V +/- tolerance [-12.4V ... -11.4V]
+  if((g_adccnt_dt > 221) && (g_adccnt_dt < 275)) dtv=12; // -11.4V +/- tolerance [-12.4V ... -11.4V]
   else dtv=-1;                                           // invalid reading
   // filter
   if(dtv==g_filter_dt) {
@@ -1302,7 +1302,7 @@ bool adc_pilots(void) {
   if(g_adccnt_pp>980) ppv = 130;                               // unconnected, max 13A
   else if((g_adccnt_pp > 260) && (g_adccnt_pp < 480)) ppv=200; // 680R: max 20A
   else if((g_adccnt_pp > 150) && (g_adccnt_pp < 220)) ppv=320; // 220R: Max Capacity 32A
-  else if((g_adccnt_pp > 75) && (g_adccnt_pp < 120))  ppv=630; // 100R: Max Capacity 63A
+  else if((g_adccnt_pp > 75)  && (g_adccnt_pp < 120)) ppv=630; // 100R: Max Capacity 63A
   else ppv=-1;                                                 // invalid reading 
   // filter
   if(ppv==g_filter_pp) {
