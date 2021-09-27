@@ -1021,7 +1021,7 @@ b) use 1.1V reference:
 *************************************************************************
 */
 
-#define VREF25 // chosee this for a)
+#define VREF25 // chose this for a)
 //#define VREF11 // choose this for b)
 
 void vref_init(void) {
@@ -1061,10 +1061,35 @@ int16_t g_pilots=0;      // enable periodic pilot reading
 
 
 // global variables to filter readings
-int16_t g_filter_p=-2;
-int16_t g_filter_c=-2;
-int16_t g_filter_d=-2;
+int16_t g_filter_cp=-1;
+int16_t g_filter_dt=-1;
+int16_t g_filter_pp=-1;
+char    g_fltcnt_cp=-0;
+char    g_fltcnt_dt=-0;
+char    g_fltcnt_pp=-0;
+int16_t g_adccnt_cp=0;
+int16_t g_adccnt_dt=0;
+int16_t g_adccnt_pp=0;
 
+// debugging/development
+void write_pilots(void) {
+  serial_writeln_sync();
+  serial_write_pstr("% pilot update: ");
+  serial_write_pstr(" cp: ");
+  serial_write_int(g_cpilot);
+  serial_write('@');
+  serial_write_int(g_adccnt_cp);
+  serial_write_pstr("; dp: ");
+  serial_write_int(g_cpnslp);
+  serial_write('@');
+  serial_write_int(g_adccnt_dt);
+  serial_write_pstr("; pp: ");
+  serial_write_int(g_ppilot);
+  serial_write('@');
+  serial_write_int(g_adccnt_pp);
+  serial_write_eol();
+  serial_writeln_async();
+}
 
 // initialise vref and pins
 void adc_init(void) {
@@ -1221,107 +1246,86 @@ bool adc_pilots(void) {
   while(TCA0.SINGLE.CNT >= 250);         // wait for beginning of dualslope PWM period so PWM is high
   ADC0.COMMAND = ADC_STCONV_bm;
   while (!(ADC0.INTFLAGS & ADC_RESRDY_bm));
-  int16_t cp=ADC0.RES;
-  cp >>= 2;  
+  g_adccnt_cp=ADC0.RES;
+  g_adccnt_cp >>= 2;  
   // convert to CP value 
   int16_t cpv;
-  if(cp > 861)  cpv=12;                          //  12V +/- tolerance [11V..12V]
-  else if((cp >  779) && (cp < 834)) cpv=9;      //   9V +/- tolerance [8V..10V]
-  else if((cp >  697) && (cp < 752)) cpv=6;      //   6V +/- tolerance [5V..7V]
-  else if((cp > 1024) &&  (cp <  1)) cpv=3;      //   3V +/- tolerance [not implementet >> invalid]
-  else cpv=-1;                                   // invalid reading
+  if(g_adccnt_cp > 861)  cpv=12;                                  //  12V +/- tolerance [11V..12V]
+  else if((g_adccnt_cp >  779) && (g_adccnt_cp < 834)) cpv=9;      //   9V +/- tolerance [8V..10V]
+  else if((g_adccnt_cp >  697) && (g_adccnt_cp < 752)) cpv=6;      //   6V +/- tolerance [5V..7V]
+  else if((g_adccnt_cp > 1024) &&  (g_adccnt_cp <  1)) cpv=3;      //   3V +/- tolerance [not implementet >> invalid]
+  else cpv=-1;                                                   // invalid reading
   // filter
-  static char ccnt;
-  if(g_filter_c==-2) {
-    ccnt=0;
-    g_filter_c=-1;
-  }  
-  if(cpv==g_filter_c) {
-    ccnt++;
+  if(cpv==g_filter_cp) {
+    g_fltcnt_cp++;
   } else {
-    g_filter_c=cpv;
-    ccnt=0;
+    g_filter_cp=cpv;
+    g_fltcnt_cp=0;
   }  
-  if(ccnt==5) {    
+  if(g_fltcnt_cp>5) {    
+    g_fltcnt_cp=5;
+  }
+  if(g_fltcnt_cp==5) {    
     g_cpilot=cpv;
   }
   // run conversion contact pilot CP
   while(TCA0.SINGLE.CNT < 4750);          // wait for middle of dualslope PWM for the negative halfwave
   ADC0.COMMAND = ADC_STCONV_bm;
   while (!(ADC0.INTFLAGS & ADC_RESRDY_bm));
-  int16_t dt=ADC0.RES;
-  dt >>= 2;  
-  // convert to CP value 
+  g_adccnt_dt=ADC0.RES;
+  g_adccnt_dt >>= 2;  
+  // convert to DT value 
   int16_t dtv;
-  if((dt > 221) && (dt < 275)) dtv=12;         // -11.4V +/- tolerance [-12.4V ... -11.4V]
-  else dtv=-1;                                 // invalid reading
+  if((g_adccnt_dt > 221) && (g_adccnt_dt < 275)) dtv=12;   // -11.4V +/- tolerance [-12.4V ... -11.4V]
+  else dtv=-1;                                           // invalid reading
   // filter
-  static char dcnt;
-  if(g_filter_d==-2) {
-    dcnt=0;
-    g_filter_d=-1;
-  }  
-  if(dtv==g_filter_d) {
-    dcnt++;
+  if(dtv==g_filter_dt) {
+    g_fltcnt_dt++;
   } else {
-    g_filter_d=dtv;
-    dcnt=0;
+    g_filter_dt=dtv;
+    g_fltcnt_dt=0;
   }  
-  if(dcnt==5) {    
+  if(g_fltcnt_dt>5) {    
+    g_fltcnt_dt=5;
+  }
+  if(g_fltcnt_dt==5) {    
     g_cpnslp=dtv;
   }
   // run conversion proximity pilot PP
   ADC0.MUXPOS = ADC_MUXPOS_AIN0_gc;      // select PP on PD0
   ADC0.COMMAND = ADC_STCONV_bm;
   while (!(ADC0.INTFLAGS & ADC_RESRDY_bm));
-  int16_t pp=ADC0.RES;
-  pp >>= 2;
+  g_adccnt_pp=ADC0.RES;
+  g_adccnt_pp >>= 2;
   // convert PP value
-  int16_t ppv=ADC0.RES;
-  if(pp>980) ppv = 130;                         // unconnected, max 13A
-  else if((pp > 260) && (pp < 480)) ppv=200;    // 680R: max 20A
-  else if((pp > 150) && (pp < 220)) ppv=320;    // 220R: Max Capacity 32A
-  else if((pp > 75) && (pp < 120))  ppv=630;    // 100R: Max Capacity 63A
-  else ppv=-1;                                  // invalid reading 
+  int16_t ppv;
+  if(g_adccnt_pp>980) ppv = 130;                               // unconnected, max 13A
+  else if((g_adccnt_pp > 260) && (g_adccnt_pp < 480)) ppv=200; // 680R: max 20A
+  else if((g_adccnt_pp > 150) && (g_adccnt_pp < 220)) ppv=320; // 220R: Max Capacity 32A
+  else if((g_adccnt_pp > 75) && (g_adccnt_pp < 120))  ppv=630; // 100R: Max Capacity 63A
+  else ppv=-1;                                                 // invalid reading 
   // filter
-  static char pcnt;
-  if(g_filter_p==-2) {
-    pcnt=0;
-    g_filter_p=-1;
-  }  
-  if(ppv==g_filter_p) {
-    pcnt++;
+  if(ppv==g_filter_pp) {
+    g_fltcnt_pp++;
   } else {
-    g_filter_p=ppv;
-    pcnt=0;
-  }  
-  if(pcnt==5) {    
+    g_filter_pp=ppv;
+    g_fltcnt_pp=0;
+  }
+  if(g_fltcnt_pp>5) {    
+    g_fltcnt_pp=5;
+  }
+  if(g_fltcnt_pp==5) {    
     g_ppilot=ppv;
   }
   // disable adc
   ADC0.CTRLA &= ~ADC_ENABLE_bm;
   g_adc0_bsy=false;
-  // report
+  // report once every 1.6 secs
   static char cnt=0;
   cnt++;
-  if((p_adcdmp) && (cnt>100)) {
+  if((cnt>100) && (p_adcdmp)) {
+    write_pilots();
     cnt=0;
-    serial_writeln_sync();
-    serial_write_pstr("% pilot update: ");
-    serial_write_pstr(" cp: ");
-    serial_write_int(cpv);
-    serial_write('@');
-    serial_write_int(cp);
-    serial_write_pstr("; dp: ");
-    serial_write_int(dtv);
-    serial_write('@');
-    serial_write_int(dt);
-    serial_write_pstr("; pp: ");
-    serial_write_int(ppv);
-    serial_write('@');
-    serial_write_int(pp);
-    serial_write_eol();
-    serial_writeln_async();
   }  
   return true;
 }
@@ -1346,9 +1350,12 @@ int16_t pilots(int16_t val)  {
   g_cpilot=-1;
   g_cpnslp=-1;
   g_ppilot=-1;
-  g_filter_c=-2;
-  g_filter_d=-2;
-  g_filter_p=-2;
+  g_filter_cp=-1;
+  g_filter_dt=-1;
+  g_filter_pp=-1;
+  g_fltcnt_cp=0;
+  g_fltcnt_dt=0;
+  g_fltcnt_pp=0;
   g_pilots=val;
   return val;
 }
@@ -2120,6 +2127,7 @@ void ccs_cb(void) {
       g_ccs_st=P0;
     }
     if(g_cpilot!=6) {
+      if(p_ccsdmp) write_pilots();
       WRITE_CCSS("% C2 -> OFF9 (cpilot)");
       g_ccs_st=OFF9;
     }
@@ -2142,6 +2150,7 @@ void ccs_cb(void) {
   if(g_ccs_st==C3) {
     retry=0;
     if(g_cpilot!=6) {
+      if(p_ccsdmp) write_pilots();
       WRITE_CCSS("% C3 -> OFF9 (cpilot)");
       g_ccs_st=OFF9;
     }
@@ -2154,7 +2163,8 @@ void ccs_cb(void) {
     if(g_ppilot<60) {
       amaxcur=0;
       aphases=0;
-      WRITE_CCSS("% C3 -> P0 (invalid cable)");
+      if(p_ccsdmp) write_pilots();
+      WRITE_CCSS("% C3 -> P0 (invalid ppilot)");
       g_ccs_st=P0;
     } else { 
     if((g_sphases==0) || (g_smaxcur<60)) {
