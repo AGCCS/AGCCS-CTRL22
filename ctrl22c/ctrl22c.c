@@ -1217,8 +1217,8 @@ bool adc_pilots(void) {
   ADC0.CTRLA |= ADC_ENABLE_bm;
   // run conversion contact pilot CP
   ADC0.MUXPOS = ADC_MUXPOS_AIN1_gc;      // select CP on PD1
-  while(TCA0.SINGLE.CNT < 250);          // wait for dualslope PWM to be low
-  while(TCA0.SINGLE.CNT > 250);          // wait for dualslope PWM to just become be high for level reading
+  while(TCA0.SINGLE.CNT < 250);          // if at beginning of the dualslope PWM period, skip this one
+  while(TCA0.SINGLE.CNT >= 250);         // wait for beginning of dualslope PWM period so PWM is high
   ADC0.COMMAND = ADC_STCONV_bm;
   while (!(ADC0.INTFLAGS & ADC_RESRDY_bm));
   int16_t cp=ADC0.RES;
