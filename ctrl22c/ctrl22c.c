@@ -2151,7 +2151,13 @@ void ccs_cb(void) {
       g_ccs_st=OFF0;
     }
     // update power configuration
-    if((g_sphases==0) || (g_smaxcur<60) || (g_ppilot<60)) {
+    if(g_ppilot<60) {
+      amaxcur=0;
+      aphases=0;
+      WRITE_CCSS("% C3 -> P0 (invalid cable)");
+      g_ccs_st=P0;
+    } else { 
+    if((g_sphases==0) || (g_smaxcur<60)) {
       amaxcur=0;
       aphases=0;
       WRITE_CCSS("% C3 -> P0 (invalid power)");
@@ -2165,7 +2171,7 @@ void ccs_cb(void) {
       amaxcur=g_smaxcur;
       if(amaxcur>g_ppilot) amaxcur=g_ppilot;
       cpcurrent(amaxcur);
-    }}
+    }}}
   }
   // state P0 (EV prepare to pause charging): set timer to pause charging in 10sec
   if(g_ccs_st==P0) {
