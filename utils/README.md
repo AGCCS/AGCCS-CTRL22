@@ -12,7 +12,7 @@ This Python script is meant for command line invocation on a per-task fashion. I
 ./dmctrl '{"dst":"*","cmd":"status"}'
 ```
 
-listens TCP port 8070 and sends the string `{"dst":"*","cmd":"status"}` to the next client to connect (observe the two shell escape characters `'` which are not part of the message). The client will be the role node of the mesh netword and, assuming that it runs the [demesh.c](../demesh/) firmware, will decode the JSON formatted message string. It hence notes the mesh broadcast address `"*"` and forwards the message to all nodes in the mesh. The individual nodes in turn decode the message, identify the command `"status"` and reply to the root by a JSON encoded status report regarding their connection to the mesh. Available commands are further explained in the [demesh.c documentation](../demesh/NodeControl.md). The root note in turn forwards the reply via the TCP connection to the host running `dmctrl.py`. Example incl. reply:
+listens TCP port 8070 and sends the string `{"dst":"*","cmd":"status"}` to the next client to connect (observe the two shell escape characters `'` which are not part of the message). The client will be the root node of the mesh netword and, assuming that it runs the [demesh.c](../demesh/) firmware, will decode the JSON formatted message string. It hence notes the mesh broadcast address `"*"` and forwards the message to all nodes in the mesh. The individual nodes in turn decode the message, identify the command `"status"` and reply to the root by a JSON encoded status report regarding their connection to the mesh. Available commands are further explained in the [demesh.c documentation](../demesh/NodeControl.md). The root note in turn forwards the reply via the TCP connection to the host running `dmctrl.py`. Example incl. reply:
 
 ```
 pi@lrt101:~ $ ./dmctrl.py '{"dst":"*","cmd":"status"}'
@@ -28,15 +28,15 @@ shutting down demesh tcp server
 
 This mesh consist of three nodes with d8:a0:1d:55:37:cc the root (i.e. layer 1) with two children d8:a0:1d:55:a7:10 and  d8:a0:1d:54:e4:a4 (i.e. layer 2). 
 
-The actual protocol (JSON encoding, available commands, expected reply) is implemented by the ESP32 firmware [demesh](../demesh/) and, at this stage, transparent to `dmctrl.py`. However, we `dmctrl.py` provides a number of convenience add-ons as listed below.
+The actual protocol (JSON encoding, available commands, expected reply) is implemented by the ESP32 firmware [demesh](../demesh/) and, at this stage, transparent to `dmctrl.py`. However,  `dmctrl.py` provides a number of convenience add-ons as listed below.
 
 ```
 pi@lrt101:~ $ ./dmctrl.py -?
 usage:
- dmctrl                               // broadcast status request (see exmaple above)
- dmctrl <CMD>                         // broadcast <CMD>, i.e., send {"dst":"*","cmd":"<CMD>"}
- dmctrl <JSON>                        // specify verbatim JSON message to be sent
- dmctrl upgrade <VER> <BRD>           // disribute ESP firmware version/board as specified
+ dmctrl                                // broadcast status request (see exmaple above)
+ dmctrl <CMD>                          // broadcast <CMD>, i.e., send {"dst":"*","cmd":"<CMD>"}
+ dmctrl <JSON>                         // specify verbatim JSON message to be sent
+ dmctrl upgrade <VER> <BRD>            // disribute ESP firmware version/board as specified
  dmctrl avrflash <FILE> <NODE>         // flash avr image for target uC
  dmctrl avrgetpar <PAR> <NODE>         // get parameter <PAR> in target uC
  dmctrl avrsetpar <PAR> <VALUE> <NODE> // set parameter <PAR> in client uC 
@@ -56,16 +56,16 @@ usage:
   ```
   ./dmctrl.py avrflash ctrl22c_1_2.bin d8:a0:1d:55:a7:10
   ```
-this will compose a number of adequate JSON encoded messages to be forwarded to node `d8:a0:1d:55:a7:10` and a final message to ask the ES32 to flash the AVR via the Optiboot protocol; you may check back by inquiring the value of the AVR parameter `"ver".`
+  this will compose a number of adequate JSON encoded messages to be forwarded to node `d8:a0:1d:55:a7:10` and a final message to ask the ES32 to flash the AVR via the Optiboot protocol; you may check back by inquiring the value of the AVR parameter `"ver".`
 
 - to get a parameter `"ver"` from (or to set the parameter `"blinks"` to `"5"` for) the target AVR on node d8:a0:1d:55:a7:10, run
 
   ```
-  ./dmctrl.py avrgetpar ver
+  ./dmctrl.py avrgetpar ver d8:a0:1d:55:a7:10
   ```
   or
   ```
-  ./dmctrl.py avrsetpar blinks 5
+  ./dmctrl.py avrsetpar blinks 5 d8:a0:1d:55:a7:10
   ```
 respectively; this will compose an appropriate JSON encoded message to ask the ESP32 to set/get the respective parameter to/from the AVR attached via the serial line; available parameters depend on the AVR firmware, for `Ctrl22C` the serial line protocol is further explained [here](../ctrl22c/README.md#Serial-Line-Protocol).
 
