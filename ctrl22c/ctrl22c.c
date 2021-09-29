@@ -1248,13 +1248,22 @@ bool adc_pilots(void) {
   while (!(ADC0.INTFLAGS & ADC_RESRDY_bm));
   g_adccnt_cp=ADC0.RES;
   g_adccnt_cp >>= 2;  
-  // convert to CP value 
+  // convert to CP value -- by the books
   int16_t cpv;
   if(g_adccnt_cp > 861)  cpv=12;                              //  12V +/- tolerance [11V..12V]
   else if((g_adccnt_cp >  779) && (g_adccnt_cp < 834)) cpv=9; //   9V +/- tolerance [8V..10V]
   else if((g_adccnt_cp >  697) && (g_adccnt_cp < 752)) cpv=6; //   6V +/- tolerance [5V..7V]
   else if((g_adccnt_cp > 1024) && (g_adccnt_cp <   1)) cpv=3; //   3V +/- tolerance [not implementet >> invalid]
   else cpv=-1;                                                // invalid reading
+/*
+  // convert to CP value -- more tolerance
+  int16_t cpv;
+  if(g_adccnt_cp > 847)  cpv=12;                               //  12V +/- tolerance [10.5V..12V]
+  else if((g_adccnt_cp >  765) && (g_adccnt_cp <= 847)) cpv=9; //   9V +/- tolerance [7.5V..10.5V]
+  else if((g_adccnt_cp >  683) && (g_adccnt_cp <= 765)) cpv=6; //   6V +/- tolerance [4.5V..7.5V]
+  else if((g_adccnt_cp > 1024) && (g_adccnt_cp <    1)) cpv=3; //   3V +/- tolerance [not implementet >> invalid]
+  else cpv=-1;                                                 // invalid reading
+*/
   // filter
   if(cpv==g_filter_cp) {
     g_fltcnt_cp++;
@@ -2039,6 +2048,7 @@ void ccs_cb(void) {
       g_ccs_st=B0;
     }
     if(TRIGGER_SCHEDULE(toutA)) {
+      if(p_ccsdmp) write_pilots();
       WRITE_CCSS("% A1 -> OFF9 (timeout)");
       g_ccs_st=OFF9;
     }
@@ -2083,6 +2093,7 @@ void ccs_cb(void) {
       g_ccs_st=OFF0;
     }
     if(TRIGGER_SCHEDULE(toutB)) {
+      if(p_ccsdmp) write_pilots();
       WRITE_CCSS("% B1 -> W0 (unhappy with CP-PWM)");
       g_ccs_st=W0;
     }
@@ -2277,6 +2288,7 @@ void ccs_cb(void) {
   // update cli variant of state
   g_ccss_cli=g_ccs_st;
 }  
+
 
 
 // report relevant status update
