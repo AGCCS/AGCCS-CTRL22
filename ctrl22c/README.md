@@ -151,9 +151,9 @@ The firmware supports some commands via the serial line that are specifically me
 ```
                  external current meter  
 ============+                V                                           +=====
-AGCCS board,|-> CCS L1 >-----O------------------> hourhold outlet L1 --->|   
-contactor,  |-> CCS N  >------------------------> hourhold outlet N  --->| load
-fuses,      |-> CCS PE >-----------------+------> hourhold outlet PE --->|
+AGCCS board,|-> CCS L1 >-----O------------------> household outlet L1 --->|   
+contactor,  |-> CCS N  >------------------------> household outlet N  --->| load
+fuses,      |-> CCS PE >-----------------+------> household outlet PE --->|
 CEE supply, |                            |                               +=====
 installed   |-> CCS CP >--+--[/]--[2K7]--+ 
 in a proper |             |              |

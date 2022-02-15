@@ -100,7 +100,9 @@ This project is an initiative by Christoph Pflaum and Thomas Moor, both with FAU
 
 - Antoine Schultz: BA thesis *Firmwareverwaltung drahtlos vernetzter Kleinstrechner mit angekoppelten Mikroprozessoren*, FAU/Erlangen 2020.
 
-- Xinhuang Gong: MA project at FAU/Erlangen, 2021, ongoing.
+- Xinhuang Gong: [MA thesis](./doc/Masterthesis_Xinhuang_Gong.pdf), *Software Infrastructure for a Distributed EV Charging System*, FAU/Erlangen 2021.
+
+- Mark Brieger: MA thesis, *IT Security in home automation — Analysis of connected EV charging stations*, FAU/Erlangen 2021. The study includes a detailed security analysis of the AGCCS hard- and software, and, doing so, reveals a number of relevant vulnerabilities. The majority of these issues has been fixed by Mark, the remainder will be addressed in due course.   
 
   
 
