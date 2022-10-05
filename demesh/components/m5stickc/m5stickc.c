@@ -4,14 +4,23 @@
  * (C) 2019 - Hades2001 <hades2001@foxmail.com>
  * This code is licensed under the MIT License.
  *
- * (updated for IDF 4.2.0 by TMoor, 2020)
+ * (updated for IDF 4.4.2 by TMoor, 2022)
  */
 
 #include "m5stickc.h"
 
+// private includes
+#include "MPU6886.h"
+#include "AXP192.h"
+#include "spi_master_lobo.h"
+
+// private imports
+extern spi_lobo_device_handle_t disp_spi;
+extern spi_lobo_device_handle_t ts_spi;
+
 static const char *TAG = "M5StickC";
 
-esp_event_loop_handle_t event_loop;
+esp_event_loop_handle_t m5_event_loop;
 spi_lobo_device_handle_t m5_display_spi;
 
 uint8_t axp192_init_list[28] = {
@@ -30,16 +39,29 @@ uint8_t axp192_init_list[28] = {
     0x35, 0xA2, //11
 };
 
+float M5GetBatVoltage(void) {
+  return AXP192GetBatVoltage( &wire0 );
+}
+
+float M5GetBatCurrent(void) {
+  return AXP192GetBatCurrent( &wire0 );
+}
+
+void M5ScreenBreath(uint8_t brightness) {
+  AXP192ScreenBreath( &wire0 , brightness);
+}
+
+
 esp_err_t EventInit()
 {
     esp_event_loop_args_t loop_args = {
         .queue_size = 5,
-        .task_name = "event_loop",
+        .task_name = "m5_event_loop",
         .task_priority = 10,
         .task_stack_size = 2048,
         .task_core_id = 0};
 
-    esp_err_t e = esp_event_loop_create(&loop_args, &event_loop);
+    esp_err_t e = esp_event_loop_create(&loop_args, &m5_event_loop);
     if (e == ESP_OK)
     {
         ESP_LOGD(TAG, "Event loop created");

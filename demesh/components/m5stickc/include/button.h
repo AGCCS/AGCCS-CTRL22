@@ -78,4 +78,4 @@ extern esp_err_t ButtonInit();
 }
 #endif
 
-#endif // _M5BUTTON_H_
+#endif // _BUTTON_H_

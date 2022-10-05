@@ -49,7 +49,7 @@ repository.
 ===========================================================================
 */
 
-// firmware revision 2021-07-12 
+// firmware revision 2022-10-05 
 
 // firmware version string for OTA (hardcoded format "<OneDigit>.<OneDigit>")
 #define DEMESH_VERSION "1.9"
@@ -182,12 +182,12 @@ void init_devices(void)
  **********************************************************************
  Hardware configuration: M5StickC  (LED at GPIO10, TFT, ButtonA/B)
 
- The M5StickC is a neat litle ESP32 based device. We use the built in
+ The M5StickC is a neat little ESP32 based device. We use the built in
  TFT display to monitor global variables, e.g., display our mac address
  and given some minimum info on the mesh topology. We use the
  built-in LED to flash debugging and/or status information, this is provided 
- as part if demesh's infrastructure. The TFT stuff etc is put in seperate
- RTOS tasks, cicked-off by "init_devices()". 
+ as part of demesh's infrastructure. The TFT stuff etc is put in seperate
+ RTOS tasks, kicked-off by "init_devices()". 
 
  [The hardware configuration is conveniently chosen via "make menuconfig"]
  **********************************************************************
@@ -199,8 +199,6 @@ void init_devices(void)
 
 // includes to make the M5Stick work
 #include "m5stickc.h"
-#include "wire.h"
-#include "AXP192.h"
 
 // we do blink on GPIO10
 #define BLINK_GPIO GPIO_NUM_10   
@@ -209,13 +207,6 @@ void init_devices(void)
 // we dont care about an attached AVR (because there is no such ...)
 #undef  AVR_PRESENT
 
-// set TFT brightness (stolen from the Arduino SDK)
-static void AXP192ScreenBreath(uint8_t brightness)
-{
-    if (brightness > 12) brightness = 12;
-    uint8_t buf = AxpRead8bit(&wire0,0x28);
-    AxpWriteByte(&wire0,  0x28, ((buf & 0x0f) | (brightness << 4)) );
-}
 
 // uopdate economics
 int g_screen_nua=true;
@@ -235,8 +226,8 @@ static void status_screen_update_a(void)
  
     esp_wifi_get_mac(ESP_IF_WIFI_STA, sta_mac);
     esp_mesh_get_parent_bssid(&parent_bssid);
-    bat_voltage = AXP192GetBatVoltage(&wire0);
-    bat_current = AXP192GetBatCurrent(&wire0);
+    bat_voltage = M5GetBatVoltage();
+    bat_current = M5GetBatCurrent();
      
     char strbuff[50];
     if(g_upgrade_stage==0) {
@@ -326,7 +317,7 @@ static void status_screen_task(void* arg) {
     char rscreen=g_screen;
     g_screen='a';
     TFT_fillScreen(TFT_BLACK);
-    AXP192ScreenBreath(12);
+    M5ScreenBreath(12);
     for( i=50; i>0; --i ) {
         if( g_screen != rscreen) {
 	    rscreen=g_screen;
@@ -337,7 +328,7 @@ static void status_screen_task(void* arg) {
         vTaskDelay(200 / portTICK_RATE_MS);
         if( (gpio_get_level(BUTTON_BUTTON_A_GPIO)==0) || (rscreen=='b') ) i=50;
     }  
-    AXP192ScreenBreath(0);
+    M5ScreenBreath(0);
     g_screen='0';
     vTaskDelete(NULL);
 }
@@ -369,9 +360,9 @@ static void init_devices(void)
 {
     M5Init();
 
-    esp_event_handler_register_with(event_loop, BUTTON_A_EVENT_BASE, BUTTON_PRESSED_EVENT, buttonEvent, NULL);
-    esp_event_handler_register_with(event_loop, BUTTON_B_EVENT_BASE, BUTTON_PRESSED_EVENT, buttonEvent, NULL);
-    esp_event_handler_register_with(event_loop, BUTTON_B_EVENT_BASE, BUTTON_RELEASED_EVENT, buttonEvent, NULL);
+    esp_event_handler_register_with(m5_event_loop, BUTTON_A_EVENT_BASE, BUTTON_PRESSED_EVENT, buttonEvent, NULL);
+    esp_event_handler_register_with(m5_event_loop, BUTTON_B_EVENT_BASE, BUTTON_PRESSED_EVENT, buttonEvent, NULL);
+    esp_event_handler_register_with(m5_event_loop, BUTTON_B_EVENT_BASE, BUTTON_RELEASED_EVENT, buttonEvent, NULL);
 
     char strbuff[50];
     font_rotate = 0;
@@ -382,7 +373,7 @@ static void init_devices(void)
     TFT_setGammaCurve(DEFAULT_GAMMA_CURVE);
     TFT_setRotation(LANDSCAPE);
     TFT_resetclipwin();
-    AXP192ScreenBreath(8);
+    M5ScreenBreath(8);
 
     TFT_setFont(SMALL_FONT, NULL);
     sprintf(strbuff, "DEMESH v%s",DEMESH_VERSION);

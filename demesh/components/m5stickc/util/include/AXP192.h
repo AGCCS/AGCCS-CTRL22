@@ -29,5 +29,6 @@ float AXP192GetBatCoulomInput( wire_t* wire );
 float AXP192GetBatCoulomOut( wire_t* wire );
 void AXP192SetCouloClear( wire_t* wire );
 void AXP192SetLDO2( wire_t* wire, bool State );
+void AXP192ScreenBreath(wire_t* wire, uint8_t brightness);
 
 #endif

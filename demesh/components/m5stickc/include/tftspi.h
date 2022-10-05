@@ -8,9 +8,7 @@
 #define _TFTSPI_H_
 
 #include "driver/gpio.h"
-#include "spi_master_lobo.h"
 #include "sdkconfig.h"
-#include "stmpe610.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -243,9 +241,6 @@ extern int _height;
 // ==== Display type, DISP_TYPE_ILI9488 or DISP_TYPE_ILI9341 ====
 extern uint8_t tft_disp_type;
 
-// ==== Spi device handles for display and touch screen =========
-extern spi_lobo_device_handle_t disp_spi;
-extern spi_lobo_device_handle_t ts_spi;
 
 // ##############################################################
 

@@ -3,8 +3,11 @@
  *  Author: LoBo (loboris@gmail.com, loboris.github)
  *
  *  Module supporting SPI TFT displays based on ILI9341 & ILI9488 controllers
+ *
+ *  TMoor: Adapted to M5Stick/IDFv4.4.2 2022
 */
 
+// private includes
 #include <stdio.h>
 #include <errno.h>
 #include <sys/stat.h>
@@ -18,6 +21,12 @@
 #include "esp32/rom/tjpgd.h"
 #include "esp_heap_caps.h"
 #include "tftspi.h"
+#include "spi_master_lobo.h"
+
+// private imports
+extern spi_lobo_device_handle_t disp_spi;
+extern spi_lobo_device_handle_t ts_spi;
+
 
 #define DEG_TO_RAD 0.01745329252
 #define RAD_TO_DEG 57.295779513

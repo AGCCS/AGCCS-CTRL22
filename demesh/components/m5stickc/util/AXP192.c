@@ -1,3 +1,6 @@
+// tmoor: added ScreenBreath, aka set TFT brightness (very end of file)
+
+
 #include "AXP192.h"
 
 int8_t AxpInitFromList(wire_t *wire, uint8_t *Buff)
@@ -189,4 +192,11 @@ void AXP192SetLDO2(wire_t *wire, bool State)
         buf = ~(1 << 2) & buf;
     }
     AxpWriteByte(wire, 0x12, buf);
+}
+
+void AXP192ScreenBreath(wire_t* wire, uint8_t brightness)
+{
+    if (brightness > 12) brightness = 12;
+    uint8_t buf = AxpRead8bit(wire,0x28);
+    AxpWriteByte(&wire0,  0x28, ((buf & 0x0f) | (brightness << 4)) );
 }

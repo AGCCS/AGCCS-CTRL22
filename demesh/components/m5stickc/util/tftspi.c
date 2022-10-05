@@ -9,11 +9,13 @@
 */
 
 #include <string.h>
+#include "spi_master_lobo.h"
 #include "tftspi.h"
 #include "esp_system.h"
 #include "freertos/task.h"
 #include "esp_heap_caps.h"
 #include "soc/spi_reg.h"
+#include "stmpe610.h"
 
 
 // ====================================================
@@ -34,6 +36,7 @@ uint8_t tft_disp_type = DEFAULT_DISP_TYPE;
 // Spi device handles for display and touch screen
 spi_lobo_device_handle_t disp_spi = NULL;
 spi_lobo_device_handle_t ts_spi = NULL;
+
 
 // ====================================================
 
